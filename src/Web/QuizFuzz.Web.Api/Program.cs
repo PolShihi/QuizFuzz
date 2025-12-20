@@ -145,4 +145,26 @@ app.MapControllers();
 // Health check endpoint
 app.MapHealthChecks("/health");
 
+// Seed database
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    
+    try
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("Seeding database...");
+        
+        await QuizFuzz.Infrastructure.Persistence.Seeds.SeedExtensions.SeedDatabaseAsync(services);
+        
+        logger.LogInformation("Database seeded successfully!");
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred while seeding the database");
+    }
+}
+
 app.Run();

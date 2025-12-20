@@ -50,6 +50,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                 .HasColumnName("email")
                 .HasMaxLength(255)
                 .IsRequired();
+            
+            email.HasIndex(e => e.Value)
+                .IsUnique()
+                .HasDatabaseName("ix_users_email");
         });
 
         // Roles as JSON
@@ -66,10 +70,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasIndex(u => u.Username)
             .IsUnique()
             .HasDatabaseName("ix_users_username");
-
-        builder.HasIndex(u => u.Email.Value)
-            .IsUnique()
-            .HasDatabaseName("ix_users_email");
 
         builder.HasIndex(u => u.CreatedAt)
             .HasDatabaseName("ix_users_created_at");
