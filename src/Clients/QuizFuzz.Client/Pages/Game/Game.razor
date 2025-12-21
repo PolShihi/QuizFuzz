@@ -197,16 +197,31 @@
 
     private async Task InitializeSignalR()
     {
+        Console.WriteLine("🎮 [Game] ========== INITIALIZING SIGNALR ==========");
+        
         var token = await AuthService.GetTokenAsync();
-        var apiBase = Navigation.BaseUri.Replace(Navigation.Uri, "").TrimEnd('/');
+        Console.WriteLine($"🔑 [Game] Token: {(string.IsNullOrEmpty(token) ? "MISSING!" : "EXISTS")}");
+        
+        // 🔥 КРИТИЧНО: Используем правильный API URL!
+        var apiBase = "https://localhost:7001";
+        var hubUrl = $"{apiBase}/hubs/game";
+        
+        Console.WriteLine($"🔌 [Game] Connecting to GameHub: {hubUrl}");
+        Console.WriteLine($"🎯 [Game] Session ID: {SessionId}");
         
         hubConnection = new HubConnectionBuilder()
-            .WithUrl($"{apiBase}/hubs/game", options =>
+            .WithUrl(hubUrl, options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult(token);
             })
+            .ConfigureLogging(logging =>
+            {
+                logging.SetMinimumLevel(LogLevel.Debug);
+            })
             .WithAutomaticReconnect()
             .Build();
+        
+        Console.WriteLine("✅ [Game] HubConnection created");
 
         // Round Started - New Question
         hubConnection.On<string>("RoundStarted", async (questionJson) =>
@@ -272,8 +287,29 @@
             });
         });
 
-        await hubConnection.StartAsync();
-        await hubConnection.InvokeAsync("JoinGame", SessionId.ToString());
+        try
+        {
+            Console.WriteLine("🚀 [Game] Starting SignalR connection...");
+            await hubConnection.StartAsync();
+            Console.WriteLine("✅ [Game] SignalR connection started!");
+            Console.WriteLine($"   ConnectionId: {hubConnection.ConnectionId}");
+            Console.WriteLine($"   State: {hubConnection.State}");
+            
+            Console.WriteLine($"📡 [Game] Invoking JoinGame with SessionId: {SessionId}");
+            await hubConnection.InvokeAsync("JoinGame", SessionId.ToString());
+            Console.WriteLine("✅ [Game] Successfully joined game!");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ [Game] SignalR Error: {ex.GetType().Name}");
+            Console.WriteLine($"❌ [Game] Message: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"❌ [Game] Inner: {ex.InnerException.Message}");
+            }
+            Console.WriteLine($"❌ [Game] Stack: {ex.StackTrace}");
+            throw;
+        }
     }
 
     private void StartHintTimer()

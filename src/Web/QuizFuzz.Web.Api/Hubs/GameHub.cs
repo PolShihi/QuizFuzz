@@ -30,7 +30,95 @@ public class GameHub : Hub
     }
 
     /// <summary>
-    /// Присоединиться к игровой комнате
+    /// Присоединиться к игровой сессии (используется при старте игры)
+    /// </summary>
+    public async Task JoinGame(string sessionId)
+    {
+        _logger.LogInformation("🎮 [GameHub] ========== JOIN GAME REQUEST ==========");
+        _logger.LogInformation("🎮 [GameHub] SessionId: {SessionId}", sessionId);
+        _logger.LogInformation("🎮 [GameHub] ConnectionId: {ConnectionId}", Context.ConnectionId);
+        
+        if (!Guid.TryParse(sessionId, out var parsedSessionId))
+        {
+            _logger.LogError("❌ [GameHub] Invalid SessionId format: {SessionId}", sessionId);
+            await Clients.Caller.SendAsync("Error", "Invalid session ID format");
+            return;
+        }
+
+        var userId = GetUserId();
+        var username = Context.User?.Identity?.Name ?? "Unknown";
+        
+        _logger.LogInformation("✅ [GameHub] UserId: {UserId}, Username: {Username}", userId, username);
+
+        var session = await _unitOfWork.GameSessions.GetWithDetailsAsync(parsedSessionId);
+        if (session == null)
+        {
+            _logger.LogError("❌ [GameHub] Session not found: {SessionId}", parsedSessionId);
+            await Clients.Caller.SendAsync("Error", "Session not found");
+            return;
+        }
+
+        _logger.LogInformation("✅ [GameHub] Session found: {SessionId}, Status: {Status}", 
+            parsedSessionId, session.Status);
+
+        var room = session.Room;
+        _logger.LogInformation("✅ [GameHub] Room: {RoomId}, Name: {RoomName}", room.Id, room.Name);
+
+        // Проверяем, что игрок в сессии
+        var player = session.Players.FirstOrDefault(p => p.UserId == userId && p.IsActive);
+        if (player == null)
+        {
+            _logger.LogError("❌ [GameHub] User {UserId} is not a player in session {SessionId}", 
+                userId, parsedSessionId);
+            await Clients.Caller.SendAsync("Error", "You are not a player in this session");
+            return;
+        }
+
+        _logger.LogInformation("✅ [GameHub] Player found in session");
+
+        var groupName = GetRoomGroupName(room.Id);
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("✅ [GameHub] Added to group: {GroupName}", groupName);
+
+        // Уведомляем всех в комнате
+        await Clients.Group(groupName).SendAsync("PlayerJoined", new
+        {
+            userId,
+            username,
+            timestamp = DateTime.UtcNow
+        });
+        
+        _logger.LogInformation("✅ [GameHub] Sent PlayerJoined to group");
+
+        // Отправляем текущее состояние игры присоединившемуся
+        await Clients.Caller.SendAsync("GameState", new
+        {
+            sessionId = session.Id,
+            roomId = room.Id,
+            roomName = room.Name,
+            roomStatus = room.Status.ToString(),
+            sessionStatus = session.Status.ToString(),
+            currentRoundId = session.CurrentRoundId,
+            totalRoundsPlanned = session.TotalRoundsPlanned,
+            totalRoundsPlayed = session.TotalRoundsPlayed,
+            players = session.Players
+                .Where(p => p.IsActive)
+                .Select(p => new
+                {
+                    userId = p.UserId,
+                    username = p.User.Username,
+                    isOwner = p.IsOwnerSnapshot
+                })
+                .ToList()
+        });
+        
+        _logger.LogInformation("✅ [GameHub] Sent GameState to caller");
+        _logger.LogInformation("🎉 [GameHub] ========== JOIN GAME SUCCESS ==========");
+    }
+
+    /// <summary>
+    /// Присоединиться к игровой комнате (используется в лобби)
     /// </summary>
     public async Task JoinRoom(Guid roomId)
     {

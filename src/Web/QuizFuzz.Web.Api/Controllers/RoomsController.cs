@@ -441,6 +441,129 @@ public class RoomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> StartGame(Guid id)
     {
+        _logger.LogInformation("🎮 [StartGame] ========== START GAME REQUEST ==========");
+        _logger.LogInformation("🎮 [StartGame] Room ID: {RoomId}", id);
+        
+        var room = await _unitOfWork.Rooms.GetWithDetailsAsync(id);
+
+        if (room == null)
+        {
+            _logger.LogError("❌ [StartGame] Room not found: {RoomId}", id);
+            return NotFound($"Room with ID {id} not found");
+        }
+
+        _logger.LogInformation("✅ [StartGame] Room found: {RoomName}, Status: {Status}", room.Name, room.Status);
+
+        var userId = _currentUserService.UserId;
+        if (!userId.HasValue)
+        {
+            _logger.LogError("❌ [StartGame] User ID is NULL - Unauthorized!");
+            return Unauthorized();
+        }
+
+        _logger.LogInformation("✅ [StartGame] User ID: {UserId}", userId.Value);
+
+        // Проверка прав владельца
+        if (room.OwnerUserId != userId.Value)
+        {
+            _logger.LogError("❌ [StartGame] User {UserId} is NOT owner! Owner: {OwnerId}", userId, room.OwnerUserId);
+            return Forbid();
+        }
+
+        _logger.LogInformation("✅ [StartGame] User is owner - can start game");
+
+        if (room.Status != RoomStatus.Lobby)
+        {
+            _logger.LogError("❌ [StartGame] Room status is {Status}, not Lobby!", room.Status);
+            return BadRequest($"Game can only be started from lobby. Current status: {room.Status}");
+        }
+
+        _logger.LogInformation("✅ [StartGame] Room status is Lobby");
+
+        var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
+
+        if (session == null)
+        {
+            _logger.LogError("❌ [StartGame] No active session found for room {RoomId}", id);
+            return BadRequest("No active session found");
+        }
+
+        _logger.LogInformation("✅ [StartGame] Session found: {SessionId}, Status: {Status}", session.Id, session.Status);
+
+        var activePlayers = session.Players.Count(p => p.IsActive);
+        _logger.LogInformation("📊 [StartGame] Active players: {Count}", activePlayers);
+        
+        if (activePlayers < 2)
+        {
+            _logger.LogError("❌ [StartGame] Not enough players: {Count}/2", activePlayers);
+            return BadRequest($"At least 2 players are required to start the game. Current: {activePlayers}");
+        }
+
+        _logger.LogInformation("✅ [StartGame] Enough players to start");
+
+        try
+        {
+            _logger.LogInformation("🔄 [StartGame] Calling room.StartGame()...");
+            room.StartGame();
+            _logger.LogInformation("✅ [StartGame] room.StartGame() succeeded. New status: {Status}", room.Status);
+
+            _logger.LogInformation("🔄 [StartGame] Calling session.Start()...");
+            _logger.LogInformation("   Session current status: {Status}", session.Status);
+            session.Start();
+            _logger.LogInformation("✅ [StartGame] session.Start() succeeded. New status: {Status}", session.Status);
+
+            _logger.LogInformation("💾 [StartGame] Saving changes...");
+            await _unitOfWork.SaveChangesAsync();
+            _logger.LogInformation("✅ [StartGame] Changes saved!");
+
+            _logger.LogInformation("🎉 [StartGame] ========== GAME STARTED SUCCESSFULLY ==========");
+            _logger.LogInformation("   Room: {RoomId}, Session: {SessionId}", id, session.Id);
+            _logger.LogInformation("   Players: {Count}", activePlayers);
+
+            // 🔥 КРИТИЧНО: Отправляем уведомление GameStarted через SignalR
+            var groupName = $"Room_{id}";
+            _logger.LogInformation("📡 [StartGame] Sending GameStarted notification to group: {GroupName}", groupName);
+            
+            try
+            {
+                await _lobbyHubContext.Clients.Group(groupName).SendAsync("GameStarted", session.Id);
+                _logger.LogInformation("✅ [StartGame] GameStarted notification sent successfully!");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ [StartGame] Failed to send GameStarted notification via SignalR");
+            }
+
+            return Ok(new
+            {
+                message = "Game started",
+                sessionId = session.Id,
+                roomStatus = room.Status.ToString(),
+                sessionStatus = session.Status.ToString()
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "❌ [StartGame] InvalidOperationException: {Message}", ex.Message);
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [StartGame] Unexpected exception: {Message}", ex.Message);
+            return BadRequest($"Error starting game: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Вернуть комнату в лобби (для отладки и рестарта)
+    /// </summary>
+    [HttpPost("{id}/reset")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ResetRoom(Guid id)
+    {
+        _logger.LogInformation("🔄 [ResetRoom] Resetting room {RoomId} to Lobby", id);
+        
         var room = await _unitOfWork.Rooms.GetWithDetailsAsync(id);
 
         if (room == null)
@@ -452,39 +575,38 @@ public class RoomsController : ControllerBase
 
         // Проверка прав владельца
         if (room.OwnerUserId != userId.Value)
+        {
+            _logger.LogError("❌ [ResetRoom] User {UserId} is not owner", userId);
             return Forbid();
-
-        if (room.Status != RoomStatus.Lobby)
-            return BadRequest("Game can only be started from lobby");
-
-        var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
-
-        if (session == null)
-            return BadRequest("No active session found");
-
-        var activePlayers = session.Players.Count(p => p.IsActive);
-        if (activePlayers < 2)
-            return BadRequest("At least 2 players are required to start the game");
+        }
 
         try
         {
-            room.StartGame();
-            session.Start();
-
+            _logger.LogInformation("🔄 [ResetRoom] Current status: {Status}", room.Status);
+            room.ReturnToLobby();
+            _logger.LogInformation("✅ [ResetRoom] New status: {Status}", room.Status);
+            
+            // Также сбрасываем сессию если нужно
+            var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
+            if (session != null && session.Status != GameSessionStatus.Pending)
+            {
+                _logger.LogInformation("🔄 [ResetRoom] Aborting active session {SessionId}", session.Id);
+                session.Abort();
+            }
+            
             await _unitOfWork.SaveChangesAsync();
-
-            _logger.LogInformation("Game started in room {RoomId} by user {UserId}", id, userId);
+            
+            _logger.LogInformation("✅ [ResetRoom] Room reset successfully");
 
             return Ok(new
             {
-                message = "Game started",
-                sessionId = session.Id,
-                roomStatus = room.Status,
-                sessionStatus = session.Status
+                message = "Room reset to lobby",
+                roomStatus = room.Status.ToString()
             });
         }
-        catch (InvalidOperationException ex)
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "❌ [ResetRoom] Error: {Message}", ex.Message);
             return BadRequest(ex.Message);
         }
     }
