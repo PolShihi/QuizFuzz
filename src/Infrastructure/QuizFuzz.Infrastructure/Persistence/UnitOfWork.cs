@@ -23,6 +23,7 @@ public class UnitOfWork : IUnitOfWork
     private IGameRoundRepository? _gameRoundRepository;
     private IPlayerAnswerRepository? _playerAnswerRepository;
     private IScoreboardRepository? _scoreboardRepository;
+    private IInvitationRepository? _invitationRepository;
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -58,6 +59,9 @@ public class UnitOfWork : IUnitOfWork
 
     public IScoreboardRepository Scoreboards =>
         _scoreboardRepository ??= new ScoreboardRepository(_context);
+
+    public IInvitationRepository Invitations =>
+        _invitationRepository ??= new InvitationRepository(_context);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

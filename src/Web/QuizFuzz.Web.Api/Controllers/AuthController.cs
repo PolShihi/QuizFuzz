@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Auth.Commands.Login;
 using QuizFuzz.Application.Auth.Commands.Register;
@@ -174,4 +175,66 @@ public class AuthController : ControllerBase
         
         return Unauthorized(new { valid = false });
     }
+
+    /// <summary>
+    /// Обновить access token используя refresh token
+    /// </summary>
+    [HttpPost("refresh")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RefreshToken))
+            return BadRequest("Refresh token is required");
+
+        // В реальном приложении нужно проверить refresh token из БД
+        // Здесь упрощенная версия - извлекаем userId из старого access token
+        var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken);
+        if (principal == null)
+            return Unauthorized("Invalid access token");
+
+        var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized("Invalid token claims");
+
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user == null)
+            return Unauthorized("User not found");
+
+        if (user.IsBanned)
+            return Unauthorized("User is banned");
+
+        // Генерируем новые токены
+        var roles = user.Roles.Select(r => r.ToString());
+        var newAccessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
+        var newRefreshToken = _tokenService.GenerateRefreshToken();
+
+        _logger.LogInformation("Tokens refreshed for user {UserId}", userId);
+
+        return Ok(new
+        {
+            accessToken = newAccessToken,
+            refreshToken = newRefreshToken
+        });
+    }
+
+    /// <summary>
+    /// Выход из системы (инвалидация токена на клиенте)
+    /// </summary>
+    [HttpPost("logout")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult Logout()
+    {
+        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        
+        _logger.LogInformation("User {UserId} logged out", userId);
+
+        // В клиентском приложении нужно удалить токены
+        // На сервере можно добавить токен в черный список (опционально)
+        
+        return Ok(new { message = "Logged out successfully" });
+    }
 }
+
+public record RefreshTokenRequest(string AccessToken, string RefreshToken);

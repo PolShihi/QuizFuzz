@@ -46,4 +46,26 @@ public class ScoreboardRepository : BaseRepository<Scoreboard>, IScoreboardRepos
             .Take(limit)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<Scoreboard>> GetByUserIdAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(s => s.Session)
+                .ThenInclude(s => s.Room)
+            .Include(s => s.User)
+            .Where(s => s.UserId == userId)
+            .OrderByDescending(s => s.UpdatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<Scoreboard>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(s => s.User)
+            .Include(s => s.Session)
+            .ToListAsync(cancellationToken);
+    }
 }

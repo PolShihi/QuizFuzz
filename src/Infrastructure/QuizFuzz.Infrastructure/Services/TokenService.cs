@@ -92,4 +92,42 @@ public class TokenService : ITokenService
             return false;
         }
     }
+
+    public System.Security.Claims.ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+            return null;
+
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = Encoding.UTF8.GetBytes(_secretKey);
+
+        var validationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = true,
+            ValidIssuer = _issuer,
+            ValidateAudience = true,
+            ValidAudience = _audience,
+            ValidateLifetime = false, // Не проверяем время жизни
+            ClockSkew = TimeSpan.Zero
+        };
+
+        try
+        {
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out var securityToken);
+            
+            if (securityToken is not JwtSecurityToken jwtSecurityToken || 
+                !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return null;
+            }
+
+            return principal;
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

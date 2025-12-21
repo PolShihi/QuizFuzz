@@ -12,4 +12,6 @@ public interface IGameSessionRepository : IRepository<GameSession>
     Task<GameSession?> GetActiveByRoomIdAsync(Guid roomId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GameSession>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<GameSession>> GetByStatusAsync(GameSessionStatus status, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<GameSession>> GetRecentAsync(int limit, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<GameSession>> GetAllAsync(CancellationToken cancellationToken = default);
 }

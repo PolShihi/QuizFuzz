@@ -91,4 +91,15 @@ public class User : BaseEntity, IAggregateRoot
     {
         Email = newEmail ?? throw new ArgumentNullException(nameof(newEmail));
     }
+
+    public void UpdateUsername(string newUsername)
+    {
+        if (string.IsNullOrWhiteSpace(newUsername))
+            throw new ArgumentException("Username cannot be empty", nameof(newUsername));
+
+        if (newUsername.Length < 3)
+            throw new ArgumentException("Username must be at least 3 characters", nameof(newUsername));
+
+        Username = newUsername;
+    }
 }

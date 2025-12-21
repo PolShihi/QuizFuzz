@@ -1,0 +1,103 @@
+@page "/create-room"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Rooms
+@attribute [Authorize]
+@inject IRoomsApiClient RoomsClient
+@inject NavigationManager Navigation
+
+<PageTitle>Create Room - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" GutterBottom="true">Create New Room</MudText>
+        
+        <EditForm Model="@request" OnValidSubmit="@HandleCreateRoom">
+            <DataAnnotationsValidator />
+            
+            <MudTextField @bind-Value="request.Name" 
+                          Label="Room Name" 
+                          Variant="Variant.Outlined"
+                          Class="mb-4"
+                          For="@(() => request.Name)" />
+
+            <MudNumericField @bind-Value="request.MaxPlayers" 
+                             Label="Max Players" 
+                             Variant="Variant.Outlined"
+                             Min="2" Max="50"
+                             Class="mb-4" />
+
+            <MudSwitch @bind-Checked="request.IsPrivate" 
+                       Label="Private Room"
+                       Color="Color.Primary"
+                       Class="mb-4" />
+
+            <MudSelect @bind-Value="request.VictoryConditionType" 
+                       Label="Victory Condition"
+                       Variant="Variant.Outlined"
+                       Class="mb-4">
+                <MudSelectItem Value="@("POINTS")">Points</MudSelectItem>
+                <MudSelectItem Value="@("QUESTIONS")">Questions</MudSelectItem>
+            </MudSelect>
+
+            <MudNumericField @bind-Value="request.VictoryValue" 
+                             Label="Victory Value" 
+                             Variant="Variant.Outlined"
+                             Min="1"
+                             Class="mb-4" />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @errorMessage
+                </MudAlert>
+            }
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton ButtonType="ButtonType.Submit" 
+                           Variant="Variant.Filled" 
+                           Color="Color.Primary"
+                           Disabled="@isLoading">
+                    @(isLoading ? "Creating..." : "Create Room")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" 
+                           OnClick="@(() => Navigation.NavigateTo("/lobby"))">
+                    Cancel
+                </MudButton>
+            </MudStack>
+        </EditForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private CreateRoomRequest request = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleCreateRoom()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var room = await RoomsClient.CreateRoomAsync(request);
+            
+            if (room != null)
+            {
+                Navigation.NavigateTo($"/room/{room.Id}");
+            }
+            else
+            {
+                errorMessage = "Failed to create room. Please try again.";
+            }
+        }
+        catch
+        {
+            errorMessage = "An error occurred. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

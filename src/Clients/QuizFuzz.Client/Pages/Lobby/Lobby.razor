@@ -1,0 +1,179 @@
+@page "/lobby"
+@page "/"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Client.Services.Auth
+@using QuizFuzz.Shared.Dtos.Rooms
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IRoomsApiClient RoomsClient
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Lobby - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="3" Class="pa-4 mb-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudStack>
+                <MudText Typo="Typo.h4">Game Lobby</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Welcome back, @currentUsername!
+                </MudText>
+            </MudStack>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@OpenCreateRoomDialog">
+                    Create Room
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" 
+                           Color="Color.Error"
+                           OnClick="@HandleLogout">
+                    Logout
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (isLoading)
+    {
+        <MudPaper Elevation="2" Class="pa-8 d-flex justify-center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudPaper>
+    }
+    else if (rooms.Count == 0)
+    {
+        <MudPaper Elevation="2" Class="pa-8">
+            <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                <MudIcon Icon="@Icons.Material.Filled.SportsCricket" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h6" Align="Align.Center">
+                    No rooms available
+                </MudText>
+                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
+                    Be the first to create a room and start playing!
+                </MudText>
+                <MudButton Variant="Variant.Filled" 
+                           Color="Color.Primary"
+                           OnClick="@OpenCreateRoomDialog">
+                    Create First Room
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var room in rooms)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Elevation="2">
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@room.Name</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    Host: @room.OwnerUsername
+                                </MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                @if (room.IsPrivate)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                                }
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent>
+                            <MudStack Spacing="2">
+                                <MudChip Size="Size.Small" Color="GetStatusColor(room.Status)">
+                                    @room.Status
+                                </MudChip>
+                                <MudText Typo="Typo.body2">
+                                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" />
+                                    @room.CurrentPlayers / @room.MaxPlayers players
+                                </MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Created @GetRelativeTime(room.CreatedAt)
+                                </MudText>
+                            </MudStack>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudButton Variant="Variant.Text" 
+                                       Color="Color.Primary"
+                                       FullWidth="true"
+                                       OnClick="@(() => JoinRoom(room.Id))"
+                                       Disabled="@(room.Status != "LOBBY" || room.CurrentPlayers >= room.MaxPlayers)">
+                                Join Room
+                            </MudButton>
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private List<RoomListItemDto> rooms = new();
+    private string currentUsername = string.Empty;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthService.GetCurrentUserAsync();
+        currentUsername = user?.Username ?? "Guest";
+
+        await LoadRooms();
+    }
+
+    private async Task LoadRooms()
+    {
+        isLoading = true;
+        rooms = await RoomsClient.GetRoomsAsync();
+        isLoading = false;
+    }
+
+    private void OpenCreateRoomDialog()
+    {
+        Navigation.NavigateTo("/create-room");
+    }
+
+    private async Task JoinRoom(Guid roomId)
+    {
+        var success = await RoomsClient.JoinRoomAsync(roomId);
+        if (success)
+        {
+            Navigation.NavigateTo($"/room/{roomId}");
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "LOBBY" => Color.Success,
+            "IN_PROGRESS" => Color.Warning,
+            "FINISHED" => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    private string GetRelativeTime(DateTime createdAt)
+    {
+        var timeSpan = DateTime.UtcNow - createdAt;
+        
+        if (timeSpan.TotalMinutes < 1)
+            return "just now";
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes} minutes ago";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours} hours ago";
+        
+        return $"{(int)timeSpan.TotalDays} days ago";
+    }
+}

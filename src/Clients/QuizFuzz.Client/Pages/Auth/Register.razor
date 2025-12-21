@@ -1,0 +1,122 @@
+@page "/register"
+@using QuizFuzz.Client.Services.Auth
+@using QuizFuzz.Shared.Dtos.Auth
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Register - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
+            Create Account
+        </MudText>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
+            Join QuizFuzz and start playing
+        </MudText>
+
+        <EditForm Model="@registerRequest" OnValidSubmit="@HandleRegister">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="registerRequest.Username" 
+                          Label="Username" 
+                          Variant="Variant.Outlined"
+                          Class="mb-4"
+                          For="@(() => registerRequest.Username)" />
+
+            <MudTextField @bind-Value="registerRequest.Email" 
+                          Label="Email" 
+                          Variant="Variant.Outlined" 
+                          InputType="InputType.Email"
+                          Class="mb-4"
+                          For="@(() => registerRequest.Email)" />
+
+            <MudTextField @bind-Value="registerRequest.Password" 
+                          Label="Password" 
+                          Variant="Variant.Outlined" 
+                          InputType="InputType.Password"
+                          Class="mb-4"
+                          For="@(() => registerRequest.Password)" />
+
+            <MudTextField @bind-Value="registerRequest.ConfirmPassword" 
+                          Label="Confirm Password" 
+                          Variant="Variant.Outlined" 
+                          InputType="InputType.Password"
+                          Class="mb-4"
+                          For="@(() => registerRequest.ConfirmPassword)" />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @errorMessage
+                </MudAlert>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit" 
+                       Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       FullWidth="true"
+                       Disabled="@isLoading"
+                       Class="mb-4">
+                @if (isLoading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ml-2">Creating account...</MudText>
+                }
+                else
+                {
+                    <MudText>Register</MudText>
+                }
+            </MudButton>
+        </EditForm>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Align="Align.Center">
+            Already have an account?
+            <MudLink Href="/login" Color="Color.Primary">Login here</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private RegisterRequest registerRequest = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var result = await AuthService.RegisterAsync(registerRequest);
+
+            if (result != null)
+            {
+                // Уведомляем систему об изменении состояния авторизации
+                if (AuthStateProvider is CustomAuthStateProvider customProvider)
+                {
+                    customProvider.NotifyAuthStateChanged();
+                }
+
+                Navigation.NavigateTo("/lobby");
+            }
+            else
+            {
+                errorMessage = "Registration failed. Email or username may already exist.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred during registration. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

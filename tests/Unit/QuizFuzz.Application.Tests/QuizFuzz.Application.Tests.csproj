@@ -11,7 +11,10 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="FluentAssertions" Version="6.12.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="NSubstitute" Version="5.1.0" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
   </ItemGroup>
@@ -22,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Core\QuizFuzz.Application\QuizFuzz.Application.csproj" />
+    <ProjectReference Include="..\..\..\src\Infrastructure\QuizFuzz.Infrastructure\QuizFuzz.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

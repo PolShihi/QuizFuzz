@@ -9,6 +9,13 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container
 builder.Services.AddControllers();
 
+// HTTP Context Accessor
+builder.Services.AddHttpContextAccessor();
+
+// Current User Service
+builder.Services.AddScoped<QuizFuzz.Application.Common.Interfaces.Services.ICurrentUserService, 
+    QuizFuzz.Web.Api.Services.CurrentUserService>();
+
 // Infrastructure Layer
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -141,6 +148,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// SignalR Hubs
+app.MapHub<QuizFuzz.Web.Api.Hubs.GameHub>("/hubs/game");
+app.MapHub<QuizFuzz.Web.Api.Hubs.LobbyHub>("/hubs/lobby");
 
 // Health check endpoint
 app.MapHealthChecks("/health");

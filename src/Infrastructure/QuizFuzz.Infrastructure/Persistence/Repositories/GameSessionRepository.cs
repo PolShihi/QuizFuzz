@@ -57,4 +57,29 @@ public class GameSessionRepository : BaseRepository<GameSession>, IGameSessionRe
             .OrderByDescending(gs => gs.CreatedAt)
             .ToListAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<GameSession>> GetRecentAsync(
+        int limit,
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(gs => gs.Room)
+                .ThenInclude(r => r.Owner)
+            .Include(gs => gs.Players)
+                .ThenInclude(p => p.User)
+            .Include(gs => gs.Scoreboards)
+                .ThenInclude(s => s.User)
+            .OrderByDescending(gs => gs.StartedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<GameSession>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(gs => gs.Room)
+            .Include(gs => gs.Players)
+            .ToListAsync(cancellationToken);
+    }
 }

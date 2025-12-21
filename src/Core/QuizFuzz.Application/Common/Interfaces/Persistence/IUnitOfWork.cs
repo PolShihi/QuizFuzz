@@ -16,6 +16,7 @@ public interface IUnitOfWork : IDisposable
     IGameRoundRepository GameRounds { get; }
     IPlayerAnswerRepository PlayerAnswers { get; }
     IScoreboardRepository Scoreboards { get; }
+    IInvitationRepository Invitations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);

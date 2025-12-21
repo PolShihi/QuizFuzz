@@ -8,4 +8,5 @@ public interface ITokenService
     string GenerateAccessToken(Guid userId, string username, string email, IEnumerable<string> roles);
     string GenerateRefreshToken();
     bool ValidateToken(string token);
+    System.Security.Claims.ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
 }

@@ -1,0 +1,109 @@
+@page "/login"
+@using QuizFuzz.Client.Services.Auth
+@using QuizFuzz.Shared.Dtos.Auth
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Login - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
+            Welcome to QuizFuzz
+        </MudText>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
+            Login to start playing
+        </MudText>
+
+        <EditForm Model="@loginRequest" OnValidSubmit="@HandleLogin">
+            <DataAnnotationsValidator />
+
+            <MudTextField @bind-Value="loginRequest.Email" 
+                          Label="Email" 
+                          Variant="Variant.Outlined" 
+                          InputType="InputType.Email"
+                          Class="mb-4"
+                          For="@(() => loginRequest.Email)" />
+
+            <MudTextField @bind-Value="loginRequest.Password" 
+                          Label="Password" 
+                          Variant="Variant.Outlined" 
+                          InputType="InputType.Password"
+                          Class="mb-4"
+                          For="@(() => loginRequest.Password)" />
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @errorMessage
+                </MudAlert>
+            }
+
+            <MudButton ButtonType="ButtonType.Submit" 
+                       Variant="Variant.Filled" 
+                       Color="Color.Primary" 
+                       FullWidth="true"
+                       Disabled="@isLoading"
+                       Class="mb-4">
+                @if (isLoading)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ml-2">Logging in...</MudText>
+                }
+                else
+                {
+                    <MudText>Login</MudText>
+                }
+            </MudButton>
+        </EditForm>
+
+        <MudDivider Class="my-4" />
+
+        <MudText Align="Align.Center">
+            Don't have an account?
+            <MudLink Href="/register" Color="Color.Primary">Register here</MudLink>
+        </MudText>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private LoginRequest loginRequest = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(loginRequest);
+
+            if (result != null)
+            {
+                // Уведомляем систему об изменении состояния авторизации
+                if (AuthStateProvider is CustomAuthStateProvider customProvider)
+                {
+                    customProvider.NotifyAuthStateChanged();
+                }
+
+                Navigation.NavigateTo("/lobby");
+            }
+            else
+            {
+                errorMessage = "Invalid email or password";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred during login. Please try again.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
