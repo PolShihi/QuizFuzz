@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 using QuizFuzz.Shared.Dtos.Rooms;
+using QuizFuzz.Web.Api.Hubs;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -20,17 +22,20 @@ public class RoomsController : ControllerBase
     private readonly ICurrentUserService _currentUserService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<RoomsController> _logger;
+    private readonly IHubContext<LobbyHub> _lobbyHubContext;
 
     public RoomsController(
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUserService,
         IPasswordHasher passwordHasher,
-        ILogger<RoomsController> logger)
+        ILogger<RoomsController> logger,
+        IHubContext<LobbyHub> lobbyHubContext)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
         _passwordHasher = passwordHasher;
         _logger = logger;
+        _lobbyHubContext = lobbyHubContext;
     }
 
     /// <summary>
@@ -369,6 +374,29 @@ public class RoomsController : ControllerBase
             user?.Username ?? "Unknown", userId, room.Name);
         _logger.LogInformation("✅ [JoinRoom] Session: {SessionId}, Total players: {Count}/{Max}", 
             session.Id, activePlayers + 1, room.MaxPlayers);
+        
+        // 🔥 КРИТИЧНО: Отправляем уведомление через SignalR всем игрокам в комнате
+        var groupName = $"Room_{id}";
+        _logger.LogInformation("📡 [JoinRoom] Sending PlayerJoined notification to group: {GroupName}", groupName);
+        
+        try
+        {
+            await _lobbyHubContext.Clients.Group(groupName).SendAsync("PlayerJoined", new
+            {
+                userId = userId.Value,
+                username = user?.Username ?? "Unknown",
+                isOwner = isOwner,
+                joinedAt = DateTime.UtcNow,
+                playersCount = activePlayers + 1
+            });
+            
+            _logger.LogInformation("✅ [JoinRoom] PlayerJoined notification sent successfully!");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [JoinRoom] Failed to send PlayerJoined notification via SignalR");
+        }
+        
         _logger.LogInformation("🎉 [JoinRoom] ========== JOIN END ==========");
 
         return Ok(new

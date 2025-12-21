@@ -181,16 +181,26 @@ else
         }
 
         // Setup event handlers
-        hubConnection.On<string>("PlayerJoined", (username) =>
+        hubConnection.On<object>("PlayerJoined", async (playerData) =>
         {
-            Console.WriteLine($"📣 [SignalR Event] PlayerJoined - Username: {username}");
-            InvokeAsync(StateHasChanged);
+            Console.WriteLine($"📣 [SignalR Event] PlayerJoined received!");
+            Console.WriteLine($"   Data: {System.Text.Json.JsonSerializer.Serialize(playerData)}");
+            
+            // Перезагружаем данные комнаты для получения актуального списка игроков
+            await LoadRoomDetails();
+            
+            Console.WriteLine($"✅ [SignalR Event] PlayerJoined processed - UI updated!");
         });
 
-        hubConnection.On<string>("PlayerLeft", (username) =>
+        hubConnection.On<object>("PlayerLeft", async (playerData) =>
         {
-            Console.WriteLine($"📣 [SignalR Event] PlayerLeft - Username: {username}");
-            InvokeAsync(StateHasChanged);
+            Console.WriteLine($"📣 [SignalR Event] PlayerLeft received!");
+            Console.WriteLine($"   Data: {System.Text.Json.JsonSerializer.Serialize(playerData)}");
+            
+            // Перезагружаем данные комнаты
+            await LoadRoomDetails();
+            
+            Console.WriteLine($"✅ [SignalR Event] PlayerLeft processed - UI updated!");
         });
 
         hubConnection.On<Guid>("GameStarted", (sessionId) =>
