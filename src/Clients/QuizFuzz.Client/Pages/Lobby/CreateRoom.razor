@@ -27,6 +27,13 @@
                              Min="2" Max="50"
                              Class="mb-4" />
 
+            <MudNumericField @bind-Value="request.NumberOfRounds" 
+                             Label="Number of Rounds" 
+                             Variant="Variant.Outlined"
+                             Min="3" Max="20"
+                             Class="mb-4"
+                             HelperText="Choose how many questions in the game (3-20)" />
+
             <MudSelect @bind-Value="request.Visibility" 
                        Label="Visibility"
                        Variant="Variant.Outlined"

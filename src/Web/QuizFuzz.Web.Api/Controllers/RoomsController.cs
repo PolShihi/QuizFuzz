@@ -247,7 +247,11 @@ public class RoomsController : ControllerBase
             var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
             
             // ВАЖНО: Создаем GameSession автоматически и добавляем создателя как игрока
-            var session = new GameSession(room.Id, 10); // TODO: настраиваемое количество раундов
+            // Используем количество раундов из запроса (по умолчанию 10)
+            var numberOfRounds = request.NumberOfRounds > 0 ? request.NumberOfRounds : 10;
+            var session = new GameSession(room.Id, numberOfRounds);
+            
+            _logger.LogInformation("📊 [CreateRoom] Game session created with {Rounds} rounds", numberOfRounds);
             session.AddPlayer(userId.Value, true); // isOwner = true
             await _unitOfWork.GameSessions.AddAsync(session);
             await _unitOfWork.SaveChangesAsync();
@@ -324,7 +328,9 @@ public class RoomsController : ControllerBase
         {
             _logger.LogWarning("⚠️ [JoinRoom] No active session found - creating new one...");
             // Создаем новую сессию если её нет
-            session = new GameSession(id, 10); // TODO: настраиваемое количество раундов
+            // Количество раундов по умолчанию 10 (если сессия создается при старте игры)
+            session = new GameSession(id, 10);
+            _logger.LogInformation("📊 [StartGame] Game session created with default 10 rounds");
             await _unitOfWork.GameSessions.AddAsync(session);
             await _unitOfWork.SaveChangesAsync();
             _logger.LogInformation("✅ [JoinRoom] New session created: {SessionId}", session.Id);

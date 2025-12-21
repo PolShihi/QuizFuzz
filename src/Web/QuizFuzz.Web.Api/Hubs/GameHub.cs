@@ -767,7 +767,7 @@ public class GameHub : Hub
                 room.FinishGame();
                 await _unitOfWork.SaveChangesAsync();
                 
-                await Clients.Group(groupName).SendAsync("GameFinished", new
+                var gameFinishedData = new
                 {
                     sessionId = session.Id,
                     finalScoreboard = scoreboards.Select((s, index) => new
@@ -777,10 +777,15 @@ public class GameHub : Hub
                         username = s.User.Username,
                         scoreTotal = s.ScoreTotal,
                         correctCount = s.CorrectCount
-                    })
-                });
+                    }).ToList()
+                };
                 
-                _logger.LogInformation("🎉 [AutoEnd] Game finished notification sent!");
+                // Отправляем ВСЕМ клиентам (группа + All) чтобы никто не потерял уведомление
+                _logger.LogInformation("📡 [AutoEnd] Broadcasting GameFinished to ALL clients...");
+                await Clients.Group(groupName).SendAsync("GameFinished", gameFinishedData);
+                await Clients.All.SendAsync("GameFinished", gameFinishedData);
+                
+                _logger.LogInformation("🎉 [AutoEnd] Game finished notification sent to all!");
                 return;
             }
             

@@ -16,6 +16,9 @@ public class CreateRoomRequest
     [Range(2, 50, ErrorMessage = "Max players must be between 2 and 50")]
     public int MaxPlayers { get; set; } = 10;
 
+    [Range(3, 20, ErrorMessage = "Number of rounds must be between 3 and 20")]
+    public int NumberOfRounds { get; set; } = 10;
+
     public string VictoryConditionType { get; set; } = "POINTS";
 
     [Range(1, int.MaxValue, ErrorMessage = "Victory value must be positive")]

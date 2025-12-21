@@ -367,11 +367,19 @@
         });
 
         // Game Finished
-        hubConnection.On("GameFinished", async () =>
+        hubConnection.On<object>("GameFinished", async (data) =>
         {
             await InvokeAsync(() =>
             {
+                Console.WriteLine("════════════════════════════════════════");
+                Console.WriteLine("🏁 [Game] GameFinished event received!");
+                Console.WriteLine($"📦 [Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
+                Console.WriteLine($"🎯 [Game] Navigating to results page...");
+                
                 Navigation.NavigateTo($"/game/{SessionId}/results");
+                
+                Console.WriteLine("✅ [Game] Navigation complete!");
+                Console.WriteLine("════════════════════════════════════════");
             });
         });
 

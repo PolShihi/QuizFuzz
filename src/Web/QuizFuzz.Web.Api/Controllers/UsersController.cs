@@ -80,13 +80,33 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Получить статистику пользователя
+    /// Получить статистику текущего пользователя
+    /// </summary>
+    [HttpGet("me/stats")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyStats()
+    {
+        var userId = _currentUserService.UserId;
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        return await GetUserStatsInternal(userId.Value);
+    }
+
+    /// <summary>
+    /// Получить статистику пользователя по ID
     /// </summary>
     [HttpGet("{id}/stats")]
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetUserStats(Guid id)
+    {
+        return await GetUserStatsInternal(id);
+    }
+
+    private async Task<IActionResult> GetUserStatsInternal(Guid id)
     {
         var user = await _unitOfWork.Users.GetByIdAsync(id);
         if (user == null)
@@ -125,6 +145,7 @@ public class UsersController : ControllerBase
         {
             userId = id,
             username = user.Username,
+            email = user.Email.Value,
             gamesPlayed,
             gamesWon,
             winRate = gamesPlayed > 0 
