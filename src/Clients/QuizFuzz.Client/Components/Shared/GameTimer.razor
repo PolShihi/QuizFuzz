@@ -1,0 +1,63 @@
+@implements IDisposable
+
+<MudPaper Elevation="2" Class="pa-4 d-flex flex-column align-center">
+    <MudText Typo="Typo.h6" Class="mb-2">Time Remaining</MudText>
+    <MudProgressCircular Value="@ProgressValue" 
+                         Size="Size.Large" 
+                         Color="@GetTimerColor()"
+                         Min="0" 
+                         Max="100">
+        <MudText Typo="Typo.h4">@TimeRemaining</MudText>
+    </MudProgressCircular>
+</MudPaper>
+
+@code {
+    [Parameter] public int TotalSeconds { get; set; }
+    [Parameter] public DateTime StartedAt { get; set; }
+    [Parameter] public EventCallback OnTimeExpired { get; set; }
+
+    private Timer? _timer;
+    private int _remainingSeconds;
+    private bool _isExpired;
+
+    protected override void OnInitialized()
+    {
+        _remainingSeconds = TotalSeconds;
+        _timer = new Timer(UpdateTimer, null, 0, 1000);
+    }
+
+    private void UpdateTimer(object? state)
+    {
+        if (_isExpired) return;
+
+        var elapsed = (DateTime.UtcNow - StartedAt).TotalSeconds;
+        _remainingSeconds = Math.Max(0, TotalSeconds - (int)elapsed);
+
+        if (_remainingSeconds <= 0 && !_isExpired)
+        {
+            _isExpired = true;
+            InvokeAsync(async () => await OnTimeExpired.InvokeAsync());
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string TimeRemaining => $"{_remainingSeconds}s";
+
+    private double ProgressValue => _remainingSeconds > 0 
+        ? (double)_remainingSeconds / TotalSeconds * 100 
+        : 0;
+
+    private Color GetTimerColor()
+    {
+        var percentage = ProgressValue;
+        if (percentage > 50) return Color.Success;
+        if (percentage > 25) return Color.Warning;
+        return Color.Error;
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

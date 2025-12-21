@@ -1,0 +1,351 @@
+@page "/game/{SessionId:guid}"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Client.Services.Auth
+@using QuizFuzz.Client.Components.Shared
+@using QuizFuzz.Shared.Dtos.Game
+@using Microsoft.AspNetCore.SignalR.Client
+@attribute [Authorize]
+@inject IGameApiClient GameClient
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>Game - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    @if (isLoading)
+    {
+        <MudPaper Class="pa-8 d-flex justify-center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudPaper>
+    }
+    else if (currentQuestion == null)
+    {
+        <MudPaper Elevation="3" Class="pa-8">
+            <MudStack AlignItems="AlignItems.Center" Spacing="4">
+                <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.h5">Waiting for next question...</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid>
+            <!-- Timer and Scoreboard Column -->
+            <MudItem xs="12" md="4" lg="3">
+                <MudStack Spacing="3">
+                    <GameTimer TotalSeconds="@currentQuestion.TimeLimit"
+                               StartedAt="@currentQuestion.StartedAt"
+                               OnTimeExpired="@OnTimeExpired" />
+                    
+                    <ScoreboardPanel Scoreboard="@scoreboard" />
+                </MudStack>
+            </MudItem>
+
+            <!-- Question and Answer Column -->
+            <MudItem xs="12" md="8" lg="9">
+                <MudPaper Elevation="3" Class="pa-6">
+                    <!-- Question -->
+                    <MudText Typo="Typo.h4" Class="mb-4">@currentQuestion.Text</MudText>
+
+                    <!-- Media (if any) -->
+                    @if (!string.IsNullOrEmpty(currentQuestion.MediaUrl))
+                    {
+                        <MudPaper Elevation="2" Class="pa-4 mb-4">
+                            @if (currentQuestion.QuestionType == "IMAGE")
+                            {
+                                <MudImage Src="@currentQuestion.MediaUrl" 
+                                          Alt="Question Image" 
+                                          Elevation="0" 
+                                          Class="rounded-lg" 
+                                          ObjectFit="ObjectFit.Contain"
+                                          Style="max-height: 400px; width: 100%;" />
+                            }
+                            else if (currentQuestion.QuestionType == "AUDIO")
+                            {
+                                <audio controls style="width: 100%;">
+                                    <source src="@currentQuestion.MediaUrl" type="audio/mpeg">
+                                    Your browser does not support audio.
+                                </audio>
+                            }
+                        </MudPaper>
+                    }
+
+                    <!-- Hints -->
+                    @if (visibleHints.Any())
+                    {
+                        <MudPaper Elevation="1" Class="pa-3 mb-4" Style="background-color: #fff3cd;">
+                            <MudStack Spacing="2">
+                                @foreach (var hint in visibleHints)
+                                {
+                                    <MudText>
+                                        <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Size="Size.Small" Color="Color.Warning" />
+                                        Hint @(hint.OrderIndex + 1): @hint.Text
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    }
+
+                    <!-- Answer Input -->
+                    <MudPaper Elevation="2" Class="pa-4">
+                        @if (hasAnswered)
+                        {
+                            <MudAlert Severity="@(lastAnswerCorrect ? Severity.Success : Severity.Info)" Class="mb-4">
+                                @if (lastAnswerCorrect)
+                                {
+                                    <MudText>✓ Correct! +@lastScore points</MudText>
+                                }
+                                else
+                                {
+                                    <MudText>Answer submitted. Waiting for results...</MudText>
+                                }
+                            </MudAlert>
+                        }
+
+                        <MudTextField @bind-Value="@currentAnswer"
+                                      Label="Your Answer"
+                                      Variant="Variant.Outlined"
+                                      Disabled="@(hasAnswered || timeExpired)"
+                                      OnKeyDown="@OnKeyDown"
+                                      Immediate="true"
+                                      HelperText="Press Enter to submit"
+                                      Class="mb-4" />
+
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   FullWidth="true"
+                                   Size="Size.Large"
+                                   OnClick="@SubmitAnswer"
+                                   Disabled="@(string.IsNullOrWhiteSpace(currentAnswer) || hasAnswered || timeExpired)">
+                            @if (isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                <span class="ml-2">Submitting...</span>
+                            }
+                            else if (hasAnswered)
+                            {
+                                <span>Answer Submitted</span>
+                            }
+                            else if (timeExpired)
+                            {
+                                <span>Time's Up!</span>
+                            }
+                            else
+                            {
+                                <span>Submit Answer</span>
+                            }
+                        </MudButton>
+                    </MudPaper>
+
+                    <!-- Previous Answers -->
+                    @if (previousAnswers.Any())
+                    {
+                        <MudPaper Elevation="1" Class="pa-3 mt-4">
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Your attempts this round:</MudText>
+                            <MudStack Spacing="1">
+                                @foreach (var ans in previousAnswers)
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">• @ans</MudText>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public Guid SessionId { get; set; }
+
+    private HubConnection? hubConnection;
+    private GameQuestionDto? currentQuestion;
+    private ScoreboardDto? scoreboard;
+    private string currentAnswer = string.Empty;
+    private List<string> previousAnswers = new();
+    private List<HintDto> visibleHints = new();
+    private bool isLoading = true;
+    private bool hasAnswered = false;
+    private bool timeExpired = false;
+    private bool isSubmitting = false;
+    private bool lastAnswerCorrect = false;
+    private int lastScore = 0;
+    private DateTime questionStartTime;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGameData();
+        await InitializeSignalR();
+        StartHintTimer();
+    }
+
+    private async Task LoadGameData()
+    {
+        isLoading = true;
+        currentQuestion = await GameClient.GetCurrentQuestionAsync(SessionId);
+        scoreboard = await GameClient.GetScoreboardAsync(SessionId);
+        
+        if (currentQuestion != null)
+        {
+            questionStartTime = currentQuestion.StartedAt;
+        }
+        
+        isLoading = false;
+    }
+
+    private async Task InitializeSignalR()
+    {
+        var token = await AuthService.GetTokenAsync();
+        var apiBase = Navigation.BaseUri.Replace(Navigation.Uri, "").TrimEnd('/');
+        
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl($"{apiBase}/hubs/game", options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(token);
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Round Started - New Question
+        hubConnection.On<string>("RoundStarted", async (questionJson) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                currentQuestion = System.Text.Json.JsonSerializer.Deserialize<GameQuestionDto>(questionJson);
+                hasAnswered = false;
+                timeExpired = false;
+                currentAnswer = string.Empty;
+                previousAnswers.Clear();
+                visibleHints.Clear();
+                lastAnswerCorrect = false;
+                lastScore = 0;
+                
+                if (currentQuestion != null)
+                {
+                    questionStartTime = currentQuestion.StartedAt;
+                    StartHintTimer();
+                }
+                
+                StateHasChanged();
+            });
+        });
+
+        // Round Ended
+        hubConnection.On("RoundEnded", async () =>
+        {
+            await InvokeAsync(() =>
+            {
+                timeExpired = true;
+                StateHasChanged();
+            });
+        });
+
+        // Scoreboard Updated
+        hubConnection.On<string>("ScoreboardUpdated", async (scoreboardJson) =>
+        {
+            await InvokeAsync(() =>
+            {
+                scoreboard = System.Text.Json.JsonSerializer.Deserialize<ScoreboardDto>(scoreboardJson);
+                StateHasChanged();
+            });
+        });
+
+        // Answer Evaluated
+        hubConnection.On<bool, int>("AnswerEvaluated", async (isCorrect, score) =>
+        {
+            await InvokeAsync(() =>
+            {
+                lastAnswerCorrect = isCorrect;
+                lastScore = score;
+                StateHasChanged();
+            });
+        });
+
+        // Game Finished
+        hubConnection.On("GameFinished", async () =>
+        {
+            await InvokeAsync(() =>
+            {
+                Navigation.NavigateTo($"/game/{SessionId}/results");
+            });
+        });
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("JoinGame", SessionId.ToString());
+    }
+
+    private void StartHintTimer()
+    {
+        if (currentQuestion?.Hints == null) return;
+
+        // Запускаем таймер для показа подсказок
+        var timer = new System.Threading.Timer(_ =>
+        {
+            var elapsed = (DateTime.UtcNow - questionStartTime).TotalSeconds;
+            var newHints = currentQuestion.Hints
+                .Where(h => h.RevealTimeSeconds <= elapsed && !visibleHints.Contains(h))
+                .ToList();
+
+            if (newHints.Any())
+            {
+                InvokeAsync(() =>
+                {
+                    visibleHints.AddRange(newHints);
+                    StateHasChanged();
+                });
+            }
+        }, null, 1000, 1000);
+    }
+
+    private async Task SubmitAnswer()
+    {
+        if (string.IsNullOrWhiteSpace(currentAnswer) || hasAnswered || timeExpired)
+            return;
+
+        isSubmitting = true;
+
+        var elapsed = (DateTime.UtcNow - questionStartTime).TotalMilliseconds;
+        var request = new SubmitAnswerRequest
+        {
+            RoundId = currentQuestion!.RoundId,
+            AnswerText = currentAnswer.Trim(),
+            AnswerTimeMs = (int)elapsed
+        };
+
+        previousAnswers.Add(currentAnswer.Trim());
+
+        var success = await GameClient.SubmitAnswerAsync(request);
+        
+        if (success)
+        {
+            hasAnswered = true;
+        }
+
+        currentAnswer = string.Empty;
+        isSubmitting = false;
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SubmitAnswer();
+        }
+    }
+
+    private void OnTimeExpired()
+    {
+        timeExpired = true;
+        StateHasChanged();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

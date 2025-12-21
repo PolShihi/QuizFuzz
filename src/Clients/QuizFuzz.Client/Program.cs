@@ -47,4 +47,54 @@ builder.Services.AddScoped<IRoomsApiClient, RoomsApiClient>(sp =>
     return new RoomsApiClient(httpClient);
 });
 
+builder.Services.AddScoped<IGameApiClient, GameApiClient>(sp =>
+{
+    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new GameApiClient(httpClient);
+});
+
+builder.Services.AddScoped<IUsersApiClient, UsersApiClient>(sp =>
+{
+    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new UsersApiClient(httpClient);
+});
+
+builder.Services.AddScoped<IQuestionsApiClient, QuestionsApiClient>(sp =>
+{
+    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new QuestionsApiClient(httpClient);
+});
+
+builder.Services.AddScoped<IModerationApiClient, ModerationApiClient>(sp =>
+{
+    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new ModerationApiClient(httpClient);
+});
+
+builder.Services.AddScoped<IAdminApiClient, AdminApiClient>(sp =>
+{
+    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new AdminApiClient(httpClient);
+});
+
 await builder.Build().RunAsync();

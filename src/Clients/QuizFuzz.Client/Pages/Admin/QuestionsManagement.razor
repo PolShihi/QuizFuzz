@@ -1,0 +1,414 @@
+@page "/admin/questions"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Questions
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Moderator,Admin")]
+@inject IQuestionsApiClient QuestionsClient
+@inject IAdminApiClient AdminClient
+
+<PageTitle>Questions Management - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="3" Class="pa-4 mb-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h4">
+                <MudIcon Icon="@Icons.Material.Filled.Quiz" Class="mr-2" />
+                Questions Management
+            </MudText>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@OpenCreateDialog">
+                Create Question
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudStack Row="true" Spacing="2">
+            <MudSelect T="string" Label="Status" @bind-Value="filterStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((string)null)">All</MudSelectItem>
+                <MudSelectItem Value="@("DRAFT")">Draft</MudSelectItem>
+                <MudSelectItem Value="@("UNDER_REVIEW")">Under Review</MudSelectItem>
+                <MudSelectItem Value="@("APPROVED")">Approved</MudSelectItem>
+                <MudSelectItem Value="@("REJECTED")">Rejected</MudSelectItem>
+            </MudSelect>
+            
+            <MudSelect T="string" Label="Difficulty" @bind-Value="filterDifficulty" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@((string)null)">All</MudSelectItem>
+                <MudSelectItem Value="@("EASY")">Easy</MudSelectItem>
+                <MudSelectItem Value="@("MEDIUM")">Medium</MudSelectItem>
+                <MudSelectItem Value="@("HARD")">Hard</MudSelectItem>
+            </MudSelect>
+
+            <MudButton Variant="Variant.Filled"
+                       OnClick="@LoadQuestions">
+                Apply Filters
+            </MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Text"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="@LoadQuestions">
+                Refresh
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (isLoading)
+    {
+        <MudPaper Class="pa-8 d-flex justify-center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudPaper>
+    }
+    else if (!questions.Any())
+    {
+        <MudPaper Elevation="2" Class="pa-8">
+            <MudText Align="Align.Center" Color="Color.Secondary">No questions found</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="@questions" Hover="true" Breakpoint="Breakpoint.Sm" Striped="true">
+            <HeaderContent>
+                <MudTh>Title</MudTh>
+                <MudTh>Type</MudTh>
+                <MudTh>Difficulty</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Author</MudTh>
+                <MudTh>Answers</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Title">
+                    <MudStack Spacing="1">
+                        <MudText><strong>@context.Title</strong></MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @(context.PromptText.Length > 60 ? context.PromptText.Substring(0, 60) + "..." : context.PromptText)
+                        </MudText>
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Type">
+                    <MudChip Size="Size.Small">@context.QuestionType</MudChip>
+                </MudTd>
+                <MudTd DataLabel="Difficulty">
+                    <MudChip Size="Size.Small" Color="@GetDifficultyColor(context.Difficulty)">
+                        @context.Difficulty
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Author">
+                    <MudText Typo="Typo.caption">@(context.AuthorUsername ?? "System")</MudText>
+                </MudTd>
+                <MudTd DataLabel="Answers">
+                    <MudText>@context.Answers.Count</MudText>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                       Size="Size.Small"
+                                       Color="Color.Info"
+                                       OnClick="@(() => ViewQuestion(context))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => EditQuestion(context))" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteQuestion(context))" />
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
+
+<!-- View/Edit Dialog -->
+<MudDialog @bind-IsVisible="@showDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(isEditMode ? "Edit Question" : isCreateMode ? "Create Question" : "View Question")</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (currentQuestion != null)
+        {
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudStack Spacing="3">
+                        <MudTextField Label="Title"
+                                      @bind-Value="currentQuestion.Title"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      ReadOnly="@(!isEditMode && !isCreateMode)" />
+
+                        <MudTextField Label="Question Text"
+                                      @bind-Value="currentQuestion.PromptText"
+                                      Lines="3"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      ReadOnly="@(!isEditMode && !isCreateMode)" />
+
+                        <MudStack Row="true" Spacing="2">
+                            <MudSelect T="string" Label="Type" @bind-Value="currentQuestion.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
+                                <MudSelectItem Value="@("TEXT")">Text</MudSelectItem>
+                                <MudSelectItem Value="@("IMAGE")">Image</MudSelectItem>
+                                <MudSelectItem Value="@("AUDIO")">Audio</MudSelectItem>
+                                <MudSelectItem Value="@("VIDEO")">Video</MudSelectItem>
+                            </MudSelect>
+
+                            <MudSelect T="string" Label="Difficulty" @bind-Value="currentQuestion.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
+                                <MudSelectItem Value="@("EASY")">Easy</MudSelectItem>
+                                <MudSelectItem Value="@("MEDIUM")">Medium</MudSelectItem>
+                                <MudSelectItem Value="@("HARD")">Hard</MudSelectItem>
+                            </MudSelect>
+                        </MudStack>
+
+                        @if (currentQuestion.QuestionType != "TEXT")
+                        {
+                            <MudTextField Label="Media URL"
+                                          @bind-Value="currentQuestion.MediaUrl"
+                                          Variant="Variant.Outlined"
+                                          ReadOnly="@(!isEditMode && !isCreateMode)" />
+                        }
+
+                        <MudText Typo="Typo.h6" Class="mt-4">Answers</MudText>
+                        @foreach (var (answer, index) in currentQuestion.Answers.Select((a, i) => (a, i)))
+                        {
+                            <MudPaper Elevation="2" Class="pa-3">
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudTextField Label="@($"Answer {index + 1}")"
+                                                      @bind-Value="answer.AnswerText"
+                                                      Variant="Variant.Outlined"
+                                                      FullWidth="true"
+                                                      ReadOnly="@(!isEditMode && !isCreateMode)" />
+                                        <MudCheckBox @bind-Checked="answer.IsPrimary" Label="Primary" ReadOnly="@(!isEditMode && !isCreateMode)" />
+                                        @if (isEditMode || isCreateMode)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                           Color="Color.Error"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => RemoveAnswer(index))" />
+                                        }
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                        @if (isEditMode || isCreateMode)
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="@AddAnswer">
+                                Add Answer
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="2" Class="pa-3">
+                        <MudText Typo="Typo.h6" Class="mb-3">Tags</MudText>
+                        @if (isEditMode || isCreateMode)
+                        {
+                            <MudSelect T="int" Label="Select Tags" MultiSelection="true" @bind-SelectedValues="selectedTagIds" Variant="Variant.Outlined">
+                                @foreach (var tag in availableTags)
+                                {
+                                    <MudSelectItem T="int" Value="@tag.Id">@tag.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else
+                        {
+                            @foreach (var tag in currentQuestion.Tags)
+                            {
+                                <MudChip Size="Size.Small" Class="ma-1">@tag.Name</MudChip>
+                            }
+                        }
+                    </MudPaper>
+
+                    @if (!isCreateMode)
+                    {
+                        <MudPaper Elevation="2" Class="pa-3 mt-3">
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">Info</MudText>
+                            <MudText Typo="Typo.caption">Status: @currentQuestion.Status</MudText><br/>
+                            <MudText Typo="Typo.caption">Author: @(currentQuestion.AuthorUsername ?? "System")</MudText><br/>
+                            <MudText Typo="Typo.caption">Created: @currentQuestion.CreatedAt.ToString("dd/MM/yyyy")</MudText>
+                        </MudPaper>
+                    }
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => showDialog = false)">
+            @(isEditMode || isCreateMode ? "Cancel" : "Close")
+        </MudButton>
+        @if (isEditMode || isCreateMode)
+        {
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       OnClick="@SaveQuestion"
+                       Disabled="@isSaving">
+                @(isSaving ? "Saving..." : "Save")
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<QuestionDto> questions = new();
+    private List<TagDto> availableTags = new();
+    private QuestionDto? currentQuestion;
+    private bool isLoading = true;
+    private bool showDialog = false;
+    private bool isEditMode = false;
+    private bool isCreateMode = false;
+    private bool isSaving = false;
+    private string? filterStatus;
+    private string? filterDifficulty;
+    private IEnumerable<int> selectedTagIds = new List<int>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadQuestions(), LoadTags());
+    }
+
+    private async Task LoadQuestions()
+    {
+        isLoading = true;
+        questions = await QuestionsClient.GetQuestionsAsync(filterStatus, filterDifficulty);
+        isLoading = false;
+    }
+
+    private async Task LoadTags()
+    {
+        availableTags = await AdminClient.GetTagsAsync();
+    }
+
+    private void OpenCreateDialog()
+    {
+        currentQuestion = new QuestionDto
+        {
+            Title = "",
+            PromptText = "",
+            QuestionType = "TEXT",
+            Difficulty = "MEDIUM",
+            Answers = new List<QuestionAnswerDto>
+            {
+                new() { AnswerText = "", IsPrimary = true, IsActive = true }
+            },
+            Tags = new List<TagDto>()
+        };
+        selectedTagIds = new List<int>();
+        isCreateMode = true;
+        isEditMode = false;
+        showDialog = true;
+    }
+
+    private void ViewQuestion(QuestionDto question)
+    {
+        currentQuestion = question;
+        selectedTagIds = question.Tags.Select(t => t.Id);
+        isEditMode = false;
+        isCreateMode = false;
+        showDialog = true;
+    }
+
+    private void EditQuestion(QuestionDto question)
+    {
+        currentQuestion = question;
+        selectedTagIds = question.Tags.Select(t => t.Id);
+        isEditMode = true;
+        isCreateMode = false;
+        showDialog = true;
+    }
+
+    private async Task DeleteQuestion(QuestionDto question)
+    {
+        var success = await QuestionsClient.DeleteQuestionAsync(question.Id);
+        if (success)
+        {
+            await LoadQuestions();
+        }
+    }
+
+    private void AddAnswer()
+    {
+        currentQuestion?.Answers.Add(new QuestionAnswerDto
+        {
+            AnswerText = "",
+            IsPrimary = false,
+            IsActive = true
+        });
+    }
+
+    private void RemoveAnswer(int index)
+    {
+        if (currentQuestion?.Answers.Count > 1)
+        {
+            currentQuestion.Answers.RemoveAt(index);
+        }
+    }
+
+    private async Task SaveQuestion()
+    {
+        if (currentQuestion == null) return;
+
+        isSaving = true;
+
+        var request = new CreateQuestionRequest
+        {
+            Title = currentQuestion.Title,
+            PromptText = currentQuestion.PromptText,
+            QuestionType = currentQuestion.QuestionType,
+            Difficulty = currentQuestion.Difficulty,
+            MediaUrl = currentQuestion.MediaUrl,
+            TagIds = selectedTagIds.ToList(),
+            Answers = currentQuestion.Answers.Select(a => new CreateAnswerRequest
+            {
+                AnswerText = a.AnswerText,
+                IsPrimary = a.IsPrimary
+            }).ToList()
+        };
+
+        bool success;
+        if (isCreateMode)
+        {
+            var result = await QuestionsClient.CreateQuestionAsync(request);
+            success = result != null;
+        }
+        else
+        {
+            var result = await QuestionsClient.UpdateQuestionAsync(currentQuestion.Id, request);
+            success = result != null;
+        }
+
+        if (success)
+        {
+            showDialog = false;
+            await LoadQuestions();
+        }
+
+        isSaving = false;
+    }
+
+    private Color GetStatusColor(string status) => status switch
+    {
+        "DRAFT" => Color.Default,
+        "UNDER_REVIEW" => Color.Warning,
+        "APPROVED" => Color.Success,
+        "REJECTED" => Color.Error,
+        _ => Color.Default
+    };
+
+    private Color GetDifficultyColor(string difficulty) => difficulty switch
+    {
+        "EASY" => Color.Success,
+        "MEDIUM" => Color.Warning,
+        "HARD" => Color.Error,
+        _ => Color.Default
+    };
+}

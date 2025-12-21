@@ -1,0 +1,306 @@
+@page "/admin/moderation"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Moderation
+@using QuizFuzz.Shared.Dtos.Questions
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Moderator,Admin")]
+@inject IModerationApiClient ModerationClient
+@inject NavigationManager Navigation
+
+<PageTitle>Moderation Queue - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="3" Class="pa-4 mb-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h4">
+                <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
+                Moderation Queue
+            </MudText>
+            <MudChip Color="Color.Warning">@pendingCount Pending</MudChip>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="@(selectedStatus == "PENDING" ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Warning"
+                       OnClick="@(() => FilterByStatus("PENDING"))">
+                Pending (@pendingCount)
+            </MudButton>
+            <MudButton Variant="@(selectedStatus == "APPROVED" ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Success"
+                       OnClick="@(() => FilterByStatus("APPROVED"))">
+                Approved
+            </MudButton>
+            <MudButton Variant="@(selectedStatus == "REJECTED" ? Variant.Filled : Variant.Outlined)"
+                       Color="Color.Error"
+                       OnClick="@(() => FilterByStatus("REJECTED"))">
+                Rejected
+            </MudButton>
+            <MudButton Variant="@(selectedStatus == null ? Variant.Filled : Variant.Outlined)"
+                       OnClick="@(() => FilterByStatus(null))">
+                All
+            </MudButton>
+            <MudSpacer />
+            <MudButton Variant="Variant.Text"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="@LoadQueue">
+                Refresh
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (isLoading)
+    {
+        <MudPaper Class="pa-8 d-flex justify-center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudPaper>
+    }
+    else if (!queue.Any())
+    {
+        <MudPaper Elevation="2" Class="pa-8">
+            <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+                <MudText Typo="Typo.h6">No items in queue</MudText>
+                <MudText Color="Color.Secondary">All caught up!</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="@queue" Hover="true" Breakpoint="Breakpoint.Sm">
+            <HeaderContent>
+                <MudTh>Question</MudTh>
+                <MudTh>Submitted By</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Date</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Question">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.body1"><strong>@context.QuestionTitle</strong></MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @(context.QuestionText.Length > 100 ? context.QuestionText.Substring(0, 100) + "..." : context.QuestionText)
+                        </MudText>
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Submitted By">
+                    <MudText>@context.SubmittedByUsername</MudText>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Date">
+                    <MudText Typo="Typo.caption">@context.CreatedAt.ToString("dd/MM/yyyy HH:mm")</MudText>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="1">
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Info"
+                                   OnClick="@(() => ReviewQuestion(context))">
+                            Review
+                        </MudButton>
+                        @if (context.Status == "PENDING")
+                        {
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Success"
+                                       OnClick="@(() => QuickApprove(context))">
+                                Approve
+                            </MudButton>
+                            <MudButton Size="Size.Small"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Error"
+                                       OnClick="@(() => QuickReject(context))">
+                                Reject
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
+
+<!-- Review Dialog -->
+<MudDialog @bind-IsVisible="@showReviewDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Review Question</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (selectedQuestion != null)
+        {
+            <MudStack Spacing="3">
+                <MudTextField Label="Title" @bind-Value="selectedQuestion.Title" ReadOnly="true" Variant="Variant.Outlined" />
+                <MudTextField Label="Question Text" 
+                              @bind-Value="selectedQuestion.PromptText" 
+                              Lines="3" 
+                              ReadOnly="true" 
+                              Variant="Variant.Outlined" />
+                
+                <MudText Typo="Typo.h6">Answers</MudText>
+                @foreach (var answer in selectedQuestion.Answers ?? new())
+                {
+                    <MudPaper Elevation="1" Class="pa-3">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudText><strong>@answer.AnswerText</strong></MudText>
+                                @if (answer.IsPrimary)
+                                {
+                                    <MudChip Size="Size.Small" Color="Color.Primary">Primary</MudChip>
+                                }
+                            </MudStack>
+                            @if (answer.Aliases?.Any() == true)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Aliases: @string.Join(", ", answer.Aliases.Select(a => a.AliasText))
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                <MudTextField Label="Comment (optional)"
+                              @bind-Value="moderationComment"
+                              Lines="2"
+                              Variant="Variant.Outlined" />
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => showReviewDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Error"
+                   Variant="Variant.Filled"
+                   OnClick="@(() => HandleReject())">
+            Reject
+        </MudButton>
+        <MudButton Color="Color.Success"
+                   Variant="Variant.Filled"
+                   OnClick="@(() => HandleApprove())">
+            Approve
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<ModerationQueueDto> queue = new();
+    private QuestionDto? selectedQuestion;
+    private ModerationQueueDto? selectedQueueItem;
+    private bool isLoading = true;
+    private bool showReviewDialog = false;
+    private string? selectedStatus = "PENDING";
+    private int pendingCount = 0;
+    private string moderationComment = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadQueue();
+    }
+
+    private async Task LoadQueue()
+    {
+        isLoading = true;
+        queue = await ModerationClient.GetModerationQueueAsync(selectedStatus);
+        pendingCount = queue.Count(q => q.Status == "PENDING");
+        isLoading = false;
+    }
+
+    private async Task FilterByStatus(string? status)
+    {
+        selectedStatus = status;
+        await LoadQueue();
+    }
+
+    private async Task ReviewQuestion(ModerationQueueDto item)
+    {
+        selectedQueueItem = item;
+        selectedQuestion = await ModerationClient.GetQuestionForModerationAsync(item.QuestionId);
+        moderationComment = string.Empty;
+        showReviewDialog = true;
+    }
+
+    private async Task QuickApprove(ModerationQueueDto item)
+    {
+        var request = new ModerationActionRequest
+        {
+            QueueId = item.Id,
+            Action = "APPROVE"
+        };
+
+        var success = await ModerationClient.ApproveAsync(request);
+        if (success)
+        {
+            await LoadQueue();
+        }
+    }
+
+    private async Task QuickReject(ModerationQueueDto item)
+    {
+        var request = new ModerationActionRequest
+        {
+            QueueId = item.Id,
+            Action = "REJECT",
+            Reason = "Quick reject"
+        };
+
+        var success = await ModerationClient.RejectAsync(request);
+        if (success)
+        {
+            await LoadQueue();
+        }
+    }
+
+    private async Task HandleApprove()
+    {
+        if (selectedQueueItem == null) return;
+
+        var request = new ModerationActionRequest
+        {
+            QueueId = selectedQueueItem.Id,
+            Action = "APPROVE",
+            Comment = moderationComment
+        };
+
+        var success = await ModerationClient.ApproveAsync(request);
+        if (success)
+        {
+            showReviewDialog = false;
+            await LoadQueue();
+        }
+    }
+
+    private async Task HandleReject()
+    {
+        if (selectedQueueItem == null) return;
+
+        var request = new ModerationActionRequest
+        {
+            QueueId = selectedQueueItem.Id,
+            Action = "REJECT",
+            Comment = moderationComment,
+            Reason = string.IsNullOrEmpty(moderationComment) ? "Rejected by moderator" : moderationComment
+        };
+
+        var success = await ModerationClient.RejectAsync(request);
+        if (success)
+        {
+            showReviewDialog = false;
+            await LoadQueue();
+        }
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "PENDING" => Color.Warning,
+            "APPROVED" => Color.Success,
+            "REJECTED" => Color.Error,
+            _ => Color.Default
+        };
+    }
+}

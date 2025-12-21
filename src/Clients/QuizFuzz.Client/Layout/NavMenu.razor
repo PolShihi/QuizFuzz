@@ -3,6 +3,19 @@
         <Authorized>
             <MudNavLink Href="/lobby" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Lobby</MudNavLink>
             <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">Profile</MudNavLink>
+            
+            <AuthorizeView Roles="Moderator,Admin">
+                <MudDivider Class="my-2" />
+                <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
+                    <MudNavLink Href="/admin" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                    <MudNavLink Href="/admin/moderation" Icon="@Icons.Material.Filled.Gavel">Moderation Queue</MudNavLink>
+                    <MudNavLink Href="/admin/questions" Icon="@Icons.Material.Filled.Quiz">Questions</MudNavLink>
+                    <AuthorizeView Roles="Admin">
+                        <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
+                        <MudNavLink Href="/admin/tags" Icon="@Icons.Material.Filled.Label">Tags</MudNavLink>
+                    </AuthorizeView>
+                </MudNavGroup>
+            </AuthorizeView>
         </Authorized>
         <NotAuthorized>
             <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>

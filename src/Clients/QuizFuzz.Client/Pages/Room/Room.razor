@@ -1,0 +1,216 @@
+@page "/room/{RoomId:guid}"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Client.Services.Auth
+@using QuizFuzz.Client.Services.SignalR
+@using QuizFuzz.Shared.Dtos.Rooms
+@using Microsoft.AspNetCore.SignalR.Client
+@attribute [Authorize]
+@inject IRoomsApiClient RoomsClient
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>Room - QuizFuzz</PageTitle>
+
+@if (room == null)
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+        <MudGrid>
+            <MudItem xs="12">
+                <MudPaper Elevation="3" Class="pa-4">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudStack>
+                            <MudText Typo="Typo.h4">@room.Name</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Host: @room.OwnerUsername
+                            </MudText>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2">
+                            @if (isOwner && room.Status == "LOBBY")
+                            {
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Success"
+                                           StartIcon="@Icons.Material.Filled.PlayArrow"
+                                           OnClick="@StartGame"
+                                           Disabled="@(room.Players.Count < 2)">
+                                    Start Game
+                                </MudButton>
+                            }
+                            <MudButton Variant="Variant.Outlined" 
+                                       Color="Color.Error"
+                                       OnClick="@LeaveRoom">
+                                Leave Room
+                            </MudButton>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        Players (@room.Players.Count / @room.MaxPlayers)
+                    </MudText>
+
+                    @if (!room.Players.Any())
+                    {
+                        <MudText Color="Color.Secondary">Waiting for players...</MudText>
+                    }
+                    else
+                    {
+                        <MudList>
+                            @foreach (var player in room.Players)
+                            {
+                                <MudListItem>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" />
+                                        <MudText>@player.Username</MudText>
+                                        @if (player.IsOwner)
+                                        {
+                                            <MudChip Size="Size.Small" Color="Color.Primary">Host</MudChip>
+                                        }
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Room Settings</MudText>
+                    <MudStack Spacing="3">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Status</MudText>
+                            <MudChip Color="@GetStatusColor(room.Status)">@room.Status</MudChip>
+                        </MudStack>
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Victory Condition</MudText>
+                            <MudText>@room.VictoryConditionType: @room.VictoryValue</MudText>
+                        </MudStack>
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Privacy</MudText>
+                            <MudText>@(room.IsPrivate ? "Private" : "Public")</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudContainer>
+}
+
+@code {
+    [Parameter] public Guid RoomId { get; set; }
+
+    private RoomDetailsDto? room;
+    private HubConnection? hubConnection;
+    private bool isOwner;
+    private Guid currentUserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await AuthService.GetCurrentUserAsync();
+        currentUserId = user?.Id ?? Guid.Empty;
+
+        await LoadRoomDetails();
+        await InitializeSignalR();
+    }
+
+    private async Task LoadRoomDetails()
+    {
+        var response = await RoomsClient.GetRoomAsync(RoomId);
+        if (response != null)
+        {
+            room = new RoomDetailsDto
+            {
+                Id = response.Id,
+                Name = response.Name,
+                OwnerUsername = response.OwnerUsername,
+                Status = response.Status,
+                MaxPlayers = response.MaxPlayers,
+                IsPrivate = response.IsPrivate,
+                Players = new List<PlayerInRoomDto>() // Заполнится через SignalR
+            };
+            
+            isOwner = currentUserId != Guid.Empty; // TODO: проверить реального владельца
+        }
+    }
+
+    private async Task InitializeSignalR()
+    {
+        var token = await AuthService.GetTokenAsync();
+        var apiBase = Navigation.BaseUri.TrimEnd('/');
+        
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl($"{apiBase}/hubs/lobby", options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(token);
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<string>("PlayerJoined", (username) =>
+        {
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<string>("PlayerLeft", (username) =>
+        {
+            InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid>("GameStarted", (sessionId) =>
+        {
+            Navigation.NavigateTo($"/game/{sessionId}");
+        });
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("JoinRoomGroup", RoomId.ToString());
+    }
+
+    private async Task StartGame()
+    {
+        var success = await RoomsClient.StartGameAsync(RoomId);
+        if (!success)
+        {
+            // TODO: показать ошибку
+        }
+    }
+
+    private async Task LeaveRoom()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.InvokeAsync("LeaveRoomGroup", RoomId.ToString());
+        }
+        
+        await RoomsClient.LeaveRoomAsync(RoomId);
+        Navigation.NavigateTo("/lobby");
+    }
+
+    private Color GetStatusColor(string status)
+    {
+        return status switch
+        {
+            "LOBBY" => Color.Success,
+            "IN_PROGRESS" => Color.Warning,
+            "FINISHED" => Color.Default,
+            _ => Color.Default
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

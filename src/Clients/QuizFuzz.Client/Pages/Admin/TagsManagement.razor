@@ -1,0 +1,144 @@
+@page "/admin/tags"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Questions
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject IAdminApiClient AdminClient
+
+<PageTitle>Tags Management - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
+    <MudPaper Elevation="3" Class="pa-4 mb-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.h4">
+                <MudIcon Icon="@Icons.Material.Filled.Label" Class="mr-2" />
+                Tags Management
+            </MudText>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@OpenCreateDialog">
+                Create Tag
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (isLoading)
+    {
+        <MudPaper Class="pa-8 d-flex justify-center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudPaper>
+    }
+    else if (!tags.Any())
+    {
+        <MudPaper Elevation="2" Class="pa-8">
+            <MudText Align="Align.Center" Color="Color.Secondary">No tags found</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var tag in tags)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard>
+                        <MudCardContent>
+                            <MudStack Spacing="2">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.h6">@tag.Name</MudText>
+                                    <MudChip Size="Size.Small" Color="@(tag.IsActive ? Color.Success : Color.Default)">
+                                        @(tag.IsActive ? "Active" : "Inactive")
+                                    </MudChip>
+                                </MudStack>
+                                @if (!string.IsNullOrEmpty(tag.Description))
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@tag.Description</MudText>
+                                }
+                            </MudStack>
+                        </MudCardContent>
+                        <MudCardActions>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           OnClick="@(() => DeleteTag(tag))" />
+                        </MudCardActions>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+<!-- Create Tag Dialog -->
+<MudDialog @bind-IsVisible="@showCreateDialog">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Create Tag</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField Label="Name"
+                          @bind-Value="newTagName"
+                          Variant="Variant.Outlined"
+                          Required="true" />
+            <MudTextField Label="Description"
+                          @bind-Value="newTagDescription"
+                          Lines="2"
+                          Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => showCreateDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="@CreateTag"
+                   Disabled="@string.IsNullOrWhiteSpace(newTagName)">
+            Create
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<TagDto> tags = new();
+    private bool isLoading = true;
+    private bool showCreateDialog = false;
+    private string newTagName = "";
+    private string newTagDescription = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTags();
+    }
+
+    private async Task LoadTags()
+    {
+        isLoading = true;
+        tags = await AdminClient.GetTagsAsync();
+        isLoading = false;
+    }
+
+    private void OpenCreateDialog()
+    {
+        newTagName = "";
+        newTagDescription = "";
+        showCreateDialog = true;
+    }
+
+    private async Task CreateTag()
+    {
+        var tag = await AdminClient.CreateTagAsync(newTagName, newTagDescription);
+        if (tag != null)
+        {
+            showCreateDialog = false;
+            await LoadTags();
+        }
+    }
+
+    private async Task DeleteTag(TagDto tag)
+    {
+        var success = await AdminClient.DeleteTagAsync(tag.Id);
+        if (success)
+        {
+            await LoadTags();
+        }
+    }
+}

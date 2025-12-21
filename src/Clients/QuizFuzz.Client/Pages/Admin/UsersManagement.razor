@@ -1,0 +1,229 @@
+@page "/admin/users"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Admin
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "Admin")]
+@inject IAdminApiClient AdminClient
+
+<PageTitle>Users Management - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+    <MudPaper Elevation="3" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h4">
+            <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+            Users Management
+        </MudText>
+    </MudPaper>
+
+    @if (isLoading)
+    {
+        <MudPaper Class="pa-8 d-flex justify-center">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="@users" Hover="true" Breakpoint="Breakpoint.Sm" Filter="new Func<UserManagementDto, bool>(FilterFunc)">
+            <ToolBarContent>
+                <MudTextField @bind-Value="searchString" Placeholder="Search users..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Username</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>Roles</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Joined</MudTh>
+                <MudTh>Last Login</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Username">@context.Username</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="Roles">
+                    @foreach (var role in context.Roles)
+                    {
+                        <MudChip Size="Size.Small" Color="@GetRoleColor(role)">@role</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    @if (context.IsBanned)
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Error">Banned</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Success">Active</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Joined">
+                    <MudText Typo="Typo.caption">@context.CreatedAt.ToString("dd/MM/yyyy")</MudText>
+                </MudTd>
+                <MudTd DataLabel="Last Login">
+                    <MudText Typo="Typo.caption">@(context.LastLoginAt?.ToString("dd/MM/yyyy HH:mm") ?? "Never")</MudText>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.ManageAccounts"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => ManageRoles(context))" />
+                        @if (!context.IsBanned)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                           Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => BanUser(context))" />
+                        }
+                        else
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                           Size="Size.Small"
+                                           Color="Color.Success"
+                                           OnClick="@(() => UnbanUser(context))" />
+                        }
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudContainer>
+
+<!-- Manage Roles Dialog -->
+<MudDialog @bind-IsVisible="@showRolesDialog">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Manage Roles - @selectedUser?.Username</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudCheckBox @bind-Checked="@hasUserRole" Label="User" Color="Color.Primary" />
+            <MudCheckBox @bind-Checked="@hasModeratorRole" Label="Moderator" Color="Color.Warning" />
+            <MudCheckBox @bind-Checked="@hasAdminRole" Label="Admin" Color="Color.Error" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => showRolesDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@SaveRoles">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Ban User Dialog -->
+<MudDialog @bind-IsVisible="@showBanDialog">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Ban User - @selectedUser?.Username</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField Label="Reason" @bind-Value="banReason" Lines="3" Variant="Variant.Outlined" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => showBanDialog = false)">Cancel</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="@ConfirmBan">Ban</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<UserManagementDto> users = new();
+    private UserManagementDto? selectedUser;
+    private bool isLoading = true;
+    private bool showRolesDialog = false;
+    private bool showBanDialog = false;
+    private string searchString = "";
+    private string banReason = "";
+    private bool hasUserRole, hasModeratorRole, hasAdminRole;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsers();
+    }
+
+    private async Task LoadUsers()
+    {
+        isLoading = true;
+        users = await AdminClient.GetUsersAsync();
+        isLoading = false;
+    }
+
+    private void ManageRoles(UserManagementDto user)
+    {
+        selectedUser = user;
+        hasUserRole = user.Roles.Contains("User");
+        hasModeratorRole = user.Roles.Contains("Moderator");
+        hasAdminRole = user.Roles.Contains("Admin");
+        showRolesDialog = true;
+    }
+
+    private async Task SaveRoles()
+    {
+        if (selectedUser == null) return;
+
+        var roles = new List<string>();
+        if (hasUserRole) roles.Add("User");
+        if (hasModeratorRole) roles.Add("Moderator");
+        if (hasAdminRole) roles.Add("Admin");
+
+        var request = new UpdateUserRolesRequest
+        {
+            UserId = selectedUser.Id,
+            Roles = roles
+        };
+
+        var success = await AdminClient.UpdateUserRolesAsync(request);
+        if (success)
+        {
+            showRolesDialog = false;
+            await LoadUsers();
+        }
+    }
+
+    private void BanUser(UserManagementDto user)
+    {
+        selectedUser = user;
+        banReason = "";
+        showBanDialog = true;
+    }
+
+    private async Task ConfirmBan()
+    {
+        if (selectedUser == null) return;
+
+        var request = new BanUserRequest
+        {
+            UserId = selectedUser.Id,
+            Reason = banReason
+        };
+
+        var success = await AdminClient.BanUserAsync(request);
+        if (success)
+        {
+            showBanDialog = false;
+            await LoadUsers();
+        }
+    }
+
+    private async Task UnbanUser(UserManagementDto user)
+    {
+        var success = await AdminClient.UnbanUserAsync(user.Id);
+        if (success)
+        {
+            await LoadUsers();
+        }
+    }
+
+    private bool FilterFunc(UserManagementDto user)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (user.Username.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (user.Email.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private Color GetRoleColor(string role) => role switch
+    {
+        "Admin" => Color.Error,
+        "Moderator" => Color.Warning,
+        "User" => Color.Primary,
+        _ => Color.Default
+    };
+}
