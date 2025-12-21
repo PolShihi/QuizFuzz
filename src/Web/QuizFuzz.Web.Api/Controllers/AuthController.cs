@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using QuizFuzz.Application.Auth.Commands.Login;
-using QuizFuzz.Application.Auth.Commands.Register;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 using QuizFuzz.Domain.ValueObjects;
+using QuizFuzz.Shared.Dtos.Auth;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -38,37 +37,37 @@ public class AuthController : ControllerBase
     /// Регистрация нового пользователя
     /// </summary>
     [HttpPost("register")]
-    [ProducesResponseType(typeof(RegisterResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Register([FromBody] RegisterCommand command)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         // Validation
-        if (string.IsNullOrWhiteSpace(command.Username) || command.Username.Length < 3)
+        if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length < 3)
             return BadRequest("Username must be at least 3 characters");
 
-        if (string.IsNullOrWhiteSpace(command.Email))
+        if (string.IsNullOrWhiteSpace(request.Email))
             return BadRequest("Email is required");
 
-        if (string.IsNullOrWhiteSpace(command.Password) || command.Password.Length < 6)
+        if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
             return BadRequest("Password must be at least 6 characters");
 
         // Check if username or email already exists
-        if (await _unitOfWork.Users.IsUsernameTakenAsync(command.Username))
+        if (await _unitOfWork.Users.IsUsernameTakenAsync(request.Username))
             return BadRequest("Username is already taken");
 
-        if (await _unitOfWork.Users.IsEmailTakenAsync(command.Email))
+        if (await _unitOfWork.Users.IsEmailTakenAsync(request.Email))
             return BadRequest("Email is already registered");
 
         try
         {
             // Create email value object
-            var email = Email.Create(command.Email);
+            var email = Email.Create(request.Email);
 
             // Hash password
-            var passwordHash = _passwordHasher.HashPassword(command.Password);
+            var passwordHash = _passwordHasher.HashPassword(request.Password);
 
             // Create user
-            var user = new User(command.Username, email, passwordHash);
+            var user = new User(request.Username, email, passwordHash);
 
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
@@ -78,15 +77,16 @@ public class AuthController : ControllerBase
             var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, email.Value, roles);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
-            _logger.LogInformation("User {Username} registered successfully", command.Username);
+            _logger.LogInformation("User {Username} registered successfully", request.Username);
 
-            return Ok(new RegisterResult
+            return Ok(new AuthResponse
             {
                 UserId = user.Id,
                 Username = user.Username,
                 Email = email.Value,
                 AccessToken = accessToken,
-                RefreshToken = refreshToken
+                RefreshToken = refreshToken,
+                Roles = roles.ToList()
             });
         }
         catch (ArgumentException ex)
@@ -99,26 +99,26 @@ public class AuthController : ControllerBase
     /// Вход пользователя
     /// </summary>
     [HttpPost("login")]
-    [ProducesResponseType(typeof(LoginResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Login([FromBody] LoginCommand command)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        if (string.IsNullOrWhiteSpace(command.EmailOrUsername))
+        if (string.IsNullOrWhiteSpace(request.EmailOrUsername))
             return BadRequest("Email or username is required");
 
-        if (string.IsNullOrWhiteSpace(command.Password))
+        if (string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Password is required");
 
         // Try to find user by email or username
         User? user = null;
 
-        if (command.EmailOrUsername.Contains('@'))
+        if (request.EmailOrUsername.Contains('@'))
         {
-            user = await _unitOfWork.Users.GetByEmailAsync(command.EmailOrUsername);
+            user = await _unitOfWork.Users.GetByEmailAsync(request.EmailOrUsername);
         }
         else
         {
-            user = await _unitOfWork.Users.GetByUsernameAsync(command.EmailOrUsername);
+            user = await _unitOfWork.Users.GetByUsernameAsync(request.EmailOrUsername);
         }
 
         if (user == null)
@@ -135,7 +135,7 @@ public class AuthController : ControllerBase
         }
 
         // Verify password
-        if (!_passwordHasher.VerifyPassword(command.Password, user.PasswordHash))
+        if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
             return Unauthorized("Invalid credentials");
 
         // Update last login
@@ -149,14 +149,14 @@ public class AuthController : ControllerBase
 
         _logger.LogInformation("User {Username} logged in successfully", user.Username);
 
-        return Ok(new LoginResult
+        return Ok(new AuthResponse
         {
             UserId = user.Id,
             Username = user.Username,
             Email = user.Email.Value,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            Roles = roles
+            Roles = roles.ToList()
         });
     }
 

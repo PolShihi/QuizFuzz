@@ -1,4 +1,4 @@
-@using QuizFuzz.Shared.Dtos.Game
+﻿@using QuizFuzz.Shared.Dtos.Game
 
 <MudPaper Elevation="2" Class="pa-4">
     <MudText Typo="Typo.h6" Class="mb-4">
@@ -14,19 +14,19 @@
     }
     else
     {
-        <MudList Dense="true">
+        <MudSimpleTable>
             @foreach (var (player, index) in Scoreboard.Players.OrderByDescending(p => p.TotalScore).Select((p, i) => (p, i)))
             {
-                <MudListItem>
+                <tr>
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudChip Size="Size.Small" Color="@GetRankColor(index)">
+                            <MudChip T="string" Size="Size.Small" Color="@GetRankColor(index)">
                                 #@(index + 1)
                             </MudChip>
                             <MudText>@player.Username</MudText>
                         </MudStack>
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                            <MudChip Size="Size.Small" Color="Color.Primary">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">
                                 @player.TotalScore pts
                             </MudChip>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -34,9 +34,9 @@
                             </MudText>
                         </MudStack>
                     </MudStack>
-                </MudListItem>
+                </tr>
             }
-        </MudList>
+        </MudSimpleTable>
     }
 </MudPaper>
 
@@ -54,3 +54,4 @@
         };
     }
 }
+

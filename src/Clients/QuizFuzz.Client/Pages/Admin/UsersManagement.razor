@@ -1,4 +1,4 @@
-@page "/admin/users"
+﻿@page "/admin/users"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Admin
 @using Microsoft.AspNetCore.Authorization
@@ -42,17 +42,17 @@
                 <MudTd DataLabel="Roles">
                     @foreach (var role in context.Roles)
                     {
-                        <MudChip Size="Size.Small" Color="@GetRoleColor(role)">@role</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(role)">@role</MudChip>
                     }
                 </MudTd>
                 <MudTd DataLabel="Status">
                     @if (context.IsBanned)
                     {
-                        <MudChip Size="Size.Small" Color="Color.Error">Banned</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error">Banned</MudChip>
                     }
                     else
                     {
-                        <MudChip Size="Size.Small" Color="Color.Success">Active</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
                     }
                 </MudTd>
                 <MudTd DataLabel="Joined">
@@ -95,9 +95,9 @@
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="2">
-            <MudCheckBox @bind-Checked="@hasUserRole" Label="User" Color="Color.Primary" />
-            <MudCheckBox @bind-Checked="@hasModeratorRole" Label="Moderator" Color="Color.Warning" />
-            <MudCheckBox @bind-Checked="@hasAdminRole" Label="Admin" Color="Color.Error" />
+            <MudCheckBox T="bool" @bind-Checked="@hasUserRole" Label="User" Color="Color.Primary" />
+            <MudCheckBox T="bool" @bind-Checked="@hasModeratorRole" Label="Moderator" Color="Color.Warning" />
+            <MudCheckBox T="bool" @bind-Checked="@hasAdminRole" Label="Admin" Color="Color.Error" />
         </MudStack>
     </DialogContent>
     <DialogActions>
@@ -227,3 +227,4 @@
         _ => Color.Default
     };
 }
+

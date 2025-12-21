@@ -1,6 +1,7 @@
-@page "/create-room"
+﻿@page "/create-room"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Rooms
+@using QuizFuzz.Shared.Dtos.Questions
 @attribute [Authorize]
 @inject IRoomsApiClient RoomsClient
 @inject NavigationManager Navigation
@@ -26,10 +27,13 @@
                              Min="2" Max="50"
                              Class="mb-4" />
 
-            <MudSwitch @bind-Checked="request.IsPrivate" 
-                       Label="Private Room"
-                       Color="Color.Primary"
-                       Class="mb-4" />
+            <MudSelect @bind-Value="request.Visibility" 
+                       Label="Visibility"
+                       Variant="Variant.Outlined"
+                       Class="mb-4">
+                <MudSelectItem Value="@("Public")">Public</MudSelectItem>
+                <MudSelectItem Value="@("Private")">Private</MudSelectItem>
+            </MudSelect>
 
             <MudSelect @bind-Value="request.VictoryConditionType" 
                        Label="Victory Condition"
@@ -44,6 +48,18 @@
                              Variant="Variant.Outlined"
                              Min="1"
                              Class="mb-4" />
+
+            <MudSelect T="Guid" 
+                       Label="Select Tags (optional)" 
+                       MultiSelection="true" 
+                       @bind-SelectedValues="selectedTagIds"
+                       Variant="Variant.Outlined"
+                       Class="mb-4">
+                @foreach (var tag in availableTags)
+                {
+                    <MudSelectItem T="Guid" Value="@tag.Id">@tag.Name</MudSelectItem>
+                }
+            </MudSelect>
 
             @if (!string.IsNullOrEmpty(errorMessage))
             {
@@ -72,6 +88,28 @@
     private CreateRoomRequest request = new();
     private string errorMessage = string.Empty;
     private bool isLoading = false;
+    private List<TagDto> availableTags = new();
+    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Console.WriteLine("📋 [CreateRoom] Loading available tags...");
+        await LoadTags();
+    }
+
+    private async Task LoadTags()
+    {
+        try
+        {
+            // TODO: Нужен TagsApiClient для загрузки тегов
+            // Пока оставляем пустым - теги будут добавлены позже
+            Console.WriteLine("⚠️ [CreateRoom] Tags loading not implemented yet");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ [CreateRoom] Error loading tags: {ex.Message}");
+        }
+    }
 
     private async Task HandleCreateRoom()
     {
@@ -80,15 +118,32 @@
 
         try
         {
+            Console.WriteLine($"🏠 [CreateRoom] Creating room: {request.Name}");
+            Console.WriteLine($"   Max Players: {request.MaxPlayers}");
+            Console.WriteLine($"   Selected Tags: {selectedTagIds.Count()}");
+            
+            // Добавляем выбранные теги в запрос
+            request.TagSelections = selectedTagIds.Select(tagId => new RoomTagSelectionDto 
+            { 
+                TagId = tagId, 
+                Weight = 1 
+            }).ToList();
+            
             var room = await RoomsClient.CreateRoomAsync(request);
             
             if (room != null)
             {
+                Console.WriteLine($"✅ [CreateRoom] Room created successfully!");
+                Console.WriteLine($"   Room ID: {room.Id}");
+                Console.WriteLine($"   Current Players: {room.CurrentPlayers}/{room.MaxPlayers}");
+                Console.WriteLine($"➡️ [CreateRoom] Navigating to room...");
+                
                 Navigation.NavigateTo($"/room/{room.Id}");
             }
             else
             {
-                errorMessage = "Failed to create room. Please try again.";
+                Console.WriteLine($"❌ [CreateRoom] Failed to create room!");
+                errorMessage = "Failed to create room. Check console for details.";
             }
         }
         catch
@@ -101,3 +156,4 @@
         }
     }
 }
+

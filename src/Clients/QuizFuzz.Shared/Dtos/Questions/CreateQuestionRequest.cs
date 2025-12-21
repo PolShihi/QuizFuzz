@@ -28,7 +28,7 @@ public class CreateQuestionRequest
 
     public List<CreateHintRequest> Hints { get; set; } = new();
 
-    public List<int> TagIds { get; set; } = new();
+    public List<Guid> TagIds { get; set; } = new();
 }
 
 public class CreateAnswerRequest

@@ -140,17 +140,60 @@ public class LobbyHub : Hub
     public override async Task OnConnectedAsync()
     {
         var userId = GetUserId();
-        _logger.LogInformation("User {UserId} connected to LobbyHub", userId);
-
+        var username = Context.User?.Identity?.Name ?? "Anonymous";
+        var connectionId = Context.ConnectionId;
+        
+        _logger.LogInformation("🔌 [LobbyHub] CONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}, Username: {Username}", 
+            connectionId, userId, username);
+        
         await base.OnConnectedAsync();
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var userId = GetUserId();
-        _logger.LogInformation("User {UserId} disconnected from LobbyHub", userId);
-
+        var connectionId = Context.ConnectionId;
+        
+        _logger.LogInformation("🔌 [LobbyHub] DISCONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}", 
+            connectionId, userId);
+        
+        if (exception != null)
+        {
+            _logger.LogError(exception, "❌ [LobbyHub] Disconnection error for ConnectionId: {ConnectionId}", connectionId);
+        }
+        
         await base.OnDisconnectedAsync(exception);
+    }
+    
+    /// <summary>
+    /// Присоединиться к группе комнаты для получения обновлений
+    /// </summary>
+    public async Task JoinRoomGroup(string roomId)
+    {
+        var userId = GetUserId();
+        var groupName = $"Room_{roomId}";
+        
+        _logger.LogInformation("📡 [LobbyHub] JoinRoomGroup - ConnectionId: {ConnectionId}, UserId: {UserId}, RoomId: {RoomId}", 
+            Context.ConnectionId, userId, roomId);
+        
+        await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("✅ [LobbyHub] Joined room group: {GroupName}", groupName);
+    }
+
+    /// <summary>
+    /// Покинуть группу комнаты
+    /// </summary>
+    public async Task LeaveRoomGroup(string roomId)
+    {
+        var groupName = $"Room_{roomId}";
+        
+        _logger.LogInformation("📡 [LobbyHub] LeaveRoomGroup - ConnectionId: {ConnectionId}, RoomId: {RoomId}", 
+            Context.ConnectionId, roomId);
+        
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
+        
+        _logger.LogInformation("✅ [LobbyHub] Left room group: {GroupName}", groupName);
     }
 
     private Guid GetUserId()

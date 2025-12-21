@@ -1,4 +1,4 @@
-@page "/game/{SessionId:guid}/results"
+﻿@page "/game/{SessionId:guid}/results"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Game
 @attribute [Authorize]
@@ -22,7 +22,7 @@
                 var winner = scoreboard.Players.OrderByDescending(p => p.TotalScore).First();
                 
                 <MudText Typo="Typo.h5" Color="Color.Primary">
-                    🏆 Winner: @winner.Username
+                    рџЏ† Winner: @winner.Username
                 </MudText>
                 
                 <MudDivider Class="my-4" Style="width: 100%;" />
@@ -30,14 +30,14 @@
                 <MudText Typo="Typo.h6" Class="mb-4">Final Standings</MudText>
 
                 <MudPaper Elevation="2" Class="pa-4" Style="width: 100%;">
-                    <MudList>
+                    <MudList T="string">
                         @foreach (var (player, index) in scoreboard.Players.OrderByDescending(p => p.TotalScore).Select((p, i) => (p, i)))
                         {
-                            <MudListItem>
+                            <MudListItem T="string">
                                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
                                         <MudText Typo="Typo.h6" Style="min-width: 40px;">
-                                            @(index == 0 ? "🥇" : index == 1 ? "🥈" : index == 2 ? "🥉" : $"#{index + 1}")
+                                            @(index == 0 ? "рџҐ‡" : index == 1 ? "рџҐ€" : index == 2 ? "рџҐ‰" : $"#{index + 1}")
                                         </MudText>
                                         <MudText Typo="Typo.h6">@player.Username</MudText>
                                     </MudStack>
@@ -87,3 +87,4 @@
         scoreboard = await GameClient.GetScoreboardAsync(SessionId);
     }
 }
+

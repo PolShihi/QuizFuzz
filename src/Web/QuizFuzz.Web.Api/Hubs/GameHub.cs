@@ -405,10 +405,30 @@ public class GameHub : Hub
         }
     }
 
+    public override async Task OnConnectedAsync()
+    {
+        var userId = GetUserId();
+        var username = Context.User?.Identity?.Name ?? "Anonymous";
+        var connectionId = Context.ConnectionId;
+        
+        _logger.LogInformation("🔌 [GameHub] CONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}, Username: {Username}", 
+            connectionId, userId, username);
+        
+        await base.OnConnectedAsync();
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var userId = GetUserId();
-        _logger.LogInformation("User {UserId} disconnected from GameHub", userId);
+        var connectionId = Context.ConnectionId;
+        
+        _logger.LogInformation("🔌 [GameHub] DISCONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}", 
+            connectionId, userId);
+        
+        if (exception != null)
+        {
+            _logger.LogError(exception, "❌ [GameHub] Disconnection error for ConnectionId: {ConnectionId}", connectionId);
+        }
 
         await base.OnDisconnectedAsync(exception);
     }

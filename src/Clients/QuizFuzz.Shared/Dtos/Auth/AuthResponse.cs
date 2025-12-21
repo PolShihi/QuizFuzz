@@ -2,10 +2,12 @@ namespace QuizFuzz.Shared.Dtos.Auth;
 
 public class AuthResponse
 {
-    public string Token { get; set; } = string.Empty;
+    public Guid UserId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
-    public DateTime ExpiresAt { get; set; }
-    public UserDto User { get; set; } = null!;
+    public IEnumerable<string> Roles { get; set; } = new List<string>();
 }
 
 public class UserDto

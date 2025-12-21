@@ -1,4 +1,4 @@
-@page "/admin/tags"
+﻿@page "/admin/tags"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
 @using Microsoft.AspNetCore.Authorization
@@ -46,7 +46,7 @@
                             <MudStack Spacing="2">
                                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                                     <MudText Typo="Typo.h6">@tag.Name</MudText>
-                                    <MudChip Size="Size.Small" Color="@(tag.IsActive ? Color.Success : Color.Default)">
+                                    <MudChip T="string" Size="Size.Small" Color="@(tag.IsActive ? Color.Success : Color.Default)">
                                         @(tag.IsActive ? "Active" : "Inactive")
                                     </MudChip>
                                 </MudStack>
@@ -142,3 +142,4 @@
         }
     }
 }
+

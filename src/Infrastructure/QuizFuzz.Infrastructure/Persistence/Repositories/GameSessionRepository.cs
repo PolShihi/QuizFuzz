@@ -26,12 +26,15 @@ public class GameSessionRepository : BaseRepository<GameSession>, IGameSessionRe
 
     public async Task<GameSession?> GetActiveByRoomIdAsync(Guid roomId, CancellationToken cancellationToken = default)
     {
+        // ИСПРАВЛЕНО: ищем не только Active, но и Pending (сессия в лобби/ожидании)
         return await _dbSet
             .Include(gs => gs.Rounds)
             .Include(gs => gs.Players)
+                .ThenInclude(p => p.User)  // Добавлено: нужно для загрузки username
             .Include(gs => gs.Scoreboards)
             .FirstOrDefaultAsync(
-                gs => gs.RoomId == roomId && gs.Status == GameSessionStatus.Active,
+                gs => gs.RoomId == roomId && 
+                      (gs.Status == GameSessionStatus.Active || gs.Status == GameSessionStatus.Pending),
                 cancellationToken);
     }
 

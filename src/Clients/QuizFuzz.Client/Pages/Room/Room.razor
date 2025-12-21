@@ -1,4 +1,4 @@
-@page "/room/{RoomId:guid}"
+﻿@page "/room/{RoomId:guid}"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Client.Services.Auth
 @using QuizFuzz.Client.Services.SignalR
@@ -32,7 +32,7 @@ else
                             </MudText>
                         </MudStack>
                         <MudStack Row="true" Spacing="2">
-                            @if (isOwner && room.Status == "LOBBY")
+                            @if (isOwner && room.Status == "Lobby")
                             {
                                 <MudButton Variant="Variant.Filled" 
                                            Color="Color.Success"
@@ -64,16 +64,16 @@ else
                     }
                     else
                     {
-                        <MudList>
+                        <MudList T="string">
                             @foreach (var player in room.Players)
                             {
-                                <MudListItem>
+                                <MudListItem T="string">
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         <MudIcon Icon="@Icons.Material.Filled.Person" />
                                         <MudText>@player.Username</MudText>
                                         @if (player.IsOwner)
                                         {
-                                            <MudChip Size="Size.Small" Color="Color.Primary">Host</MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">Host</MudChip>
                                         }
                                     </MudStack>
                                 </MudListItem>
@@ -89,7 +89,7 @@ else
                     <MudStack Spacing="3">
                         <MudStack Spacing="1">
                             <MudText Typo="Typo.body2" Color="Color.Secondary">Status</MudText>
-                            <MudChip Color="@GetStatusColor(room.Status)">@room.Status</MudChip>
+                            <MudChip T="string" Color="@GetStatusColor(room.Status)">@room.Status</MudChip>
                         </MudStack>
                         <MudStack Spacing="1">
                             <MudText Typo="Typo.body2" Color="Color.Secondary">Victory Condition</MudText>
@@ -125,54 +125,116 @@ else
 
     private async Task LoadRoomDetails()
     {
-        var response = await RoomsClient.GetRoomAsync(RoomId);
-        if (response != null)
+        Console.WriteLine($"📥 [Room] Loading room details for: {RoomId}");
+        
+        room = await RoomsClient.GetRoomAsync(RoomId);
+        
+        if (room != null)
         {
-            room = new RoomDetailsDto
-            {
-                Id = response.Id,
-                Name = response.Name,
-                OwnerUsername = response.OwnerUsername,
-                Status = response.Status,
-                MaxPlayers = response.MaxPlayers,
-                IsPrivate = response.IsPrivate,
-                Players = new List<PlayerInRoomDto>() // Заполнится через SignalR
-            };
+            Console.WriteLine($"✅ [Room] Room loaded successfully:");
+            Console.WriteLine($"   Name: {room.Name}");
+            Console.WriteLine($"   Owner: {room.OwnerUsername}");
+            Console.WriteLine($"   Players: {room.Players?.Count ?? 0}/{room.MaxPlayers}");
+            Console.WriteLine($"   Status: {room.Status}");
             
-            isOwner = currentUserId != Guid.Empty; // TODO: проверить реального владельца
+            isOwner = room.OwnerId == currentUserId;
+            Console.WriteLine($"   Is Owner: {isOwner}");
+            
+            StateHasChanged();
+        }
+        else
+        {
+            Console.WriteLine($"❌ [Room] Failed to load room details!");
         }
     }
 
     private async Task InitializeSignalR()
     {
-        var token = await AuthService.GetTokenAsync();
-        var apiBase = Navigation.BaseUri.TrimEnd('/');
+        // Backend API URL - НЕ Navigation.BaseUri!
+        var hubUrl = "https://localhost:7001/hubs/lobby";
         
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl($"{apiBase}/hubs/lobby", options =>
-            {
-                options.AccessTokenProvider = () => Task.FromResult(token);
-            })
-            .WithAutomaticReconnect()
-            .Build();
+        try
+        {
+            var token = await AuthService.GetTokenAsync();
+            
+            Console.WriteLine($"🔌 [SignalR] Connecting to: {hubUrl}");
+            Console.WriteLine($"🔑 [SignalR] Token: {(string.IsNullOrEmpty(token) ? "MISSING!" : "EXISTS")}");
+            
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl(hubUrl, options =>
+                {
+                    options.AccessTokenProvider = () => Task.FromResult(token);
+                })
+                .ConfigureLogging(logging =>
+                {
+                    logging.SetMinimumLevel(LogLevel.Debug);
+                })
+                .WithAutomaticReconnect()
+                .Build();
+                
+            Console.WriteLine("✅ [SignalR] HubConnection created");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ [SignalR] Error creating connection: {ex.Message}");
+            throw;
+        }
 
+        // Setup event handlers
         hubConnection.On<string>("PlayerJoined", (username) =>
         {
+            Console.WriteLine($"📣 [SignalR Event] PlayerJoined - Username: {username}");
             InvokeAsync(StateHasChanged);
         });
 
         hubConnection.On<string>("PlayerLeft", (username) =>
         {
+            Console.WriteLine($"📣 [SignalR Event] PlayerLeft - Username: {username}");
             InvokeAsync(StateHasChanged);
         });
 
         hubConnection.On<Guid>("GameStarted", (sessionId) =>
         {
+            Console.WriteLine($"📣 [SignalR Event] GameStarted - SessionId: {sessionId}");
             Navigation.NavigateTo($"/game/{sessionId}");
         });
 
-        await hubConnection.StartAsync();
-        await hubConnection.InvokeAsync("JoinRoomGroup", RoomId.ToString());
+        try
+        {
+            Console.WriteLine($"🚀 [SignalR] Starting connection to LobbyHub...");
+            Console.WriteLine($"   URL: {hubUrl}");
+            Console.WriteLine($"   RoomId: {RoomId}");
+            
+            await hubConnection.StartAsync();
+            Console.WriteLine("✅ [SignalR] Connection started successfully!");
+            Console.WriteLine($"   ConnectionId: {hubConnection.ConnectionId}");
+            Console.WriteLine($"   State: {hubConnection.State}");
+            
+            Console.WriteLine($"📡 [SignalR] Invoking JoinRoomGroup with RoomId: {RoomId}");
+            await hubConnection.InvokeAsync("JoinRoomGroup", RoomId.ToString());
+            Console.WriteLine("✅ [SignalR] Successfully joined room group!");
+        }
+        catch (HttpRequestException httpEx)
+        {
+            Console.WriteLine($"❌ [SignalR] HTTP error: {httpEx.StatusCode}");
+            Console.WriteLine($"❌ [SignalR] Message: {httpEx.Message}");
+            Console.WriteLine($"❌ [SignalR] This usually means:");
+            Console.WriteLine($"   - Backend API is not running");
+            Console.WriteLine($"   - Wrong URL (check https://localhost:7001)");
+            Console.WriteLine($"   - CORS not configured properly");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ [SignalR] Connection error: {ex.GetType().Name}");
+            Console.WriteLine($"❌ [SignalR] Message: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"❌ [SignalR] Inner exception: {ex.InnerException.Message}");
+            }
+            Console.WriteLine($"❌ [SignalR] Stack trace: {ex.StackTrace}");
+            throw;
+        }
     }
 
     private async Task StartGame()
@@ -180,7 +242,7 @@ else
         var success = await RoomsClient.StartGameAsync(RoomId);
         if (!success)
         {
-            // TODO: показать ошибку
+            // TODO: РїРѕРєР°Р·Р°С‚СЊ РѕС€РёР±РєСѓ
         }
     }
 
@@ -199,9 +261,9 @@ else
     {
         return status switch
         {
-            "LOBBY" => Color.Success,
-            "IN_PROGRESS" => Color.Warning,
-            "FINISHED" => Color.Default,
+            "Lobby" => Color.Success,
+            "InProgress" => Color.Warning,
+            "Finished" => Color.Default,
             _ => Color.Default
         };
     }
@@ -214,3 +276,4 @@ else
         }
     }
 }
+

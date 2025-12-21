@@ -28,18 +28,24 @@ builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
     provider.GetRequiredService<CustomAuthStateProvider>());
 
 // HTTP Clients
-builder.Services.AddScoped<AuthenticatedHttpHandler>();
-
 // HttpClient для неавторизованных запросов (auth)
-builder.Services.AddScoped(sp => new HttpClient 
-{ 
-    BaseAddress = new Uri(apiBaseAddress) 
+builder.Services.AddScoped(sp => 
+{
+    var httpClient = new HttpClient 
+    { 
+        BaseAddress = new Uri(apiBaseAddress) 
+    };
+    return httpClient;
 });
 
+// AuthenticatedHttpHandler (использует IAuthService, не HttpClient напрямую)
+builder.Services.AddTransient<AuthenticatedHttpHandler>();
+
 // HttpClient для авторизованных запросов
-builder.Services.AddScoped<IRoomsApiClient, RoomsApiClient>(sp =>
+builder.Services.AddScoped<IRoomsApiClient>(sp =>
 {
-    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
     var httpClient = new HttpClient(handler)
     {
         BaseAddress = new Uri(apiBaseAddress)
@@ -47,9 +53,10 @@ builder.Services.AddScoped<IRoomsApiClient, RoomsApiClient>(sp =>
     return new RoomsApiClient(httpClient);
 });
 
-builder.Services.AddScoped<IGameApiClient, GameApiClient>(sp =>
+builder.Services.AddScoped<IGameApiClient>(sp =>
 {
-    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
     var httpClient = new HttpClient(handler)
     {
         BaseAddress = new Uri(apiBaseAddress)
@@ -57,9 +64,10 @@ builder.Services.AddScoped<IGameApiClient, GameApiClient>(sp =>
     return new GameApiClient(httpClient);
 });
 
-builder.Services.AddScoped<IUsersApiClient, UsersApiClient>(sp =>
+builder.Services.AddScoped<IUsersApiClient>(sp =>
 {
-    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
     var httpClient = new HttpClient(handler)
     {
         BaseAddress = new Uri(apiBaseAddress)
@@ -67,9 +75,10 @@ builder.Services.AddScoped<IUsersApiClient, UsersApiClient>(sp =>
     return new UsersApiClient(httpClient);
 });
 
-builder.Services.AddScoped<IQuestionsApiClient, QuestionsApiClient>(sp =>
+builder.Services.AddScoped<IQuestionsApiClient>(sp =>
 {
-    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
     var httpClient = new HttpClient(handler)
     {
         BaseAddress = new Uri(apiBaseAddress)
@@ -77,9 +86,10 @@ builder.Services.AddScoped<IQuestionsApiClient, QuestionsApiClient>(sp =>
     return new QuestionsApiClient(httpClient);
 });
 
-builder.Services.AddScoped<IModerationApiClient, ModerationApiClient>(sp =>
+builder.Services.AddScoped<IModerationApiClient>(sp =>
 {
-    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
     var httpClient = new HttpClient(handler)
     {
         BaseAddress = new Uri(apiBaseAddress)
@@ -87,9 +97,10 @@ builder.Services.AddScoped<IModerationApiClient, ModerationApiClient>(sp =>
     return new ModerationApiClient(httpClient);
 });
 
-builder.Services.AddScoped<IAdminApiClient, AdminApiClient>(sp =>
+builder.Services.AddScoped<IAdminApiClient>(sp =>
 {
-    var handler = sp.GetRequiredService<AuthenticatedHttpHandler>();
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
     var httpClient = new HttpClient(handler)
     {
         BaseAddress = new Uri(apiBaseAddress)

@@ -32,9 +32,15 @@ public class AuthService : IAuthService
             
             if (authResponse != null)
             {
-                await _localStorage.SetItemAsync(TokenKey, authResponse.Token);
+                await _localStorage.SetItemAsync(TokenKey, authResponse.AccessToken);
                 await _localStorage.SetItemAsync(RefreshTokenKey, authResponse.RefreshToken);
-                await _localStorage.SetItemAsync(UserKey, authResponse.User);
+                await _localStorage.SetItemAsync(UserKey, new UserDto 
+                { 
+                    Id = authResponse.UserId,
+                    Username = authResponse.Username,
+                    Email = authResponse.Email,
+                    Roles = authResponse.Roles.ToList()
+                });
             }
 
             return authResponse;
@@ -58,9 +64,15 @@ public class AuthService : IAuthService
             
             if (authResponse != null)
             {
-                await _localStorage.SetItemAsync(TokenKey, authResponse.Token);
+                await _localStorage.SetItemAsync(TokenKey, authResponse.AccessToken);
                 await _localStorage.SetItemAsync(RefreshTokenKey, authResponse.RefreshToken);
-                await _localStorage.SetItemAsync(UserKey, authResponse.User);
+                await _localStorage.SetItemAsync(UserKey, new UserDto 
+                { 
+                    Id = authResponse.UserId,
+                    Username = authResponse.Username,
+                    Email = authResponse.Email,
+                    Roles = authResponse.Roles.ToList()
+                });
             }
 
             return authResponse;

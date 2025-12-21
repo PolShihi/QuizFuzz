@@ -2,10 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
-using QuizFuzz.Application.Questions.Commands.CreateQuestion;
-using QuizFuzz.Application.Questions.Queries.GetQuestion;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
+using QuizFuzz.Shared.Dtos.Questions;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -49,19 +48,22 @@ public class QuestionsController : ControllerBase
             questions = await _unitOfWork.Questions.GetByStatusAsync(QuestionStatus.Approved);
         }
 
-        var result = questions.Select(q => new
+        var result = questions.Select(q => new QuestionDto
         {
-            q.Id,
-            q.Type,
-            q.Title,
-            q.PromptText,
-            q.Difficulty,
-            q.LanguageCode,
-            q.Status,
-            q.AuthorUserId,
-            q.CreatedAt,
-            q.UpdatedAt
-        });
+            Id = q.Id,
+            QuestionType = q.Type.ToString(),
+            Title = q.Title ?? string.Empty,
+            PromptText = q.PromptText,
+            Difficulty = q.Difficulty.ToString(),
+            LanguageCode = q.LanguageCode,
+            Status = q.Status.ToString(),
+            AuthorUserId = q.AuthorUserId,
+            CreatedAt = q.CreatedAt,
+            UpdatedAt = q.UpdatedAt,
+            Answers = new List<QuestionAnswerDto>(), // Simplified list endpoint
+            Hints = new List<HintDto>(),
+            Tags = new List<TagDto>()
+        }).ToList();
 
         return Ok(result);
     }
@@ -82,26 +84,26 @@ public class QuestionsController : ControllerBase
         var result = new QuestionDto
         {
             Id = question.Id,
-            Type = question.Type,
-            Title = question.Title,
+            QuestionType = question.Type.ToString(),
+            Title = question.Title ?? string.Empty,
             PromptText = question.PromptText,
-            Difficulty = question.Difficulty,
+            Difficulty = question.Difficulty.ToString(),
             LanguageCode = question.LanguageCode,
-            Status = question.Status,
+            Status = question.Status.ToString(),
             AuthorUserId = question.AuthorUserId,
             CreatedAt = question.CreatedAt,
             UpdatedAt = question.UpdatedAt,
-            Answers = question.Answers.Select(a => new AnswerDto
+            Answers = question.Answers.Select(a => new QuestionAnswerDto
             {
                 Id = a.Id,
                 AnswerText = a.AnswerText,
                 IsPrimary = a.IsPrimary,
                 IsActive = a.IsActive,
-                Aliases = a.Aliases.Select(alias => new AliasDto
+                Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
                 {
                     Id = alias.Id,
                     AliasText = alias.AliasText,
-                    Kind = alias.Kind
+                    Kind = alias.Kind.ToString()
                 }).ToList()
             }).ToList(),
             Hints = question.Hints.Select(h => new HintDto
@@ -109,13 +111,14 @@ public class QuestionsController : ControllerBase
                 Id = h.Id,
                 OrderIndex = h.OrderIndex,
                 HintText = h.HintText ?? "",
-                RevealTimeSec = h.RevealTimeSec
+                RevealTimeSeconds = h.RevealTimeSec
             }).ToList(),
             Tags = question.Tags.Select(qt => new TagDto
             {
                 Id = qt.Tag.Id,
                 Name = qt.Tag.Name,
-                Description = qt.Tag.Description
+                Description = qt.Tag.Description,
+                IsActive = qt.Tag.IsActive
             }).ToList()
         };
 
@@ -129,49 +132,59 @@ public class QuestionsController : ControllerBase
     [Authorize]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateQuestion([FromBody] CreateQuestionCommand command)
+    public async Task<IActionResult> CreateQuestion([FromBody] CreateQuestionRequest request)
     {
-        if (string.IsNullOrWhiteSpace(command.PromptText))
+        if (string.IsNullOrWhiteSpace(request.PromptText))
             return BadRequest("Prompt text is required");
 
-        if (command.Answers == null || !command.Answers.Any())
+        if (request.Answers == null || !request.Answers.Any())
             return BadRequest("At least one answer is required");
 
-        if (!command.Answers.Any(a => a.IsPrimary))
+        if (!request.Answers.Any(a => a.IsPrimary))
             return BadRequest("At least one primary answer is required");
 
         try
         {
             var userId = _currentUserService.UserId;
 
+            // Parse enum strings
+            if (!Enum.TryParse<QuestionType>(request.QuestionType, true, out var questionType))
+                questionType = QuestionType.Text;
+
+            if (!Enum.TryParse<Difficulty>(request.Difficulty, true, out var difficulty))
+                difficulty = Difficulty.Medium;
+
             var question = new Question(
-                command.Type,
-                command.PromptText,
-                command.Difficulty,
-                command.LanguageCode,
-                command.Title,
+                questionType,
+                request.PromptText,
+                difficulty,
+                request.LanguageCode,
+                request.Title,
                 userId);
 
             // Добавляем ответы
-            foreach (var answerDto in command.Answers)
+            foreach (var answerDto in request.Answers)
             {
                 var answer = question.AddAnswer(answerDto.AnswerText, answerDto.IsPrimary);
 
                 // Добавляем алиасы
                 foreach (var aliasDto in answerDto.Aliases)
                 {
-                    answer.AddAlias(aliasDto.AliasText, aliasDto.Kind);
+                    if (!Enum.TryParse<AliasKind>(aliasDto.Kind, true, out var aliasKind))
+                        aliasKind = AliasKind.Synonym;
+                    
+                    answer.AddAlias(aliasDto.AliasText, aliasKind);
                 }
             }
 
             // Добавляем подсказки
-            foreach (var hintDto in command.Hints)
+            foreach (var hintDto in request.Hints)
             {
-                question.AddHint(hintDto.OrderIndex, hintDto.HintText, hintDto.RevealTimeSec);
+                question.AddHint(hintDto.OrderIndex, hintDto.HintText, hintDto.RevealTimeSeconds);
             }
 
             // Добавляем теги
-            foreach (var tagId in command.TagIds)
+            foreach (var tagId in request.TagIds)
             {
                 var tag = await _unitOfWork.Tags.GetByIdAsync(tagId);
                 if (tag != null)
@@ -185,10 +198,54 @@ public class QuestionsController : ControllerBase
 
             _logger.LogInformation("Question {QuestionId} created by user {UserId}", question.Id, userId);
 
+            // Return created question with DTO
+            var createdQuestion = await _unitOfWork.Questions.GetWithAllDetailsAsync(question.Id);
+            
+            var resultDto = new QuestionDto
+            {
+                Id = createdQuestion!.Id,
+                QuestionType = createdQuestion.Type.ToString(),
+                Title = createdQuestion.Title ?? string.Empty,
+                PromptText = createdQuestion.PromptText,
+                Difficulty = createdQuestion.Difficulty.ToString(),
+                Status = createdQuestion.Status.ToString(),
+                LanguageCode = createdQuestion.LanguageCode,
+                AuthorUserId = createdQuestion.AuthorUserId,
+                CreatedAt = createdQuestion.CreatedAt,
+                UpdatedAt = createdQuestion.UpdatedAt,
+                Answers = createdQuestion.Answers.Select(a => new QuestionAnswerDto
+                {
+                    Id = a.Id,
+                    AnswerText = a.AnswerText,
+                    IsPrimary = a.IsPrimary,
+                    IsActive = a.IsActive,
+                    Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
+                    {
+                        Id = alias.Id,
+                        AliasText = alias.AliasText,
+                        Kind = alias.Kind.ToString()
+                    }).ToList()
+                }).ToList(),
+                Hints = createdQuestion.Hints.Select(h => new HintDto
+                {
+                    Id = h.Id,
+                    OrderIndex = h.OrderIndex,
+                    HintText = h.HintText ?? "",
+                    RevealTimeSeconds = h.RevealTimeSec
+                }).ToList(),
+                Tags = createdQuestion.Tags.Select(qt => new TagDto
+                {
+                    Id = qt.Tag.Id,
+                    Name = qt.Tag.Name,
+                    Description = qt.Tag.Description,
+                    IsActive = qt.Tag.IsActive
+                }).ToList()
+            };
+            
             return CreatedAtAction(
                 nameof(GetQuestion),
                 new { id = question.Id },
-                new { question.Id, question.Status });
+                resultDto);
         }
         catch (Exception ex)
         {

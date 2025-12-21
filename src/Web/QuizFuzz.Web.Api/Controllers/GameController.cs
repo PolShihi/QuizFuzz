@@ -2,11 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
-using QuizFuzz.Application.Game.Commands.SubmitAnswer;
-using QuizFuzz.Application.Game.Queries.GetScoreboard;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 using QuizFuzz.Domain.ValueObjects;
+using QuizFuzz.Shared.Dtos.Game;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -140,19 +139,19 @@ public class GameController : ControllerBase
     /// <summary>
     /// Отправить ответ на вопрос
     /// </summary>
-    [HttpPost("answer")]
+    [HttpPost("submit-answer")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> SubmitAnswer([FromBody] SubmitAnswerCommand command)
+    public async Task<IActionResult> SubmitAnswer([FromBody] SubmitAnswerRequest request)
     {
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
             return Unauthorized();
 
-        var round = await _unitOfWork.GameRounds.GetWithDetailsAsync(command.RoundId);
+        var round = await _unitOfWork.GameRounds.GetWithDetailsAsync(request.RoundId);
 
         if (round == null)
-            return NotFound($"Round with ID {command.RoundId} not found");
+            return NotFound($"Round with ID {request.RoundId} not found");
 
         if (round.Status != RoundStatus.Active)
             return BadRequest("Round is not active");
@@ -168,15 +167,15 @@ public class GameController : ControllerBase
         try
         {
             // Создаем ответ игрока
-            var answerTimeMs = round.GetElapsedTimeMs();
-            var playerAnswer = round.AddAnswer(userId.Value, command.AnswerText, answerTimeMs);
+            var answerTimeMs = request.AnswerTimeMs > 0 ? request.AnswerTimeMs : round.GetElapsedTimeMs();
+            var playerAnswer = round.AddAnswer(userId.Value, request.AnswerText, answerTimeMs);
 
             await _unitOfWork.SaveChangesAsync();
 
             // Оцениваем ответ с помощью Fuzzy Matching
             var matchResult = await _fuzzyMatchingService.EvaluateAnswerAsync(
                 round.QuestionId,
-                command.AnswerText);
+                request.AnswerText);
 
             // Создаем оценку
             var confidence = Confidence.Create(matchResult.Confidence);
@@ -215,25 +214,19 @@ public class GameController : ControllerBase
 
             _logger.LogInformation(
                 "Answer submitted for round {RoundId} by user {UserId}: {IsCorrect}",
-                command.RoundId, userId, matchResult.IsCorrect);
+                request.RoundId, userId, matchResult.IsCorrect);
 
-            var result = new SubmitAnswerResult
-            {
-                PlayerAnswerId = playerAnswer.Id,
-                IsCorrect = matchResult.IsCorrect,
-                Strategy = matchResult.Strategy,
-                ScoreAwarded = evaluation.ScoreAwarded,
-                Confidence = matchResult.Confidence,
-                IsFirstCorrect = evaluation.ScoreAwarded > 0 && matchResult.IsCorrect,
-                NewTotalScore = scoreboard?.ScoreTotal ?? 0,
-                AnswerTimeMs = answerTimeMs
-            };
-
-            return Ok(result);
+            // Return simple success - details will be sent via SignalR
+            return Ok(new 
+            { 
+                success = true,
+                isCorrect = matchResult.IsCorrect,
+                scoreAwarded = evaluation.ScoreAwarded
+            });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error submitting answer for round {RoundId}", command.RoundId);
+            _logger.LogError(ex, "Error submitting answer for round {RoundId}", request.RoundId);
             return BadRequest(ex.Message);
         }
     }
@@ -297,7 +290,7 @@ public class GameController : ControllerBase
     /// <summary>
     /// Получить scoreboard сессии
     /// </summary>
-    [HttpGet("scoreboard/{sessionId}")]
+    [HttpGet("sessions/{sessionId}/scoreboard")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetScoreboard(Guid sessionId)
@@ -314,10 +307,9 @@ public class GameController : ControllerBase
             {
                 UserId = s.UserId,
                 Username = s.User.Username,
-                ScoreTotal = s.ScoreTotal,
-                CorrectCount = s.CorrectCount,
-                UniqueCorrectCount = s.UniqueCorrectCount,
-                Rank = index + 1
+                TotalScore = s.ScoreTotal,
+                CorrectAnswers = s.CorrectCount,
+                UniqueCorrectAnswers = s.UniqueCorrectCount
             }).ToList()
         };
 
@@ -325,37 +317,33 @@ public class GameController : ControllerBase
     }
 
     /// <summary>
-    /// Получить текущий активный раунд сессии
+    /// Получить текущий вопрос активного раунда
     /// </summary>
-    [HttpGet("session/{sessionId}/current-round")]
+    [HttpGet("sessions/{sessionId}/current-question")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetCurrentRound(Guid sessionId)
+    public async Task<IActionResult> GetCurrentQuestion(Guid sessionId)
     {
         var round = await _unitOfWork.GameRounds.GetActiveRoundBySessionIdAsync(sessionId);
 
         if (round == null)
             return NotFound("No active round found for this session");
 
-        var result = new
+        var result = new GameQuestionDto
         {
-            round.Id,
-            round.RoundIndex,
-            round.QuestionId,
-            questionText = round.Question.PromptText,
-            questionTitle = round.Question.Title,
-            difficulty = round.Question.Difficulty,
-            round.Status,
-            round.StartedAt,
-            timeLimitSec = round.TimeLimitSec,
-            timeRemainingMs = Math.Max(0, (int)(round.GetDeadline() - DateTime.UtcNow).TotalMilliseconds),
-            hints = round.Question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
+            QuestionId = round.QuestionId,
+            RoundId = round.Id,
+            Text = round.Question.PromptText,
+            MediaUrl = null, // TODO: get from MediaAssets
+            QuestionType = round.Question.Type.ToString(),
+            TimeLimit = round.TimeLimitSec,
+            StartedAt = round.StartedAt ?? DateTime.UtcNow,
+            Hints = round.Question.Hints.OrderBy(h => h.OrderIndex).Select(h => new Shared.Dtos.Game.HintDto
             {
-                h.OrderIndex,
-                h.HintText,
-                h.RevealTimeSec
-            }),
-            answersCount = round.Answers.Count
+                OrderIndex = h.OrderIndex,
+                Text = h.HintText,
+                RevealTimeSeconds = h.RevealTimeSec
+            }).ToList()
         };
 
         return Ok(result);

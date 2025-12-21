@@ -9,7 +9,9 @@ public class CreateRoomRequest
     [MaxLength(100, ErrorMessage = "Room name cannot exceed 100 characters")]
     public string Name { get; set; } = string.Empty;
 
-    public bool IsPrivate { get; set; }
+    public string Visibility { get; set; } = "Public"; // Public или Private
+
+    public string? AccessCode { get; set; }
 
     [Range(2, 50, ErrorMessage = "Max players must be between 2 and 50")]
     public int MaxPlayers { get; set; } = 10;
@@ -19,5 +21,13 @@ public class CreateRoomRequest
     [Range(1, int.MaxValue, ErrorMessage = "Victory value must be positive")]
     public int VictoryValue { get; set; } = 100;
 
-    public List<int> TagIds { get; set; } = new();
+    public string TagSelectionMode { get; set; } = "Any";
+
+    public List<RoomTagSelectionDto> TagSelections { get; set; } = new();
+}
+
+public class RoomTagSelectionDto
+{
+    public Guid TagId { get; set; }
+    public int Weight { get; set; } = 1;
 }

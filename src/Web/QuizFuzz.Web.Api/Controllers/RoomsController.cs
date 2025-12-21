@@ -2,10 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
-using QuizFuzz.Application.Rooms.Commands.CreateRoom;
-using QuizFuzz.Application.Rooms.Queries.GetRoom;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
+using QuizFuzz.Shared.Dtos.Rooms;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -35,6 +34,48 @@ public class RoomsController : ControllerBase
     }
 
     /// <summary>
+    /// Получить список всех комнат (публичных и приватных для авторизованных)
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetRooms()
+    {
+        _logger.LogInformation("📋 [GetRooms] Loading public rooms list");
+        
+        var rooms = await _unitOfWork.Rooms.GetPublicRoomsAsync();
+        
+        _logger.LogInformation("📋 [GetRooms] Found {Count} rooms", rooms.Count());
+
+        var result = new List<RoomListItemDto>();
+        
+        foreach (var r in rooms)
+        {
+            // Получаем активную сессию для подсчета игроков
+            var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(r.Id);
+            var playerCount = session?.Players.Count(p => p.IsActive) ?? 0;
+            
+            _logger.LogInformation("📊 [GetRooms] Room '{RoomName}': {Players}/{MaxPlayers} players", 
+                r.Name, playerCount, r.MaxPlayers);
+            
+            result.Add(new RoomListItemDto
+            {
+                Id = r.Id,
+                Name = r.Name,
+                OwnerUsername = r.Owner.Username,
+                IsPrivate = r.Visibility == RoomVisibility.Private,
+                MaxPlayers = r.MaxPlayers,
+                CurrentPlayers = playerCount, // ✅ Реальное количество!
+                Status = r.Status.ToString(),
+                CreatedAt = r.CreatedAt
+            });
+        }
+        
+        _logger.LogInformation("✅ [GetRooms] Returning {Count} rooms with player counts", result.Count);
+
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Получить список публичных комнат
     /// </summary>
     [HttpGet("public")]
@@ -44,19 +85,17 @@ public class RoomsController : ControllerBase
     {
         var rooms = await _unitOfWork.Rooms.GetPublicRoomsAsync();
 
-        var result = rooms.Select(r => new
+        var result = rooms.Select(r => new RoomListItemDto
         {
-            r.Id,
-            r.Name,
-            r.OwnerUserId,
+            Id = r.Id,
+            Name = r.Name,
             OwnerUsername = r.Owner.Username,
-            r.MaxPlayers,
+            IsPrivate = r.Visibility == RoomVisibility.Private,
+            MaxPlayers = r.MaxPlayers,
             CurrentPlayers = 0, // TODO: подсчитать из активной сессии
-            r.Status,
-            r.VictoryConditionType,
-            r.VictoryValue,
-            r.CreatedAt
-        });
+            Status = r.Status.ToString(),
+            CreatedAt = r.CreatedAt
+        }).ToList();
 
         return Ok(result);
     }
@@ -74,21 +113,68 @@ public class RoomsController : ControllerBase
         if (room == null)
             return NotFound($"Room with ID {id} not found");
 
-        var result = new RoomDto
+        _logger.LogInformation("🔍 [GetRoom] Loading room {RoomId}", id);
+        _logger.LogInformation("🔍 [GetRoom] Room owner: {OwnerId}", room.OwnerUserId);
+        
+        // Получаем активную сессию для загрузки игроков
+        var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
+        
+        _logger.LogInformation("🔍 [GetRoom] GetActiveByRoomIdAsync returned: {Result}", session != null ? $"Session {session.Id}" : "NULL");
+        
+        var players = new List<PlayerInRoomDto>();
+        if (session != null)
+        {
+            _logger.LogInformation("📊 [GetRoom] Loading players from session {SessionId}", session.Id);
+            _logger.LogInformation("📊 [GetRoom] Session has {Count} players", session.Players.Count);
+            
+            foreach (var player in session.Players.Where(p => p.IsActive))
+            {
+                _logger.LogInformation("👤 [GetRoom] Processing player {UserId}, IsActive: {IsActive}", player.UserId, player.IsActive);
+                
+                var user = await _unitOfWork.Users.GetByIdAsync(player.UserId);
+                if (user != null)
+                {
+                    var isRoomOwner = player.UserId == room.OwnerUserId;
+                    
+                    _logger.LogInformation("✅ [GetRoom] Adding player: {Username}, IsOwner: {IsOwner}", user.Username, isRoomOwner);
+                    
+                    players.Add(new PlayerInRoomDto
+                    {
+                        UserId = player.UserId,
+                        Username = user.Username,
+                        IsOwner = isRoomOwner,
+                        IsReady = false,
+                        JoinedAt = player.JoinedAt
+                    });
+                }
+                else
+                {
+                    _logger.LogWarning("❌ [GetRoom] User {UserId} not found!", player.UserId);
+                }
+            }
+            
+            _logger.LogInformation("✅ [GetRoom] Loaded {Count} players for room {RoomId}", players.Count, id);
+        }
+        else
+        {
+            _logger.LogWarning("❌ [GetRoom] No active session found for room {RoomId}!", id);
+            _logger.LogWarning("❌ [GetRoom] This means session was not created or not found!");
+        }
+        
+        var result = new RoomDetailsDto
         {
             Id = room.Id,
-            OwnerUserId = room.OwnerUserId,
+            OwnerId = room.OwnerUserId,
             OwnerUsername = room.Owner.Username,
             Name = room.Name,
-            Visibility = room.Visibility,
+            IsPrivate = room.Visibility == RoomVisibility.Private,
             MaxPlayers = room.MaxPlayers,
-            CurrentPlayers = 0, // TODO: подсчитать
-            VictoryConditionType = room.VictoryConditionType,
+            Status = room.Status.ToString(),
+            VictoryConditionType = room.VictoryConditionType.ToString(),
             VictoryValue = room.VictoryValue,
-            TagSelectionMode = room.TagSelectionMode,
-            Status = room.Status,
             CreatedAt = room.CreatedAt,
-            Tags = room.TagSelections.Select(ts => ts.Tag.Name).ToList()
+            Players = players,
+            CurrentSessionId = session?.Id
         };
 
         return Ok(result);
@@ -100,9 +186,9 @@ public class RoomsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateRoom([FromBody] CreateRoomCommand command)
+    public async Task<IActionResult> CreateRoom([FromBody] CreateRoomRequest request)
     {
-        if (string.IsNullOrWhiteSpace(command.Name))
+        if (string.IsNullOrWhiteSpace(request.Name))
             return BadRequest("Room name is required");
 
         var userId = _currentUserService.UserId;
@@ -111,20 +197,30 @@ public class RoomsController : ControllerBase
 
         try
         {
+            // Парсим строки в enum'ы
+            if (!Enum.TryParse<RoomVisibility>(request.Visibility, true, out var visibility))
+                visibility = RoomVisibility.Public;
+
+            if (!Enum.TryParse<VictoryConditionType>(request.VictoryConditionType, true, out var victoryType))
+                victoryType = VictoryConditionType.Points;
+
+            if (!Enum.TryParse<TagSelectionMode>(request.TagSelectionMode, true, out var tagMode))
+                tagMode = TagSelectionMode.Any;
+
             string? accessCodeHash = null;
-            if (command.Visibility == RoomVisibility.Private && !string.IsNullOrWhiteSpace(command.AccessCode))
+            if (visibility == RoomVisibility.Private && !string.IsNullOrWhiteSpace(request.AccessCode))
             {
-                accessCodeHash = _passwordHasher.HashPassword(command.AccessCode);
+                accessCodeHash = _passwordHasher.HashPassword(request.AccessCode);
             }
 
             var room = new Room(
                 userId.Value,
-                command.Name,
-                command.Visibility,
-                command.MaxPlayers,
-                command.VictoryConditionType,
-                command.VictoryValue,
-                command.TagSelectionMode);
+                request.Name,
+                visibility,
+                request.MaxPlayers,
+                victoryType,
+                request.VictoryValue,
+                tagMode);
 
             if (accessCodeHash != null)
             {
@@ -132,7 +228,7 @@ public class RoomsController : ControllerBase
             }
 
             // Добавляем выбранные теги
-            foreach (var tagSelection in command.TagSelections)
+            foreach (var tagSelection in request.TagSelections)
             {
                 room.AddTagSelection(tagSelection.TagId, tagSelection.Weight);
             }
@@ -140,12 +236,37 @@ public class RoomsController : ControllerBase
             await _unitOfWork.Rooms.AddAsync(room);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Room {RoomId} created by user {UserId}", room.Id, userId);
+            _logger.LogInformation("🏠 [Room] Room {RoomId} created by user {UserId}", room.Id, userId);
+
+            // Загружаем пользователя для получения username
+            var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
+            
+            // ВАЖНО: Создаем GameSession автоматически и добавляем создателя как игрока
+            var session = new GameSession(room.Id, 10); // TODO: настраиваемое количество раундов
+            session.AddPlayer(userId.Value, true); // isOwner = true
+            await _unitOfWork.GameSessions.AddAsync(session);
+            await _unitOfWork.SaveChangesAsync();
+            
+            _logger.LogInformation("👤 [Room] Creator {Username} automatically joined room {RoomId} as player in session {SessionId}", 
+                user?.Username, room.Id, session.Id);
+            
+            // Возвращаем RoomListItemDto для совместимости с Frontend
+            var result = new RoomListItemDto
+            {
+                Id = room.Id,
+                Name = room.Name,
+                OwnerUsername = user?.Username ?? "Unknown",
+                IsPrivate = room.Visibility == RoomVisibility.Private,
+                MaxPlayers = room.MaxPlayers,
+                CurrentPlayers = 1, // Создатель комнаты
+                Status = room.Status.ToString(),
+                CreatedAt = room.CreatedAt
+            };
 
             return CreatedAtAction(
                 nameof(GetRoom),
                 new { id = room.Id },
-                new { room.Id, room.Name, room.Status });
+                result);
         }
         catch (Exception ex)
         {
@@ -181,43 +302,80 @@ public class RoomsController : ControllerBase
                 return BadRequest("Invalid access code");
         }
 
+        _logger.LogInformation("🔍 [JoinRoom] Step 3: Getting current user...");
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
+        {
+            _logger.LogError("❌ [JoinRoom] User ID is NULL - Unauthorized!");
             return Unauthorized();
+        }
+        _logger.LogInformation("✅ [JoinRoom] User ID: {UserId}", userId.Value);
 
         // Получаем или создаем активную сессию
+        _logger.LogInformation("🔍 [JoinRoom] Step 4: Loading active session for room...");
         var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
 
         if (session == null)
         {
-            // Создаем новую сессию
+            _logger.LogWarning("⚠️ [JoinRoom] No active session found - creating new one...");
+            // Создаем новую сессию если её нет
             session = new GameSession(id, 10); // TODO: настраиваемое количество раундов
             await _unitOfWork.GameSessions.AddAsync(session);
+            await _unitOfWork.SaveChangesAsync();
+            _logger.LogInformation("✅ [JoinRoom] New session created: {SessionId}", session.Id);
+        }
+        else
+        {
+            _logger.LogInformation("✅ [JoinRoom] Active session found: {SessionId}, Players: {Count}", 
+                session.Id, session.Players.Count);
         }
 
         // Проверяем, не присоединился ли уже игрок
+        _logger.LogInformation("🔍 [JoinRoom] Step 5: Checking if player already in session...");
         var existingPlayer = session.Players.FirstOrDefault(p => p.UserId == userId.Value && p.IsActive);
         if (existingPlayer != null)
-            return BadRequest("You are already in this room");
+        {
+            _logger.LogInformation("ℹ️ [JoinRoom] User {UserId} ALREADY in session!", userId);
+            return Ok(new { success = true, message = "Already in room", sessionId = session.Id });
+        }
+        _logger.LogInformation("✅ [JoinRoom] Player not in session - can join");
 
         // Проверяем лимит игроков
+        _logger.LogInformation("🔍 [JoinRoom] Step 6: Checking room capacity...");
         var activePlayers = session.Players.Count(p => p.IsActive);
+        _logger.LogInformation("📊 [JoinRoom] Current players: {Count}/{Max}", activePlayers, room.MaxPlayers);
+        
         if (activePlayers >= room.MaxPlayers)
-            return BadRequest("Room is full");
+        {
+            _logger.LogError("❌ [JoinRoom] Room is FULL! ({Count}/{Max})", activePlayers, room.MaxPlayers);
+            return BadRequest($"Room is full ({activePlayers}/{room.MaxPlayers})");
+        }
+        _logger.LogInformation("✅ [JoinRoom] Room has space");
 
-        // Добавляем игрока
+        // Добавляем игрока в сессию
+        _logger.LogInformation("🔍 [JoinRoom] Step 7: Adding player to session...");
         var isOwner = room.OwnerUserId == userId.Value;
+        _logger.LogInformation("📊 [JoinRoom] IsOwner: {IsOwner}", isOwner);
+        
         session.AddPlayer(userId.Value, isOwner);
-
+        _logger.LogInformation("✅ [JoinRoom] session.AddPlayer() called");
+        
         await _unitOfWork.SaveChangesAsync();
+        _logger.LogInformation("✅ [JoinRoom] Changes saved to database");
 
-        _logger.LogInformation("User {UserId} joined room {RoomId}", userId, id);
+        var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
+        _logger.LogInformation("🎉 [JoinRoom] ========== JOIN SUCCESS ==========");
+        _logger.LogInformation("✅ [JoinRoom] User {Username} (ID: {UserId}) joined room {RoomId}", 
+            user?.Username ?? "Unknown", userId, room.Name);
+        _logger.LogInformation("✅ [JoinRoom] Session: {SessionId}, Total players: {Count}/{Max}", 
+            session.Id, activePlayers + 1, room.MaxPlayers);
+        _logger.LogInformation("🎉 [JoinRoom] ========== JOIN END ==========");
 
         return Ok(new
         {
-            message = "Successfully joined room",
+            success = true,
             sessionId = session.Id,
-            roomId = id
+            playersCount = activePlayers + 1
         });
     }
 

@@ -21,7 +21,7 @@ builder.Services.AddInfrastructure(builder.Configuration);
 
 // CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
-    ?? new[] { "http://localhost:5173" };
+    ?? new[] { "http://localhost:5173", "https://localhost:5002", "http://localhost:5003" };
 
 builder.Services.AddCors(options =>
 {
@@ -30,7 +30,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowCredentials()
+              .SetIsOriginAllowedToAllowWildcardSubdomains();
     });
 });
 
@@ -142,16 +143,29 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Routing ПЕРВЫМ!
+app.UseRouting();
+
+// CORS после Routing!
 app.UseCors("AllowAll");
 
+// Authentication и Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
+// Map endpoints
+app.MapControllers().RequireCors("AllowAll");
 
-// SignalR Hubs
-app.MapHub<QuizFuzz.Web.Api.Hubs.GameHub>("/hubs/game");
-app.MapHub<QuizFuzz.Web.Api.Hubs.LobbyHub>("/hubs/lobby");
+// SignalR Hubs with CORS
+app.MapHub<QuizFuzz.Web.Api.Hubs.GameHub>("/hubs/game").RequireCors("AllowAll");
+app.MapHub<QuizFuzz.Web.Api.Hubs.LobbyHub>("/hubs/lobby").RequireCors("AllowAll");
+
+// Log mapped endpoints
+var appLogger = app.Services.GetRequiredService<ILogger<Program>>();
+appLogger.LogInformation("🚀 [Startup] SignalR Hubs mapped:");
+appLogger.LogInformation("   - GameHub: /hubs/game");
+appLogger.LogInformation("   - LobbyHub: /hubs/lobby");
+appLogger.LogInformation("🔐 [Startup] CORS enabled for: {Origins}", string.Join(", ", allowedOrigins));
 
 // Health check endpoint
 app.MapHealthChecks("/health");
@@ -164,17 +178,17 @@ if (app.Environment.IsDevelopment())
     
     try
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogInformation("Seeding database...");
+        var seedLogger = services.GetRequiredService<ILogger<Program>>();
+        seedLogger.LogInformation("🌱 [Startup] Seeding database...");
         
         await QuizFuzz.Infrastructure.Persistence.Seeds.SeedExtensions.SeedDatabaseAsync(services);
         
-        logger.LogInformation("Database seeded successfully!");
+        seedLogger.LogInformation("✅ [Startup] Database seeded successfully!");
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database");
+        var seedLogger = services.GetRequiredService<ILogger<Program>>();
+        seedLogger.LogError(ex, "❌ [Startup] Error while seeding database");
     }
 }
 

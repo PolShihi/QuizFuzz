@@ -1,4 +1,4 @@
-@page "/admin/questions"
+﻿@page "/admin/questions"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
 @using Microsoft.AspNetCore.Authorization
@@ -88,15 +88,15 @@
                     </MudStack>
                 </MudTd>
                 <MudTd DataLabel="Type">
-                    <MudChip Size="Size.Small">@context.QuestionType</MudChip>
+                    <MudChip T="string" Size="Size.Small">@context.QuestionType</MudChip>
                 </MudTd>
                 <MudTd DataLabel="Difficulty">
-                    <MudChip Size="Size.Small" Color="@GetDifficultyColor(context.Difficulty)">
+                    <MudChip T="string" Size="Size.Small" Color="@GetDifficultyColor(context.Difficulty)">
                         @context.Difficulty
                     </MudChip>
                 </MudTd>
                 <MudTd DataLabel="Status">
-                    <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
                         @context.Status
                     </MudChip>
                 </MudTd>
@@ -185,7 +185,7 @@
                                                       Variant="Variant.Outlined"
                                                       FullWidth="true"
                                                       ReadOnly="@(!isEditMode && !isCreateMode)" />
-                                        <MudCheckBox @bind-Checked="answer.IsPrimary" Label="Primary" ReadOnly="@(!isEditMode && !isCreateMode)" />
+                                        <MudCheckBox T="bool" @bind-Checked="answer.IsPrimary" Label="Primary" ReadOnly="@(!isEditMode && !isCreateMode)" />
                                         @if (isEditMode || isCreateMode)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -213,10 +213,10 @@
                         <MudText Typo="Typo.h6" Class="mb-3">Tags</MudText>
                         @if (isEditMode || isCreateMode)
                         {
-                            <MudSelect T="int" Label="Select Tags" MultiSelection="true" @bind-SelectedValues="selectedTagIds" Variant="Variant.Outlined">
+                            <MudSelect T="Guid" Label="Select Tags" MultiSelection="true" @bind-SelectedValues="selectedTagIds" Variant="Variant.Outlined">
                                 @foreach (var tag in availableTags)
                                 {
-                                    <MudSelectItem T="int" Value="@tag.Id">@tag.Name</MudSelectItem>
+                                    <MudSelectItem T="Guid" Value="@tag.Id">@tag.Name</MudSelectItem>
                                 }
                             </MudSelect>
                         }
@@ -224,7 +224,7 @@
                         {
                             @foreach (var tag in currentQuestion.Tags)
                             {
-                                <MudChip Size="Size.Small" Class="ma-1">@tag.Name</MudChip>
+                                <MudChip T="string" Size="Size.Small" Class="ma-1">@tag.Name</MudChip>
                             }
                         }
                     </MudPaper>
@@ -261,6 +261,7 @@
 @code {
     private List<QuestionDto> questions = new();
     private List<TagDto> availableTags = new();
+    private List<TagDto> allTags = new();
     private QuestionDto? currentQuestion;
     private bool isLoading = true;
     private bool showDialog = false;
@@ -269,7 +270,7 @@
     private bool isSaving = false;
     private string? filterStatus;
     private string? filterDifficulty;
-    private IEnumerable<int> selectedTagIds = new List<int>();
+    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -302,7 +303,7 @@
             },
             Tags = new List<TagDto>()
         };
-        selectedTagIds = new List<int>();
+        selectedTagIds = new List<Guid>();
         isCreateMode = true;
         isEditMode = false;
         showDialog = true;
@@ -412,3 +413,4 @@
         _ => Color.Default
     };
 }
+

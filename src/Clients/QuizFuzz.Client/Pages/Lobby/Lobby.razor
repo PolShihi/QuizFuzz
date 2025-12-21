@@ -1,4 +1,4 @@
-@page "/lobby"
+﻿@page "/lobby"
 @page "/"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Client.Services.Auth
@@ -84,7 +84,7 @@
                         </MudCardHeader>
                         <MudCardContent>
                             <MudStack Spacing="2">
-                                <MudChip Size="Size.Small" Color="GetStatusColor(room.Status)">
+                                <MudChip T="string" Size="Size.Small" Color="GetStatusColor(room.Status)">
                                     @room.Status
                                 </MudChip>
                                 <MudText Typo="Typo.body2">
@@ -101,7 +101,7 @@
                                        Color="Color.Primary"
                                        FullWidth="true"
                                        OnClick="@(() => JoinRoom(room.Id))"
-                                       Disabled="@(room.Status != "LOBBY" || room.CurrentPlayers >= room.MaxPlayers)">
+                                       Disabled="@(room.Status != "Lobby" || room.CurrentPlayers >= room.MaxPlayers)">
                                 Join Room
                             </MudButton>
                         </MudCardActions>
@@ -139,11 +139,28 @@
 
     private async Task JoinRoom(Guid roomId)
     {
+        Console.WriteLine($"🚪 [Lobby] ========== JOIN ROOM START ==========");
+        Console.WriteLine($"🚪 [Lobby] Room ID: {roomId}");
+        Console.WriteLine($"🚪 [Lobby] Calling RoomsClient.JoinRoomAsync...");
+        
         var success = await RoomsClient.JoinRoomAsync(roomId);
+        
+        Console.WriteLine($"🚪 [Lobby] ========== JOIN RESULT ==========");
+        Console.WriteLine($"🚪 [Lobby] Success: {success}");
+        
         if (success)
         {
+            Console.WriteLine($"✅ [Lobby] JOIN SUCCESS! Navigating to /room/{roomId}");
             Navigation.NavigateTo($"/room/{roomId}");
         }
+        else
+        {
+            Console.WriteLine($"❌ [Lobby] JOIN FAILED!");
+            Console.WriteLine($"❌ [Lobby] Check Backend logs for reason!");
+            // TODO: Show error message to user
+        }
+        
+        Console.WriteLine($"🚪 [Lobby] ========== JOIN ROOM END ==========");
     }
 
     private async Task HandleLogout()
@@ -156,9 +173,9 @@
     {
         return status switch
         {
-            "LOBBY" => Color.Success,
-            "IN_PROGRESS" => Color.Warning,
-            "FINISHED" => Color.Default,
+            "Lobby" => Color.Success,
+            "InProgress" => Color.Warning,
+            "Finished" => Color.Default,
             _ => Color.Default
         };
     }
@@ -177,3 +194,4 @@
         return $"{(int)timeSpan.TotalDays} days ago";
     }
 }
+

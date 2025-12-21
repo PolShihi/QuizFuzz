@@ -1,4 +1,4 @@
-@page "/admin/moderation"
+﻿@page "/admin/moderation"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Moderation
 @using QuizFuzz.Shared.Dtos.Questions
@@ -16,7 +16,7 @@
                 <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
                 Moderation Queue
             </MudText>
-            <MudChip Color="Color.Warning">@pendingCount Pending</MudChip>
+            <MudChip T="string" Color="Color.Warning">@pendingCount Pending</MudChip>
         </MudStack>
     </MudPaper>
 
@@ -89,7 +89,7 @@
                     <MudText>@context.SubmittedByUsername</MudText>
                 </MudTd>
                 <MudTd DataLabel="Status">
-                    <MudChip Size="Size.Small" Color="@GetStatusColor(context.Status)">
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
                         @context.Status
                     </MudChip>
                 </MudTd>
@@ -151,7 +151,7 @@
                                 <MudText><strong>@answer.AnswerText</strong></MudText>
                                 @if (answer.IsPrimary)
                                 {
-                                    <MudChip Size="Size.Small" Color="Color.Primary">Primary</MudChip>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">Primary</MudChip>
                                 }
                             </MudStack>
                             @if (answer.Aliases?.Any() == true)
@@ -304,3 +304,4 @@
         };
     }
 }
+
