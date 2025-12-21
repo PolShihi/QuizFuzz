@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
+using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 
 namespace QuizFuzz.Web.Api.Hubs;
@@ -289,45 +290,77 @@ public class GameHub : Hub
         var userId = GetUserId();
         var username = Context.User?.Identity?.Name ?? "Unknown";
 
+        _logger.LogInformation("📥 [SubmitAnswer] ========== ANSWER SUBMISSION START ==========");
+        _logger.LogInformation("📥 [SubmitAnswer] User: {Username} ({UserId})", username, userId);
+        _logger.LogInformation("📥 [SubmitAnswer] Round ID: {RoundId}", roundId);
+        _logger.LogInformation("📥 [SubmitAnswer] Answer Text: '{AnswerText}'", answerText);
+
+        _logger.LogInformation("🔍 [SubmitAnswer] Loading round with details...");
         var round = await _unitOfWork.GameRounds.GetWithDetailsAsync(roundId);
         if (round == null)
         {
+            _logger.LogError("❌ [SubmitAnswer] Round {RoundId} not found!", roundId);
             await Clients.Caller.SendAsync("Error", "Round not found");
             return;
         }
+        _logger.LogInformation("✅ [SubmitAnswer] Round loaded. Question ID: {QuestionId}, Status: {Status}", round.QuestionId, round.Status);
 
         if (round.Status != RoundStatus.Active)
         {
+            _logger.LogWarning("⚠️ [SubmitAnswer] Round is not active! Status: {Status}", round.Status);
             await Clients.Caller.SendAsync("Error", "Round is not active");
             return;
         }
 
         if (round.IsDeadlinePassed())
         {
+            _logger.LogWarning("⚠️ [SubmitAnswer] Time limit expired!");
             await Clients.Caller.SendAsync("Error", "Time limit expired");
             return;
         }
 
-        // Проверяем повторный ответ
-        if (round.Answers.Any(a => a.UserId == userId))
+        // Проверяем, не ответил ли игрок уже ПРАВИЛЬНО
+        _logger.LogInformation("🔍 [SubmitAnswer] Checking if user already answered correctly...");
+        var previousCorrectAnswer = round.Answers
+            .Where(a => a.UserId == userId && a.Evaluation != null && a.Evaluation.IsCorrect)
+            .FirstOrDefault();
+            
+        if (previousCorrectAnswer != null)
         {
-            await Clients.Caller.SendAsync("Error", "You have already answered");
+            _logger.LogWarning("⚠️ [SubmitAnswer] User already answered correctly! Blocking duplicate.");
+            await Clients.Caller.SendAsync("Error", "You have already answered correctly. Wait for round to end.");
             return;
         }
+        _logger.LogInformation("✅ [SubmitAnswer] User can submit answer (no correct answer yet)");
 
         try
         {
             var answerTimeMs = round.GetElapsedTimeMs();
+            _logger.LogInformation("⏱️ [SubmitAnswer] Answer time: {TimeMs}ms ({TimeSec}s)", answerTimeMs, answerTimeMs / 1000.0);
+            
+            _logger.LogInformation("💾 [SubmitAnswer] Adding answer to round...");
             var playerAnswer = round.AddAnswer(userId, answerText, answerTimeMs);
+            _logger.LogInformation("✅ [SubmitAnswer] PlayerAnswer created: {AnswerId}", playerAnswer.Id);
+            
+            _logger.LogInformation("💾 [SubmitAnswer] Saving PlayerAnswer to database...");
             await _unitOfWork.SaveChangesAsync();
+            _logger.LogInformation("✅ [SubmitAnswer] PlayerAnswer saved");
 
             // Оцениваем ответ
+            _logger.LogInformation("🎯 [SubmitAnswer] Calling FuzzyMatchingService.EvaluateAnswerAsync...");
             var matchResult = await _fuzzyMatchingService.EvaluateAnswerAsync(
                 round.QuestionId,
                 answerText);
+            
+            _logger.LogInformation("✅ [SubmitAnswer] FuzzyMatching complete!");
+            _logger.LogInformation("📊 [SubmitAnswer] Result: IsCorrect={IsCorrect}, Strategy={Strategy}, Confidence={Confidence}", 
+                matchResult.IsCorrect, matchResult.Strategy, matchResult.Confidence);
 
+            _logger.LogInformation("📝 [SubmitAnswer] Creating AnswerEvaluation...");
             var confidence = Domain.ValueObjects.Confidence.Create(matchResult.Confidence);
             var scoreAwarded = matchResult.IsCorrect ? CalculateScore(answerTimeMs, round.TimeLimitSec) : 0;
+            
+            _logger.LogInformation("💯 [SubmitAnswer] Score calculated: {Score} points (IsCorrect: {IsCorrect})", scoreAwarded, matchResult.IsCorrect);
 
             var evaluation = new Domain.Entities.AnswerEvaluation(
                 playerAnswer.Id,
@@ -338,39 +371,78 @@ public class GameHub : Hub
                 matchResult.NormalizedAnswer,
                 matchResult.MatchedQuestionAnswerId,
                 matchResult.MatchedAliasId);
+            
+            _logger.LogInformation("✅ [SubmitAnswer] AnswerEvaluation created");
 
+            _logger.LogInformation("📝 [SubmitAnswer] Setting evaluation on PlayerAnswer...");
             playerAnswer.SetEvaluation(evaluation);
+            _logger.LogInformation("✅ [SubmitAnswer] Evaluation set");
 
             // Обновляем scoreboard
+            _logger.LogInformation("📊 [SubmitAnswer] Loading scoreboard...");
             var scoreboard = await _unitOfWork.Scoreboards.GetBySessionAndUserAsync(round.SessionId, userId);
             var isFirstCorrect = false;
 
             if (scoreboard != null)
             {
+                _logger.LogInformation("📊 [SubmitAnswer] Scoreboard found. Current score: {CurrentScore}", scoreboard.ScoreTotal);
+                
                 isFirstCorrect = matchResult.IsCorrect && !round.Answers.Any(a =>
                     a.UserId != userId &&
                     a.Evaluation != null &&
                     a.Evaluation.IsCorrect);
+                
+                _logger.LogInformation("🏆 [SubmitAnswer] Is first correct answer: {IsFirst}", isFirstCorrect);
 
+                _logger.LogInformation("📊 [SubmitAnswer] Adding score to scoreboard...");
                 scoreboard.AddScore(scoreAwarded, matchResult.IsCorrect, isFirstCorrect);
+                _logger.LogInformation("📊 [SubmitAnswer] New total score: {NewTotal}", scoreboard.ScoreTotal);
 
                 if (isFirstCorrect)
                 {
+                    _logger.LogInformation("👑 [SubmitAnswer] Setting user as round winner");
                     round.SetWinner(userId);
                 }
             }
+            else
+            {
+                _logger.LogWarning("⚠️ [SubmitAnswer] Scoreboard not found for user {UserId} in session {SessionId}!", userId, round.SessionId);
+            }
 
+            _logger.LogInformation("💾 [SubmitAnswer] Saving evaluation and scoreboard...");
             await _unitOfWork.SaveChangesAsync();
+            _logger.LogInformation("✅ [SubmitAnswer] Saved successfully");
 
             _logger.LogInformation(
-                "Answer submitted in round {RoundId} by {Username}: {IsCorrect}",
-                roundId, username, matchResult.IsCorrect);
+                "✅ [SubmitAnswer] Answer submitted in round {RoundId} by {Username}: IsCorrect={IsCorrect}, Score={Score}",
+                roundId, username, matchResult.IsCorrect, scoreAwarded);
 
+            _logger.LogInformation("🔍 [SubmitAnswer] Loading session and room...");
             var session = await _unitOfWork.GameSessions.GetByIdAsync(round.SessionId);
-            var room = session!.Room;
+            
+            if (session == null)
+            {
+                _logger.LogError("❌ [SubmitAnswer] Session {SessionId} not found!", round.SessionId);
+                await Clients.Caller.SendAsync("Error", "Session not found");
+                return;
+            }
+            
+            _logger.LogInformation("✅ [SubmitAnswer] Session loaded: {SessionId}", session.Id);
+            
+            // Загружаем Room отдельно, так как он не загружается автоматически
+            var room = await _unitOfWork.Rooms.GetByIdAsync(session.RoomId);
+            
+            if (room == null)
+            {
+                _logger.LogError("❌ [SubmitAnswer] Room {RoomId} not found!", session.RoomId);
+                await Clients.Caller.SendAsync("Error", "Room not found");
+                return;
+            }
             var groupName = GetRoomGroupName(room.Id);
+            _logger.LogInformation("✅ [SubmitAnswer] Session and room loaded. Group: {GroupName}", groupName);
 
             // Отправляем результат игроку
+            _logger.LogInformation("📡 [SubmitAnswer] Sending AnswerResult to caller...");
             await Clients.Caller.SendAsync("AnswerResult", new
             {
                 isCorrect = matchResult.IsCorrect,
@@ -381,8 +453,10 @@ public class GameHub : Hub
                 newTotalScore = scoreboard?.ScoreTotal ?? 0,
                 answerTimeMs
             });
+            _logger.LogInformation("✅ [SubmitAnswer] AnswerResult sent to caller");
 
             // Уведомляем всех о том, что кто-то ответил (без деталей)
+            _logger.LogInformation("📡 [SubmitAnswer] Broadcasting PlayerAnswered to group...");
             await Clients.Group(groupName).SendAsync("PlayerAnswered", new
             {
                 userId,
@@ -391,10 +465,12 @@ public class GameHub : Hub
                 answeredCount = round.Answers.Count,
                 isCorrect = matchResult.IsCorrect
             });
+            _logger.LogInformation("✅ [SubmitAnswer] PlayerAnswered broadcast complete");
 
             // Если это первый правильный ответ, уведомляем всех
             if (isFirstCorrect)
             {
+                _logger.LogInformation("📡 [SubmitAnswer] Broadcasting FirstCorrectAnswer (user is first!)...");
                 await Clients.Group(groupName).SendAsync("FirstCorrectAnswer", new
                 {
                     userId,
@@ -402,11 +478,26 @@ public class GameHub : Hub
                     scoreAwarded,
                     timestamp = DateTime.UtcNow
                 });
+                _logger.LogInformation("✅ [SubmitAnswer] FirstCorrectAnswer broadcast complete");
             }
+            
+            // 🎯 КРИТИЧНО: Проверяем условия автоматического завершения раунда
+            _logger.LogInformation("🔍 [SubmitAnswer] Checking auto-end conditions...");
+            
+            // ВАЖНО: Перезагружаем раунд с актуальными ответами!
+            var updatedRound = await _unitOfWork.GameRounds.GetWithDetailsAsync(round.Id);
+            if (updatedRound != null)
+            {
+                await CheckAndAutoEndRound(updatedRound, session, room, groupName);
+            }
+            
+            _logger.LogInformation("📥 [SubmitAnswer] ========== ANSWER SUBMISSION COMPLETE ==========");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error submitting answer for round {RoundId}", roundId);
+            _logger.LogError(ex, "❌ [SubmitAnswer] CRITICAL ERROR submitting answer for round {RoundId}", roundId);
+            _logger.LogError(ex, "   User: {Username} ({UserId})", username, userId);
+            _logger.LogError(ex, "   Answer: '{AnswerText}'", answerText);
             await Clients.Caller.SendAsync("Error", ex.Message);
         }
     }
@@ -540,5 +631,219 @@ public class GameHub : Hub
         score += (int)(timeBonus * Math.Max(0, speedRatio));
 
         return score;
+    }
+    
+    /// <summary>
+    /// Проверяет условия завершения раунда и автоматически завершает если нужно
+    /// </summary>
+    private async Task CheckAndAutoEndRound(GameRound round, GameSession session, Room room, string groupName)
+    {
+        try
+        {
+            // Получаем количество активных игроков из БД (session.Players может быть пустым!)
+            _logger.LogInformation("🔍 [AutoEnd] Checking round {RoundId}...", round.Id);
+            
+            // Загружаем игроков из Scoreboard (они там точно есть если играют)
+            var scoreboards = await _unitOfWork.Scoreboards.GetBySessionIdAsync(session.Id);
+            var totalPlayers = scoreboards.Count;
+            
+            _logger.LogInformation("📊 [AutoEnd] Total players in session: {Total}", totalPlayers);
+            
+            // ВАЖНО: Если игроков нет - НЕ завершаем раунд!
+            if (totalPlayers == 0)
+            {
+                _logger.LogWarning("⚠️ [AutoEnd] No players found in session! Skipping auto-end check.");
+                return;
+            }
+            
+            // Подсчитываем игроков с правильными ответами
+            var playersWithCorrectAnswers = round.Answers
+                .Where(a => a.Evaluation != null && a.Evaluation.IsCorrect)
+                .Select(a => a.UserId)
+                .Distinct()
+                .Count();
+                
+            _logger.LogInformation("📊 [AutoEnd] Players answered correctly: {Correct}/{Total}", 
+                playersWithCorrectAnswers, totalPlayers);
+            
+            // Условие 1: Все игроки ответили правильно (и их больше 0!)
+            if (playersWithCorrectAnswers >= totalPlayers && totalPlayers > 0)
+            {
+                _logger.LogInformation("✅ [AutoEnd] All players answered correctly! Ending round...");
+                await AutoEndRoundAndStartNext(round.Id, session, room, groupName, "All players answered");
+                return;
+            }
+            
+            // Условие 2: Время истекло (проверяется таймером в клиенте, но можем добавить и тут)
+            if (round.IsDeadlinePassed())
+            {
+                _logger.LogInformation("⏰ [AutoEnd] Time expired! Ending round...");
+                await AutoEndRoundAndStartNext(round.Id, session, room, groupName, "Time expired");
+                return;
+            }
+            
+            _logger.LogInformation("⏳ [AutoEnd] Round continues: {Correct}/{Total} answered", 
+                playersWithCorrectAnswers, totalPlayers);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [AutoEnd] Error checking auto-end conditions");
+        }
+    }
+    
+    /// <summary>
+    /// Автоматически завершает раунд и запускает следующий
+    /// </summary>
+    private async Task AutoEndRoundAndStartNext(Guid roundId, GameSession session, Room room, string groupName, string reason)
+    {
+        try
+        {
+            _logger.LogInformation("🔄 [AutoEnd] Ending round {RoundId}. Reason: {Reason}", roundId, reason);
+            
+            var round = await _unitOfWork.GameRounds.GetWithDetailsAsync(roundId);
+            if (round == null || round.Status != RoundStatus.Active)
+            {
+                _logger.LogWarning("⚠️ [AutoEnd] Round {RoundId} not found or not active", roundId);
+                return;
+            }
+            
+            // Завершаем раунд
+            session.EndRound(roundId);
+            await _unitOfWork.SaveChangesAsync();
+            
+            _logger.LogInformation("✅ [AutoEnd] Round {RoundId} ended", roundId);
+            
+            // Получаем результаты раунда
+            var results = round.Answers
+                .Where(a => a.Evaluation != null)
+                .OrderByDescending(a => a.Evaluation!.ScoreAwarded)
+                .Select(a => new
+                {
+                    userId = a.UserId,
+                    username = a.User.Username,
+                    answerText = a.AnswerText,
+                    isCorrect = a.Evaluation!.IsCorrect,
+                    scoreAwarded = a.Evaluation.ScoreAwarded,
+                    answerTimeMs = a.AnswerTimeMs,
+                    strategy = a.Evaluation.MatchStrategy.ToString()
+                })
+                .ToList();
+            
+            // Получаем правильный ответ
+            var correctAnswer = round.Question.Answers.FirstOrDefault(a => a.IsPrimary)?.AnswerText ?? "Unknown";
+            
+            // Получаем обновленный scoreboard
+            var scoreboards = await _unitOfWork.Scoreboards.GetLeaderboardAsync(session.Id, 10);
+            
+            // Уведомляем всех о завершении раунда
+            await Clients.Group(groupName).SendAsync("RoundEnded", new
+            {
+                roundId,
+                winnerId = round.WinnerUserId,
+                correctAnswer,
+                reason,
+                results,
+                scoreboard = scoreboards.Select((s, index) => new
+                {
+                    rank = index + 1,
+                    userId = s.UserId,
+                    username = s.User.Username,
+                    scoreTotal = s.ScoreTotal,
+                    correctCount = s.CorrectCount
+                })
+            });
+            
+            _logger.LogInformation("📡 [AutoEnd] RoundEnded notification sent to group");
+            
+            // Пауза 5 секунд перед следующим раундом
+            await Task.Delay(5000);
+            
+            // Проверяем, не закончилась ли игра
+            if (session.TotalRoundsPlayed >= session.TotalRoundsPlanned)
+            {
+                _logger.LogInformation("🏁 [AutoEnd] Game finished! Total rounds: {Total}", session.TotalRoundsPlayed);
+                
+                session.Finish();
+                room.FinishGame();
+                await _unitOfWork.SaveChangesAsync();
+                
+                await Clients.Group(groupName).SendAsync("GameFinished", new
+                {
+                    sessionId = session.Id,
+                    finalScoreboard = scoreboards.Select((s, index) => new
+                    {
+                        rank = index + 1,
+                        userId = s.UserId,
+                        username = s.User.Username,
+                        scoreTotal = s.ScoreTotal,
+                        correctCount = s.CorrectCount
+                    })
+                });
+                
+                _logger.LogInformation("🎉 [AutoEnd] Game finished notification sent!");
+                return;
+            }
+            
+            // Создаем следующий раунд
+            _logger.LogInformation("🎲 [AutoEnd] Creating next round...");
+            
+            var tagIds = room.TagSelections.Select(ts => ts.TagId).ToArray();
+            var question = await _unitOfWork.Questions.GetRandomApprovedAsync(tagIds.Any() ? tagIds : null);
+            
+            if (question == null)
+            {
+                _logger.LogError("❌ [AutoEnd] No more questions available!");
+                await Clients.Group(groupName).SendAsync("Error", "No more questions available");
+                return;
+            }
+            
+            var nextRound = session.AddRound(question.Id, round.TimeLimitSec);
+            session.StartRound(nextRound.Id);
+            await _unitOfWork.SaveChangesAsync();
+            
+            _logger.LogInformation("✅ [AutoEnd] Next round created: {RoundId}", nextRound.Id);
+            
+            // Уведомляем всех о новом раунде
+            var roundStartedData = new
+            {
+                roundId = nextRound.Id,
+                roundIndex = nextRound.RoundIndex,
+                questionId = question.Id,
+                text = question.PromptText,  // Клиент ожидает "text", а не "promptText"
+                title = question.Title,
+                difficulty = question.Difficulty.ToString(),
+                timeLimit = nextRound.TimeLimitSec,  // Клиент ожидает "timeLimit"
+                startedAt = nextRound.StartedAt,
+                questionType = question.Type.ToString(),
+                mediaUrl = (string?)null,  // TODO: загрузка медиа
+                hints = question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
+                {
+                    orderIndex = h.OrderIndex,
+                    text = h.HintText,  // Клиент ожидает "text"
+                    revealTimeSeconds = h.RevealTimeSec  // Клиент ожидает "revealTimeSeconds"
+                }).ToList()
+            };
+            
+            var roundStartedJson = System.Text.Json.JsonSerializer.Serialize(roundStartedData);
+            
+            _logger.LogInformation("📡 [AutoEnd] Sending RoundStarted to group {GroupName}...", groupName);
+            _logger.LogInformation("   Data: {Data}", roundStartedJson);
+            _logger.LogInformation("   Group members count: checking...");
+            
+            // Отправляем в группу
+            await Clients.Group(groupName).SendAsync("RoundStarted", roundStartedJson);
+            _logger.LogInformation("✅ [AutoEnd] RoundStarted sent to group");
+            
+            // ДОПОЛНИТЕЛЬНО: отправляем всем клиентам в Hub (на случай если кто-то не в группе)
+            _logger.LogInformation("📡 [AutoEnd] Also broadcasting to ALL clients in session {SessionId}...", session.Id);
+            await Clients.All.SendAsync("RoundStarted", roundStartedJson);
+            _logger.LogInformation("✅ [AutoEnd] RoundStarted broadcast to all");
+            
+            _logger.LogInformation("🎉 [AutoEnd] Next round started successfully!");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [AutoEnd] Error in AutoEndRoundAndStartNext");
+        }
     }
 }

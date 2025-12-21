@@ -89,27 +89,27 @@
 
                     <!-- Answer Input -->
                     <MudPaper Elevation="2" Class="pa-4">
-                        @if (hasAnswered)
+                        @if (hasAnsweredCorrectly)
                         {
-                            <MudAlert Severity="@(lastAnswerCorrect ? Severity.Success : Severity.Info)" Class="mb-4">
-                                @if (lastAnswerCorrect)
-                                {
-                                    <MudText>✓ Correct! +@lastScore points</MudText>
-                                }
-                                else
-                                {
-                                    <MudText>Answer submitted. Waiting for results...</MudText>
-                                }
+                            <MudAlert Severity="Severity.Success" Class="mb-4">
+                                <MudText>✅ Correct! +@lastScore points</MudText>
+                                <MudText Typo="Typo.caption">Waiting for round to end...</MudText>
+                            </MudAlert>
+                        }
+                        else if (lastAnswerCorrect == false && previousAnswers.Any())
+                        {
+                            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                                <MudText>❌ Wrong answer. Try again!</MudText>
                             </MudAlert>
                         }
 
                         <MudTextField @bind-Value="@currentAnswer"
                                       Label="Your Answer"
                                       Variant="Variant.Outlined"
-                                      Disabled="@(hasAnswered || timeExpired)"
+                                      Disabled="@(hasAnsweredCorrectly || timeExpired)"
                                       OnKeyDown="@OnKeyDown"
                                       Immediate="true"
-                                      HelperText="Press Enter to submit"
+                                      HelperText="@(hasAnsweredCorrectly ? "Correct! Waiting for others..." : "Press Enter to submit. Multiple attempts allowed!")"
                                       Class="mb-4" />
 
                         <MudButton Variant="Variant.Filled"
@@ -117,15 +117,15 @@
                                    FullWidth="true"
                                    Size="Size.Large"
                                    OnClick="@SubmitAnswer"
-                                   Disabled="@(string.IsNullOrWhiteSpace(currentAnswer) || hasAnswered || timeExpired)">
+                                   Disabled="@(string.IsNullOrWhiteSpace(currentAnswer) || hasAnsweredCorrectly || timeExpired)">
                             @if (isSubmitting)
                             {
                                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />
                                 <span class="ml-2">Submitting...</span>
                             }
-                            else if (hasAnswered)
+                            else if (hasAnsweredCorrectly)
                             {
-                                <span>Answer Submitted</span>
+                                <span>✓ Correct! Waiting for others...</span>
                             }
                             else if (timeExpired)
                             {
@@ -133,7 +133,7 @@
                             }
                             else
                             {
-                                <span>Submit Answer</span>
+                                <span>Submit Answer (Attempt @(previousAnswers.Count + 1))</span>
                             }
                         </MudButton>
                     </MudPaper>
@@ -167,7 +167,7 @@
     private List<string> previousAnswers = new();
     private List<HintDto> visibleHints = new();
     private bool isLoading = true;
-    private bool hasAnswered = false;
+    private bool hasAnsweredCorrectly = false;
     private bool timeExpired = false;
     private bool isSubmitting = false;
     private bool lastAnswerCorrect = false;
@@ -228,32 +228,75 @@
         {
             await InvokeAsync(async () =>
             {
-                currentQuestion = System.Text.Json.JsonSerializer.Deserialize<GameQuestionDto>(questionJson);
-                hasAnswered = false;
-                timeExpired = false;
-                currentAnswer = string.Empty;
-                previousAnswers.Clear();
-                visibleHints.Clear();
-                lastAnswerCorrect = false;
-                lastScore = 0;
+                Console.WriteLine("════════════════════════════════════════");
+                Console.WriteLine("🎮 [Game] RoundStarted event received!");
+                Console.WriteLine($"📦 [Game] Raw JSON: {questionJson}");
                 
-                if (currentQuestion != null)
+                try
                 {
-                    questionStartTime = currentQuestion.StartedAt;
-                    StartHintTimer();
+                    var options = new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        // Игнорировать лишние поля которых нет в DTO
+                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
+                    };
+                    
+                    currentQuestion = System.Text.Json.JsonSerializer.Deserialize<GameQuestionDto>(questionJson, options);
+                    Console.WriteLine($"✅ [Game] Question deserialized successfully!");
+                    Console.WriteLine($"   Question ID: {currentQuestion?.QuestionId}");
+                    Console.WriteLine($"   Text: {currentQuestion?.Text}");
+                    Console.WriteLine($"   Round ID: {currentQuestion?.RoundId}");
+                    Console.WriteLine($"   Time Limit: {currentQuestion?.TimeLimit}s");
+                    
+                    hasAnsweredCorrectly = false;
+                    timeExpired = false;
+                    currentAnswer = string.Empty;
+                    previousAnswers.Clear();
+                    visibleHints.Clear();
+                    lastAnswerCorrect = false;
+                    lastScore = 0;
+                    
+                    if (currentQuestion != null)
+                    {
+                        questionStartTime = currentQuestion.StartedAt;
+                        StartHintTimer();
+                        Console.WriteLine($"⏱️ [Game] Timer started. Question start time: {questionStartTime}");
+                    }
+                    else
+                    {
+                        Console.WriteLine("⚠️ [Game] currentQuestion is NULL after deserialization!");
+                    }
+                    
+                    Console.WriteLine("🔄 [Game] Calling StateHasChanged...");
+                    StateHasChanged();
+                    Console.WriteLine("✅ [Game] StateHasChanged complete. UI should update now!");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ [Game] ERROR in RoundStarted handler: {ex.Message}");
+                    Console.WriteLine($"   Stack: {ex.StackTrace}");
                 }
                 
-                StateHasChanged();
+                Console.WriteLine("════════════════════════════════════════");
             });
         });
 
         // Round Ended
-        hubConnection.On("RoundEnded", async () =>
+        hubConnection.On<object>("RoundEnded", async (data) =>
         {
             await InvokeAsync(() =>
             {
+                Console.WriteLine("════════════════════════════════════════");
+                Console.WriteLine("🏁 [Game] RoundEnded event received!");
+                Console.WriteLine($"📦 [Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
+                
                 timeExpired = true;
+                
+                Console.WriteLine("⏳ [Game] Waiting for next round...");
+                Console.WriteLine("   (Should receive RoundStarted in ~5 seconds)");
+                
                 StateHasChanged();
+                Console.WriteLine("════════════════════════════════════════");
             });
         });
 
@@ -262,18 +305,63 @@
         {
             await InvokeAsync(() =>
             {
+                Console.WriteLine("📊 [Game] ScoreboardUpdated event received!");
                 scoreboard = System.Text.Json.JsonSerializer.Deserialize<ScoreboardDto>(scoreboardJson);
                 StateHasChanged();
             });
         });
+        
+        // Player Answered - перезагружаем scoreboard
+        hubConnection.On<object>("PlayerAnswered", async (data) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                Console.WriteLine("👤 [Game] PlayerAnswered event received! Reloading scoreboard...");
+                // Перезагружаем scoreboard чтобы получить актуальные очки
+                scoreboard = await GameClient.GetScoreboardAsync(SessionId);
+                Console.WriteLine($"📊 [Game] Scoreboard reloaded. Players: {scoreboard?.Players?.Count ?? 0}");
+                StateHasChanged();
+            });
+        });
 
-        // Answer Evaluated
-        hubConnection.On<bool, int>("AnswerEvaluated", async (isCorrect, score) =>
+        // Answer Result (from SubmitAnswer in GameHub)
+        hubConnection.On<object>("AnswerResult", async (resultData) =>
         {
             await InvokeAsync(() =>
             {
-                lastAnswerCorrect = isCorrect;
-                lastScore = score;
+                Console.WriteLine("📝 [Game] AnswerResult event received!");
+                Console.WriteLine($"   Data: {System.Text.Json.JsonSerializer.Serialize(resultData)}");
+                
+                var json = System.Text.Json.JsonSerializer.Serialize(resultData);
+                var result = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
+                
+                if (result.TryGetProperty("isCorrect", out var isCorrectProp))
+                {
+                    lastAnswerCorrect = isCorrectProp.GetBoolean();
+                    if (lastAnswerCorrect)
+                    {
+                        hasAnsweredCorrectly = true;
+                        Console.WriteLine("✅ [Game] Correct answer! Waiting for round to end...");
+                    }
+                }
+                
+                if (result.TryGetProperty("scoreAwarded", out var scoreProp))
+                {
+                    lastScore = scoreProp.GetInt32();
+                }
+                
+                // Если получили ответ - перезагрузим scoreboard для актуальных данных
+                if (lastAnswerCorrect)
+                {
+                    Console.WriteLine("📊 [Game] Correct answer! Reloading scoreboard...");
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(500); // Небольшая задержка чтобы backend успел обновить
+                        scoreboard = await GameClient.GetScoreboardAsync(SessionId);
+                        await InvokeAsync(StateHasChanged);
+                    });
+                }
+                
                 StateHasChanged();
             });
         });
@@ -337,30 +425,40 @@
 
     private async Task SubmitAnswer()
     {
-        if (string.IsNullOrWhiteSpace(currentAnswer) || hasAnswered || timeExpired)
+        if (string.IsNullOrWhiteSpace(currentAnswer) || hasAnsweredCorrectly || timeExpired)
             return;
 
         isSubmitting = true;
 
         var elapsed = (DateTime.UtcNow - questionStartTime).TotalMilliseconds;
-        var request = new SubmitAnswerRequest
-        {
-            RoundId = currentQuestion!.RoundId,
-            AnswerText = currentAnswer.Trim(),
-            AnswerTimeMs = (int)elapsed
-        };
-
-        previousAnswers.Add(currentAnswer.Trim());
-
-        var success = await GameClient.SubmitAnswerAsync(request);
         
-        if (success)
-        {
-            hasAnswered = true;
-        }
+        Console.WriteLine($"📤 [Game] Submitting answer: '{currentAnswer}'");
+        
+        previousAnswers.Add(currentAnswer.Trim());
+        var answerToSubmit = currentAnswer.Trim();
+        currentAnswer = string.Empty; // Очищаем поле сразу для следующей попытки
 
-        currentAnswer = string.Empty;
-        isSubmitting = false;
+        try
+        {
+            // Отправляем через SignalR
+            if (hubConnection?.State == HubConnectionState.Connected)
+            {
+                await hubConnection.InvokeAsync("SubmitAnswer", currentQuestion!.RoundId, answerToSubmit);
+                Console.WriteLine("✅ [Game] Answer submitted via SignalR");
+            }
+            else
+            {
+                Console.WriteLine("❌ [Game] SignalR not connected!");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ [Game] Error submitting answer: {ex.Message}");
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)

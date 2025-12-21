@@ -512,6 +512,30 @@ public class RoomsController : ControllerBase
             session.Start();
             _logger.LogInformation("✅ [StartGame] session.Start() succeeded. New status: {Status}", session.Status);
 
+            // 🎯 КРИТИЧНО: Автоматически создаем и запускаем первый раунд!
+            _logger.LogInformation("🎲 [StartGame] Creating first round...");
+            
+            // Получаем случайный вопрос по тегам комнаты
+            var tagIds = room.TagSelections.Select(ts => ts.TagId).ToArray();
+            var question = await _unitOfWork.Questions.GetRandomApprovedAsync(tagIds.Any() ? tagIds : null);
+            
+            if (question == null)
+            {
+                _logger.LogError("❌ [StartGame] No approved questions available!");
+                return BadRequest("No approved questions available for this game");
+            }
+            
+            _logger.LogInformation("✅ [StartGame] Question selected: {QuestionId} - '{QuestionText}'", 
+                question.Id, question.PromptText);
+            
+            // Создаем первый раунд
+            var timeLimitSec = 60; // TODO: взять из настроек комнаты
+            var firstRound = session.AddRound(question.Id, timeLimitSec);
+            session.StartRound(firstRound.Id);
+            
+            _logger.LogInformation("✅ [StartGame] First round created: {RoundId}, Time limit: {Time}s", 
+                firstRound.Id, timeLimitSec);
+
             _logger.LogInformation("💾 [StartGame] Saving changes...");
             await _unitOfWork.SaveChangesAsync();
             _logger.LogInformation("✅ [StartGame] Changes saved!");
@@ -519,6 +543,7 @@ public class RoomsController : ControllerBase
             _logger.LogInformation("🎉 [StartGame] ========== GAME STARTED SUCCESSFULLY ==========");
             _logger.LogInformation("   Room: {RoomId}, Session: {SessionId}", id, session.Id);
             _logger.LogInformation("   Players: {Count}", activePlayers);
+            _logger.LogInformation("   First Round: {RoundId}, Question: {QuestionId}", firstRound.Id, question.Id);
 
             // 🔥 КРИТИЧНО: Отправляем уведомление GameStarted через SignalR
             var groupName = $"Room_{id}";
@@ -539,7 +564,9 @@ public class RoomsController : ControllerBase
                 message = "Game started",
                 sessionId = session.Id,
                 roomStatus = room.Status.ToString(),
-                sessionStatus = session.Status.ToString()
+                sessionStatus = session.Status.ToString(),
+                firstRoundId = firstRound.Id,
+                currentQuestionId = question.Id
             });
         }
         catch (InvalidOperationException ex)
