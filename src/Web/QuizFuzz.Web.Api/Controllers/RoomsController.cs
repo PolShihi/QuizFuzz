@@ -217,6 +217,14 @@ public class RoomsController : ControllerBase
             {
                 accessCodeHash = _passwordHasher.HashPassword(request.AccessCode);
             }
+            
+            // Сериализуем фильтры сложности в JSON
+            string? difficultyFiltersJson = null;
+            if (request.DifficultyFilters != null && request.DifficultyFilters.Any())
+            {
+                difficultyFiltersJson = System.Text.Json.JsonSerializer.Serialize(request.DifficultyFilters);
+                _logger.LogInformation("🎯 [CreateRoom] Difficulty filters: {Filters}", difficultyFiltersJson);
+            }
 
             var room = new Room(
                 userId.Value,
@@ -225,7 +233,8 @@ public class RoomsController : ControllerBase
                 request.MaxPlayers,
                 victoryType,
                 request.VictoryValue,
-                tagMode);
+                tagMode,
+                difficultyFiltersJson);
 
             if (accessCodeHash != null)
             {
@@ -233,9 +242,11 @@ public class RoomsController : ControllerBase
             }
 
             // Добавляем выбранные теги
+            _logger.LogInformation("🏷️ [CreateRoom] Adding {Count} tag selections", request.TagSelections.Count);
             foreach (var tagSelection in request.TagSelections)
             {
                 room.AddTagSelection(tagSelection.TagId, tagSelection.Weight);
+                _logger.LogInformation("   ✅ Tag {TagId} added with weight {Weight}", tagSelection.TagId, tagSelection.Weight);
             }
 
             await _unitOfWork.Rooms.AddAsync(room);
@@ -521,18 +532,29 @@ public class RoomsController : ControllerBase
             // 🎯 КРИТИЧНО: Автоматически создаем и запускаем первый раунд!
             _logger.LogInformation("🎲 [StartGame] Creating first round...");
             
-            // Получаем случайный вопрос по тегам комнаты
+            // Получаем случайный вопрос по тегам и сложности комнаты
             var tagIds = room.TagSelections.Select(ts => ts.TagId).ToArray();
-            var question = await _unitOfWork.Questions.GetRandomApprovedAsync(tagIds.Any() ? tagIds : null);
+            var difficultyFilters = room.GetDifficultyFilters();
+            
+            _logger.LogInformation("🎲 [StartGame] Selecting first question with filters:");
+            _logger.LogInformation("   📌 Tags: {TagCount}", tagIds.Length);
+            _logger.LogInformation("   📊 Difficulties: {Filters}", 
+                difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "ALL");
+            
+            var question = await _unitOfWork.Questions.GetRandomApprovedWithFiltersAsync(
+                tagIds.Any() ? tagIds : null,
+                difficultyFilters.Any() ? difficultyFilters : null);
             
             if (question == null)
             {
-                _logger.LogError("❌ [StartGame] No approved questions available!");
-                return BadRequest("No approved questions available for this game");
+                _logger.LogError("❌ [StartGame] No approved questions available with specified filters!");
+                _logger.LogError("   Tags: {Tags}", tagIds.Any() ? string.Join(", ", tagIds) : "None");
+                _logger.LogError("   Difficulties: {Diff}", difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "None");
+                return BadRequest("No approved questions available with specified filters");
             }
             
-            _logger.LogInformation("✅ [StartGame] Question selected: {QuestionId} - '{QuestionText}'", 
-                question.Id, question.PromptText);
+            _logger.LogInformation("✅ [StartGame] Question selected: {QuestionId}, Difficulty: {Difficulty} - '{QuestionText}'", 
+                question.Id, question.Difficulty, question.PromptText);
             
             // Создаем первый раунд
             var timeLimitSec = 60; // TODO: взять из настроек комнаты

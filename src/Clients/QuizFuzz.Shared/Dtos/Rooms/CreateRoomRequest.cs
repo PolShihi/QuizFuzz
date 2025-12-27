@@ -27,6 +27,12 @@ public class CreateRoomRequest
     public string TagSelectionMode { get; set; } = "Any";
 
     public List<RoomTagSelectionDto> TagSelections { get; set; } = new();
+    
+    /// <summary>
+    /// Фильтр по сложности вопросов (Easy, Medium, Hard)
+    /// Пустой список = все сложности
+    /// </summary>
+    public List<string> DifficultyFilters { get; set; } = new();
 }
 
 public class RoomTagSelectionDto

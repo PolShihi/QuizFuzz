@@ -238,15 +238,64 @@ public class GameHub : Hub
 
         try
         {
-            // Получаем случайный вопрос
-            var tagIds = room.TagSelections.Select(ts => ts.TagId).ToArray();
-            var question = await _unitOfWork.Questions.GetRandomApprovedAsync(tagIds.Any() ? tagIds : null);
+            // 🔥 КРИТИЧНО: Загружаем комнату с TagSelections!
+            var roomWithTags = await _unitOfWork.Rooms.GetWithDetailsAsync(room.Id);
+            if (roomWithTags == null)
+            {
+                _logger.LogError("❌ [StartRound] Room {RoomId} not found!", room.Id);
+                await Clients.Caller.SendAsync("Error", "Room not found");
+                return;
+            }
+            
+            // Получаем случайный вопрос с учетом фильтров
+            var tagIds = roomWithTags.TagSelections.Select(ts => ts.TagId).ToArray();
+            var difficultyFilters = roomWithTags.GetDifficultyFilters();
+            
+            _logger.LogInformation("🎲 [StartRound] ========== SELECTING QUESTION ==========");
+            _logger.LogInformation("🎲 [StartRound] Room: {RoomId} - {RoomName}", roomWithTags.Id, roomWithTags.Name);
+            _logger.LogInformation("🎲 [StartRound] TagSelections count: {Count}", roomWithTags.TagSelections.Count);
+            
+            if (roomWithTags.TagSelections.Any())
+            {
+                _logger.LogInformation("🏷️ [StartRound] Tag filters ({Count}):", tagIds.Length);
+                foreach (var ts in roomWithTags.TagSelections)
+                {
+                    _logger.LogInformation("   📌 TagId: {TagId}, Weight: {Weight}", ts.TagId, ts.Weight);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("🏷️ [StartRound] NO TAG FILTERS (all categories)");
+            }
+            
+            if (difficultyFilters.Any())
+            {
+                _logger.LogInformation("📊 [StartRound] Difficulty filters: {Filters}", string.Join(", ", difficultyFilters));
+            }
+            else
+            {
+                _logger.LogInformation("📊 [StartRound] NO DIFFICULTY FILTERS (all levels)");
+            }
+            
+            Console.WriteLine($"\n🎲 [StartRound] Calling GetRandomApprovedWithFiltersAsync...");
+            Console.WriteLine($"   TagIds: {(tagIds.Any() ? string.Join(", ", tagIds) : "NULL (all)")}");
+            Console.WriteLine($"   Difficulties: {(difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "NULL (all)")}\n");
+            
+            var question = await _unitOfWork.Questions.GetRandomApprovedWithFiltersAsync(
+                tagIds.Any() ? tagIds : null,
+                difficultyFilters.Any() ? difficultyFilters : null);
 
             if (question == null)
             {
-                await Clients.Caller.SendAsync("Error", "No approved questions available");
+                _logger.LogError("❌ [StartRound] No approved questions available with specified filters!");
+                _logger.LogError("   Tags filter: {Tags}", tagIds.Any() ? string.Join(", ", tagIds) : "None");
+                _logger.LogError("   Difficulty filter: {Diff}", difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "None");
+                await Clients.Caller.SendAsync("Error", "No approved questions available with specified filters");
                 return;
             }
+            
+            _logger.LogInformation("✅ [StartRound] Question selected: {QuestionId}, Difficulty: {Difficulty}", 
+                question.Id, question.Difficulty);
 
             // Создаем раунд
             var round = session.AddRound(question.Id, 60);
@@ -792,15 +841,61 @@ public class GameHub : Hub
             // Создаем следующий раунд
             _logger.LogInformation("🎲 [AutoEnd] Creating next round...");
             
-            var tagIds = room.TagSelections.Select(ts => ts.TagId).ToArray();
-            var question = await _unitOfWork.Questions.GetRandomApprovedAsync(tagIds.Any() ? tagIds : null);
+            // 🔥 КРИТИЧНО: Перезагружаем комнату с TagSelections!
+            var roomWithTags = await _unitOfWork.Rooms.GetWithDetailsAsync(room.Id);
+            if (roomWithTags == null)
+            {
+                _logger.LogError("❌ [AutoEnd] Room {RoomId} not found!", room.Id);
+                await Clients.Group(groupName).SendAsync("Error", "Room not found");
+                return;
+            }
+            
+            var tagIds = roomWithTags.TagSelections.Select(ts => ts.TagId).ToArray();
+            var difficultyFilters = roomWithTags.GetDifficultyFilters();
+            
+            _logger.LogInformation("🎲 [AutoEnd] ========== SELECTING NEXT QUESTION ==========");
+            _logger.LogInformation("🎲 [AutoEnd] Room: {RoomId} - {RoomName}", roomWithTags.Id, roomWithTags.Name);
+            _logger.LogInformation("🎲 [AutoEnd] TagSelections count: {Count}", roomWithTags.TagSelections.Count);
+            
+            if (roomWithTags.TagSelections.Any())
+            {
+                _logger.LogInformation("🏷️ [AutoEnd] Tag filters ({Count}):", tagIds.Length);
+                foreach (var ts in roomWithTags.TagSelections)
+                {
+                    _logger.LogInformation("   📌 TagId: {TagId}, Weight: {Weight}", ts.TagId, ts.Weight);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("🏷️ [AutoEnd] NO TAG FILTERS (all categories)");
+            }
+            
+            if (difficultyFilters.Any())
+            {
+                _logger.LogInformation("📊 [AutoEnd] Difficulty filters: {Filters}", string.Join(", ", difficultyFilters));
+            }
+            else
+            {
+                _logger.LogInformation("📊 [AutoEnd] NO DIFFICULTY FILTERS (all levels)");
+            }
+            
+            Console.WriteLine($"\n🎲 [AutoEnd] Calling GetRandomApprovedWithFiltersAsync...");
+            Console.WriteLine($"   TagIds: {(tagIds.Any() ? string.Join(", ", tagIds) : "NULL (all)")}");
+            Console.WriteLine($"   Difficulties: {(difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "NULL (all)")}\n");
+            
+            var question = await _unitOfWork.Questions.GetRandomApprovedWithFiltersAsync(
+                tagIds.Any() ? tagIds : null,
+                difficultyFilters.Any() ? difficultyFilters : null);
             
             if (question == null)
             {
-                _logger.LogError("❌ [AutoEnd] No more questions available!");
+                _logger.LogError("❌ [AutoEnd] No more questions available with filters!");
                 await Clients.Group(groupName).SendAsync("Error", "No more questions available");
                 return;
             }
+            
+            _logger.LogInformation("✅ [AutoEnd] Question selected: {QuestionId}, Difficulty: {Difficulty}", 
+                question.Id, question.Difficulty);
             
             var nextRound = session.AddRound(question.Id, round.TimeLimitSec);
             session.StartRound(nextRound.Id);

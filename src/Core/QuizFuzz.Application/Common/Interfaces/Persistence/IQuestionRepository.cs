@@ -14,4 +14,12 @@ public interface IQuestionRepository : IRepository<Question>
     Task<IReadOnlyList<Question>> GetByTagsAsync(IEnumerable<Guid> tagIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Question>> GetApprovedByTagsAsync(IEnumerable<Guid> tagIds, int limit = 100, CancellationToken cancellationToken = default);
     Task<Question?> GetRandomApprovedAsync(IEnumerable<Guid>? tagIds = null, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Получить случайный одобренный вопрос с фильтрацией по тегам и сложности
+    /// </summary>
+    Task<Question?> GetRandomApprovedWithFiltersAsync(
+        IEnumerable<Guid>? tagIds = null, 
+        IEnumerable<Difficulty>? difficulties = null, 
+        CancellationToken cancellationToken = default);
 }

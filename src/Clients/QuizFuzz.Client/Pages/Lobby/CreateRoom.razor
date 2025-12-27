@@ -4,6 +4,7 @@
 @using QuizFuzz.Shared.Dtos.Questions
 @attribute [Authorize]
 @inject IRoomsApiClient RoomsClient
+@inject ITagsApiClient TagsClient
 @inject NavigationManager Navigation
 
 <PageTitle>Create Room - QuizFuzz</PageTitle>
@@ -61,11 +62,24 @@
                        MultiSelection="true" 
                        @bind-SelectedValues="selectedTagIds"
                        Variant="Variant.Outlined"
-                       Class="mb-4">
+                       Class="mb-4"
+                       HelperText="Select categories for questions (leave empty for all categories)">
                 @foreach (var tag in availableTags)
                 {
                     <MudSelectItem T="Guid" Value="@tag.Id">@tag.Name</MudSelectItem>
                 }
+            </MudSelect>
+            
+            <MudSelect T="string" 
+                       Label="Select Difficulty (optional)" 
+                       MultiSelection="true" 
+                       @bind-SelectedValues="selectedDifficulties"
+                       Variant="Variant.Outlined"
+                       Class="mb-4"
+                       HelperText="Select difficulty levels (leave empty for all difficulties)">
+                <MudSelectItem T="string" Value="@("Easy")">🟢 Easy</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Medium")">🟡 Medium</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Hard")">🔴 Hard</MudSelectItem>
             </MudSelect>
 
             @if (!string.IsNullOrEmpty(errorMessage))
@@ -97,6 +111,7 @@
     private bool isLoading = false;
     private List<TagDto> availableTags = new();
     private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+    private IEnumerable<string> selectedDifficulties = new List<string>();
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,13 +123,19 @@
     {
         try
         {
-            // TODO: Нужен TagsApiClient для загрузки тегов
-            // Пока оставляем пустым - теги будут добавлены позже
-            Console.WriteLine("⚠️ [CreateRoom] Tags loading not implemented yet");
+            Console.WriteLine("🏷️ [CreateRoom] Calling TagsClient.GetActiveTagsAsync()...");
+            availableTags = await TagsClient.GetActiveTagsAsync();
+            Console.WriteLine($"✅ [CreateRoom] Loaded {availableTags.Count} tags");
+            
+            foreach (var tag in availableTags)
+            {
+                Console.WriteLine($"   📌 Tag: {tag.Name} (ID: {tag.Id})");
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ [CreateRoom] Error loading tags: {ex.Message}");
+            errorMessage = "Failed to load tags. Please refresh the page.";
         }
     }
 
@@ -127,7 +148,11 @@
         {
             Console.WriteLine($"🏠 [CreateRoom] Creating room: {request.Name}");
             Console.WriteLine($"   Max Players: {request.MaxPlayers}");
+            Console.WriteLine($"   Number of Rounds: {request.NumberOfRounds}");
+            Console.WriteLine($"   Victory Type: {request.VictoryConditionType}");
+            Console.WriteLine($"   Victory Value: {request.VictoryValue}");
             Console.WriteLine($"   Selected Tags: {selectedTagIds.Count()}");
+            Console.WriteLine($"   Selected Difficulties: {selectedDifficulties.Count()}");
             
             // Добавляем выбранные теги в запрос
             request.TagSelections = selectedTagIds.Select(tagId => new RoomTagSelectionDto 
@@ -135,6 +160,36 @@
                 TagId = tagId, 
                 Weight = 1 
             }).ToList();
+            
+            // Добавляем фильтры сложности
+            request.DifficultyFilters = selectedDifficulties.ToList();
+            
+            if (request.TagSelections.Any())
+            {
+                Console.WriteLine($"🏷️ [CreateRoom] Tags being sent:");
+                foreach (var tag in request.TagSelections)
+                {
+                    var tagInfo = availableTags.FirstOrDefault(t => t.Id == tag.TagId);
+                    Console.WriteLine($"   📌 {tagInfo?.Name ?? "Unknown"} (ID: {tag.TagId})");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"🏷️ [CreateRoom] No tags selected - all categories will be used");
+            }
+            
+            if (request.DifficultyFilters.Any())
+            {
+                Console.WriteLine($"📊 [CreateRoom] Difficulties being sent:");
+                foreach (var diff in request.DifficultyFilters)
+                {
+                    Console.WriteLine($"   🎯 {diff}");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"📊 [CreateRoom] No difficulties selected - all levels will be used");
+            }
             
             var room = await RoomsClient.CreateRoomAsync(request);
             
@@ -153,9 +208,11 @@
                 errorMessage = "Failed to create room. Check console for details.";
             }
         }
-        catch
+        catch (Exception ex)
         {
-            errorMessage = "An error occurred. Please try again.";
+            Console.WriteLine($"❌ [CreateRoom] Exception: {ex.Message}");
+            Console.WriteLine($"   Stack trace: {ex.StackTrace}");
+            errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
         {

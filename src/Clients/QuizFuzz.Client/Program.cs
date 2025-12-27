@@ -108,4 +108,15 @@ builder.Services.AddScoped<IAdminApiClient>(sp =>
     return new AdminApiClient(httpClient);
 });
 
+builder.Services.AddScoped<ITagsApiClient>(sp =>
+{
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new TagsApiClient(httpClient, sp.GetRequiredService<ILogger<TagsApiClient>>());
+});
+
 await builder.Build().RunAsync();

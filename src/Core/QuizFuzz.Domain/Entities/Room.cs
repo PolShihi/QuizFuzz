@@ -18,6 +18,12 @@ public class Room : BaseEntity, IAggregateRoot
     public TagSelectionMode TagSelectionMode { get; private set; }
     public RoomStatus Status { get; private set; }
     public DateTime UpdatedAt { get; private set; }
+    
+    /// <summary>
+    /// Фильтры по сложности (JSON массив: ["Easy", "Medium", "Hard"])
+    /// Пустой массив = все сложности
+    /// </summary>
+    public string? DifficultyFiltersJson { get; private set; }
 
     // Navigation properties
     public User Owner { get; private set; } = null!;
@@ -40,7 +46,8 @@ public class Room : BaseEntity, IAggregateRoot
         int maxPlayers = 10,
         VictoryConditionType victoryConditionType = VictoryConditionType.Points,
         int victoryValue = 1000,
-        TagSelectionMode tagSelectionMode = TagSelectionMode.Any)
+        TagSelectionMode tagSelectionMode = TagSelectionMode.Any,
+        string? difficultyFiltersJson = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Room name cannot be empty", nameof(name));
@@ -61,8 +68,43 @@ public class Room : BaseEntity, IAggregateRoot
         VictoryConditionType = victoryConditionType;
         VictoryValue = victoryValue;
         TagSelectionMode = tagSelectionMode;
+        DifficultyFiltersJson = difficultyFiltersJson;
         Status = RoomStatus.Lobby;
         UpdatedAt = DateTime.UtcNow;
+    }
+    
+    public void UpdateDifficultyFilters(string? difficultyFiltersJson)
+    {
+        DifficultyFiltersJson = difficultyFiltersJson;
+        UpdatedAt = DateTime.UtcNow;
+    }
+    
+    /// <summary>
+    /// Получить список фильтров сложности из JSON
+    /// </summary>
+    public List<Difficulty> GetDifficultyFilters()
+    {
+        if (string.IsNullOrWhiteSpace(DifficultyFiltersJson))
+            return new List<Difficulty>();
+            
+        try
+        {
+            var filters = System.Text.Json.JsonSerializer.Deserialize<List<string>>(DifficultyFiltersJson);
+            if (filters == null || !filters.Any())
+                return new List<Difficulty>();
+                
+            var result = new List<Difficulty>();
+            foreach (var filter in filters)
+            {
+                if (Enum.TryParse<Difficulty>(filter, true, out var difficulty))
+                    result.Add(difficulty);
+            }
+            return result;
+        }
+        catch
+        {
+            return new List<Difficulty>();
+        }
     }
 
     public void UpdateName(string name)

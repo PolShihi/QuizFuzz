@@ -69,6 +69,11 @@ public class RoomConfiguration : IEntityTypeConfiguration<Room>
         builder.Property(r => r.UpdatedAt)
             .HasColumnName("updated_at")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            
+        builder.Property(r => r.DifficultyFiltersJson)
+            .HasColumnName("difficulty_filters_json")
+            .HasMaxLength(500)
+            .IsRequired(false);
 
         // Relationships
         builder.HasOne(r => r.Owner)
