@@ -52,7 +52,7 @@
                     @if (!string.IsNullOrEmpty(currentQuestion.MediaUrl))
                     {
                         <MudPaper Elevation="2" Class="pa-4 mb-4">
-                            @if (currentQuestion.QuestionType == "IMAGE")
+                            @if (currentQuestion.QuestionType?.Equals("Image", StringComparison.OrdinalIgnoreCase) == true)
                             {
                                 <MudImage Src="@currentQuestion.MediaUrl" 
                                           Alt="Question Image" 
@@ -61,7 +61,7 @@
                                           ObjectFit="ObjectFit.Contain"
                                           Style="max-height: 400px; width: 100%;" />
                             }
-                            else if (currentQuestion.QuestionType == "AUDIO")
+                            else if (currentQuestion.QuestionType?.Equals("Audio", StringComparison.OrdinalIgnoreCase) == true)
                             {
                                 <audio controls style="width: 100%;">
                                     <source src="@currentQuestion.MediaUrl" type="audio/mpeg">
@@ -183,16 +183,34 @@
 
     private async Task LoadGameData()
     {
+        Console.WriteLine($"🔄 [Game.LoadGameData] Loading game data for session {SessionId}");
         isLoading = true;
+        
         currentQuestion = await GameClient.GetCurrentQuestionAsync(SessionId);
         scoreboard = await GameClient.GetScoreboardAsync(SessionId);
         
         if (currentQuestion != null)
         {
+            Console.WriteLine($"✅ [Game.LoadGameData] Question loaded:");
+            Console.WriteLine($"   📝 Text: {currentQuestion.Text}");
+            Console.WriteLine($"   🎯 Type: {currentQuestion.QuestionType}");
+            Console.WriteLine($"   🔗 MediaUrl: {currentQuestion.MediaUrl ?? "NULL"}");
+            
             questionStartTime = currentQuestion.StartedAt;
+            
+            // 🔥 ПРОВЕРКА: Есть ли MediaUrl при первой загрузке?
+            if (!string.IsNullOrEmpty(currentQuestion.MediaUrl))
+            {
+                Console.WriteLine($"🖼️ [Game.LoadGameData] MEDIA DETECTED on initial load!");
+            }
+        }
+        else
+        {
+            Console.WriteLine($"⚠️ [Game.LoadGameData] No current question available");
         }
         
         isLoading = false;
+        Console.WriteLine($"✅ [Game.LoadGameData] Loading complete");
     }
 
     private async Task InitializeSignalR()
@@ -246,7 +264,31 @@
                     Console.WriteLine($"   Question ID: {currentQuestion?.QuestionId}");
                     Console.WriteLine($"   Text: {currentQuestion?.Text}");
                     Console.WriteLine($"   Round ID: {currentQuestion?.RoundId}");
-                    Console.WriteLine($"   Time Limit: {currentQuestion?.TimeLimit}s");
+                    Console.WriteLine($"   🎯 Type: {currentQuestion?.QuestionType}");
+                    Console.WriteLine($"   🔗 MediaUrl: {currentQuestion?.MediaUrl ?? "NULL"}");
+                    Console.WriteLine($"   ⏱️ TimeLimit: {currentQuestion?.TimeLimit}s");
+                    
+                    // 🔥 ПРОВЕРКА: Отображается ли MediaUrl в UI?
+                    if (!string.IsNullOrEmpty(currentQuestion?.MediaUrl))
+                    {
+                        Console.WriteLine($"🖼️ [Game] MEDIA DETECTED! Type={currentQuestion.QuestionType}, URL={currentQuestion.MediaUrl}");
+                        if (currentQuestion.QuestionType?.Equals("Image", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            Console.WriteLine($"   📸 [Game] Will display IMAGE: {currentQuestion.MediaUrl}");
+                        }
+                        else if (currentQuestion.QuestionType?.Equals("Audio", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            Console.WriteLine($"   🔊 [Game] Will play AUDIO: {currentQuestion.MediaUrl}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"   ⚠️ [Game] Unknown media type: {currentQuestion.QuestionType}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"ℹ️ [Game] No media for this question (Type: {currentQuestion?.QuestionType})");
+                    }
                     
                     hasAnsweredCorrectly = false;
                     timeExpired = false;

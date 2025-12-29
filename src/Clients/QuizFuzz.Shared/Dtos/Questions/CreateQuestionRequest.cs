@@ -40,6 +40,24 @@ public class CreateAnswerRequest
     public bool IsPrimary { get; set; }
 
     public List<CreateAliasRequest> Aliases { get; set; } = new();
+    
+    // 🔥 НОВОЕ: Настройки fuzzy matching для этого ответа
+    /// <summary>
+    /// Разрешить fuzzy matching для этого ответа (по умолчанию true)
+    /// </summary>
+    public bool AllowFuzzyMatch { get; set; } = true;
+    
+    /// <summary>
+    /// Максимальное расстояние Левенштейна (null = использовать default 2)
+    /// Для чисел/дат установите 0 или 1!
+    /// </summary>
+    public int? MaxEditDistance { get; set; }
+    
+    /// <summary>
+    /// Минимальная confidence 0.0-1.0 (null = использовать default 0.75)
+    /// Для строгих ответов установите 0.95-1.0!
+    /// </summary>
+    public decimal? MinConfidence { get; set; }
 }
 
 public class CreateAliasRequest

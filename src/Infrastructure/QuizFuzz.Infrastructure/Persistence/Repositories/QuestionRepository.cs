@@ -99,8 +99,9 @@ public class QuestionRepository : BaseRepository<Question>, IQuestionRepository
             .Include(q => q.Answers)
                 .ThenInclude(a => a.Aliases)
             .Include(q => q.Hints)
+            .Include(q => q.MediaAssets)  // 🔥 КРИТИЧНО: загружаем MediaAssets для IMAGE/AUDIO!
             .Include(q => q.Tags)
-                .ThenInclude(qt => qt.Tag)  // 🔥 КРИТИЧНО: загружаем сам Tag для отладки
+                .ThenInclude(qt => qt.Tag)
             .Where(q => q.Status == QuestionStatus.Approved);
 
         // Логируем начальное количество вопросов
@@ -157,6 +158,15 @@ public class QuestionRepository : BaseRepository<Question>, IQuestionRepository
             Console.WriteLine($"✅ [QuestionRepo] Question selected: {result.Id}");
             Console.WriteLine($"   📝 Text: {result.PromptText}");
             Console.WriteLine($"   📊 Difficulty: {result.Difficulty}");
+            Console.WriteLine($"   🎯 Type: {result.Type}");
+            Console.WriteLine($"   📎 MediaAssets: {result.MediaAssets.Count}");
+            if (result.MediaAssets.Any())
+            {
+                foreach (var media in result.MediaAssets)
+                {
+                    Console.WriteLine($"      🔗 {media.MediaType}: {media.Url}");
+                }
+            }
             Console.WriteLine($"   🏷️ Tags ({result.Tags.Count}):");
             foreach (var qt in result.Tags)
             {

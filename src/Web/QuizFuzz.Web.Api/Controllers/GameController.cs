@@ -324,17 +324,57 @@ public class GameController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCurrentQuestion(Guid sessionId)
     {
+        _logger.LogInformation("🔍 [GameController] GetCurrentQuestion called - SessionId: {SessionId}", sessionId);
+        
         var round = await _unitOfWork.GameRounds.GetActiveRoundBySessionIdAsync(sessionId);
 
         if (round == null)
+        {
+            _logger.LogWarning("❌ [GameController] No active round found for session {SessionId}", sessionId);
             return NotFound("No active round found for this session");
+        }
+
+        _logger.LogInformation("✅ [GameController] Active round found: {RoundId}", round.Id);
+        _logger.LogInformation("   📝 Question: {QuestionText}", round.Question.PromptText);
+        _logger.LogInformation("   🎯 Type: {QuestionType}", round.Question.Type);
+        _logger.LogInformation("   📎 MediaAssets count: {MediaCount}", round.Question.MediaAssets.Count);
+
+        // 🔥 ИСПРАВЛЕНО: Формируем ПОЛНЫЙ URL для MediaAssets
+        string? mediaUrl = null;
+        if (round.Question.MediaAssets.Any())
+        {
+            var firstMedia = round.Question.MediaAssets.First();
+            
+            // Если URL относительный, добавляем base URL
+            if (firstMedia.Url.StartsWith("/"))
+            {
+                // Получаем scheme и host из текущего запроса
+                var request = HttpContext.Request;
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+                mediaUrl = $"{baseUrl}{firstMedia.Url}";
+                
+                _logger.LogInformation("   🔗 MediaUrl converted to FULL URL: {MediaUrl}", mediaUrl);
+            }
+            else
+            {
+                // Уже полный URL или внешний ресурс
+                mediaUrl = firstMedia.Url;
+                _logger.LogInformation("   🔗 MediaUrl (already full): {MediaUrl}", mediaUrl);
+            }
+            
+            _logger.LogInformation("   📸 MediaType: {MediaType}", firstMedia.MediaType);
+        }
+        else
+        {
+            _logger.LogInformation("   ℹ️ No MediaAssets for this question");
+        }
 
         var result = new GameQuestionDto
         {
             QuestionId = round.QuestionId,
             RoundId = round.Id,
             Text = round.Question.PromptText,
-            MediaUrl = null, // TODO: get from MediaAssets
+            MediaUrl = mediaUrl, // ✅ ИСПРАВЛЕНО: теперь ПОЛНЫЙ URL!
             QuestionType = round.Question.Type.ToString(),
             TimeLimit = round.TimeLimitSec,
             StartedAt = round.StartedAt ?? DateTime.UtcNow,
@@ -345,6 +385,8 @@ public class GameController : ControllerBase
                 RevealTimeSeconds = h.RevealTimeSec
             }).ToList()
         };
+
+        _logger.LogInformation("📤 [GameController] Returning question DTO with FULL MediaUrl: {MediaUrl}", result.MediaUrl);
 
         return Ok(result);
     }

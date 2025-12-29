@@ -14,6 +14,26 @@ public class QuestionAnswer : BaseEntity
     public bool IsPrimary { get; private set; }
     public string LanguageCode { get; private set; }
     public bool IsActive { get; private set; }
+    
+    // 🔥 НОВОЕ: Настройки fuzzy matching для этого ответа
+    /// <summary>
+    /// Разрешено ли использовать fuzzy matching для этого ответа
+    /// </summary>
+    public bool AllowFuzzyMatch { get; private set; }
+    
+    /// <summary>
+    /// Максимальное расстояние Левенштейна (EditDistance) для считывания ответа правильным.
+    /// Если null - используется значение по умолчанию (2).
+    /// Для точных ответов (числа, даты) должно быть 0 или 1.
+    /// </summary>
+    public int? MaxEditDistance { get; private set; }
+    
+    /// <summary>
+    /// Минимальная confidence (0.0 - 1.0) для считывания ответа правильным.
+    /// Если null - используется значение по умолчанию (0.75).
+    /// Для точных ответов должно быть >= 0.95.
+    /// </summary>
+    public decimal? MinConfidence { get; private set; }
 
     // Navigation properties
     public Question Question { get; private set; } = null!;
@@ -27,10 +47,20 @@ public class QuestionAnswer : BaseEntity
         Guid questionId,
         string answerText,
         bool isPrimary = false,
-        string languageCode = "ru")
+        string languageCode = "ru",
+        bool allowFuzzyMatch = true,
+        int? maxEditDistance = null,
+        decimal? minConfidence = null)
     {
         if (string.IsNullOrWhiteSpace(answerText))
             throw new ArgumentException("Answer text cannot be empty", nameof(answerText));
+
+        // Валидация fuzzy matching настроек
+        if (maxEditDistance.HasValue && maxEditDistance.Value < 0)
+            throw new ArgumentException("MaxEditDistance cannot be negative", nameof(maxEditDistance));
+            
+        if (minConfidence.HasValue && (minConfidence.Value < 0 || minConfidence.Value > 1))
+            throw new ArgumentException("MinConfidence must be between 0 and 1", nameof(minConfidence));
 
         QuestionId = questionId;
         AnswerText = answerText.Trim();
@@ -38,6 +68,11 @@ public class QuestionAnswer : BaseEntity
         IsPrimary = isPrimary;
         LanguageCode = languageCode;
         IsActive = true;
+        
+        // Fuzzy matching настройки
+        AllowFuzzyMatch = allowFuzzyMatch;
+        MaxEditDistance = maxEditDistance;
+        MinConfidence = minConfidence;
     }
 
     public void UpdateAnswerText(string answerText)
@@ -67,6 +102,52 @@ public class QuestionAnswer : BaseEntity
     public void Deactivate()
     {
         IsActive = false;
+    }
+    
+    /// <summary>
+    /// Обновить настройки fuzzy matching для этого ответа
+    /// </summary>
+    public void UpdateFuzzyMatchSettings(
+        bool allowFuzzyMatch,
+        int? maxEditDistance = null,
+        decimal? minConfidence = null)
+    {
+        // Валидация
+        if (maxEditDistance.HasValue && maxEditDistance.Value < 0)
+            throw new ArgumentException("MaxEditDistance cannot be negative", nameof(maxEditDistance));
+            
+        if (minConfidence.HasValue && (minConfidence.Value < 0 || minConfidence.Value > 1))
+            throw new ArgumentException("MinConfidence must be between 0 and 1", nameof(minConfidence));
+        
+        AllowFuzzyMatch = allowFuzzyMatch;
+        MaxEditDistance = maxEditDistance;
+        MinConfidence = minConfidence;
+    }
+    
+    /// <summary>
+    /// Установить строгое сравнение (для чисел, дат, etc)
+    /// </summary>
+    public void SetStrictMatching()
+    {
+        AllowFuzzyMatch = false;
+        MaxEditDistance = 0;
+        MinConfidence = 1.0m;
+    }
+    
+    /// <summary>
+    /// Установить мягкое сравнение (для текстовых ответов)
+    /// </summary>
+    public void SetFlexibleMatching(int maxEditDistance = 2, decimal minConfidence = 0.75m)
+    {
+        if (maxEditDistance < 0)
+            throw new ArgumentException("MaxEditDistance cannot be negative", nameof(maxEditDistance));
+            
+        if (minConfidence < 0 || minConfidence > 1)
+            throw new ArgumentException("MinConfidence must be between 0 and 1", nameof(minConfidence));
+        
+        AllowFuzzyMatch = true;
+        MaxEditDistance = maxEditDistance;
+        MinConfidence = minConfidence;
     }
 
     public FuzzyAlias AddAlias(string aliasText, AliasKind kind)

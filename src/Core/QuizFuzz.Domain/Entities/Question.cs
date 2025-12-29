@@ -118,12 +118,26 @@ public class Question : BaseEntity, IAggregateRoot
         UpdatedAt = DateTime.UtcNow;
     }
 
-    public QuestionAnswer AddAnswer(string answerText, bool isPrimary = false, string? languageCode = null)
+    public QuestionAnswer AddAnswer(
+        string answerText, 
+        bool isPrimary = false, 
+        string? languageCode = null,
+        bool allowFuzzyMatch = true,
+        int? maxEditDistance = null,
+        decimal? minConfidence = null)
     {
         if (string.IsNullOrWhiteSpace(answerText))
             throw new ArgumentException("Answer text cannot be empty", nameof(answerText));
 
-        var answer = new QuestionAnswer(Id, answerText, isPrimary, languageCode ?? LanguageCode);
+        var answer = new QuestionAnswer(
+            Id, 
+            answerText, 
+            isPrimary, 
+            languageCode ?? LanguageCode,
+            allowFuzzyMatch,
+            maxEditDistance,
+            minConfidence);
+            
         _answers.Add(answer);
         UpdatedAt = DateTime.UtcNow;
 

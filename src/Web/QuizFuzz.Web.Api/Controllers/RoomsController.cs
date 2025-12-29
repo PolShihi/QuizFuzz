@@ -225,6 +225,19 @@ public class RoomsController : ControllerBase
                 difficultyFiltersJson = System.Text.Json.JsonSerializer.Serialize(request.DifficultyFilters);
                 _logger.LogInformation("🎯 [CreateRoom] Difficulty filters: {Filters}", difficultyFiltersJson);
             }
+            
+            // Определяем VictoryValue в зависимости от режима
+            int victoryValue;
+            if (victoryType == VictoryConditionType.Points)
+            {
+                victoryValue = request.VictoryValue;
+                _logger.LogInformation("🏆 [CreateRoom] Victory Mode: POINTS, Target: {Value} points", victoryValue);
+            }
+            else // Questions
+            {
+                victoryValue = request.NumberOfRounds;
+                _logger.LogInformation("🏆 [CreateRoom] Victory Mode: QUESTIONS, Target: {Value} questions", victoryValue);
+            }
 
             var room = new Room(
                 userId.Value,
@@ -232,7 +245,7 @@ public class RoomsController : ControllerBase
                 visibility,
                 request.MaxPlayers,
                 victoryType,
-                request.VictoryValue,
+                victoryValue,
                 tagMode,
                 difficultyFiltersJson);
 
@@ -258,11 +271,17 @@ public class RoomsController : ControllerBase
             var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
             
             // ВАЖНО: Создаем GameSession автоматически и добавляем создателя как игрока
-            // Используем количество раундов из запроса (по умолчанию 10)
-            var numberOfRounds = request.NumberOfRounds > 0 ? request.NumberOfRounds : 10;
+            // Для режима Questions используем victoryValue, иначе большое число
+            var numberOfRounds = (victoryType == VictoryConditionType.Questions) 
+                ? victoryValue 
+                : 999; // Для режима Points ставим большое число, т.к. игра закончится по очкам
+            
             var session = new GameSession(room.Id, numberOfRounds);
             
-            _logger.LogInformation("📊 [CreateRoom] Game session created with {Rounds} rounds", numberOfRounds);
+            _logger.LogInformation("📊 [CreateRoom] Game session created");
+            _logger.LogInformation("   Victory Type: {VictoryType}", victoryType);
+            _logger.LogInformation("   Victory Value: {VictoryValue}", victoryValue);
+            _logger.LogInformation("   Session Rounds Planned: {Rounds}", numberOfRounds);
             session.AddPlayer(userId.Value, true); // isOwner = true
             await _unitOfWork.GameSessions.AddAsync(session);
             await _unitOfWork.SaveChangesAsync();

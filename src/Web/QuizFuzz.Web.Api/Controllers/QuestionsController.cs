@@ -99,6 +99,9 @@ public class QuestionsController : ControllerBase
                 AnswerText = a.AnswerText,
                 IsPrimary = a.IsPrimary,
                 IsActive = a.IsActive,
+                AllowFuzzyMatch = a.AllowFuzzyMatch, // 🔥 НОВОЕ
+                MaxEditDistance = a.MaxEditDistance, // 🔥 НОВОЕ
+                MinConfidence = a.MinConfidence,     // 🔥 НОВОЕ
                 Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
                 {
                     Id = alias.Id,
@@ -165,7 +168,17 @@ public class QuestionsController : ControllerBase
             // Добавляем ответы
             foreach (var answerDto in request.Answers)
             {
-                var answer = question.AddAnswer(answerDto.AnswerText, answerDto.IsPrimary);
+                // 🔥 НОВОЕ: Передаем настройки fuzzy matching из DTO
+                var answer = question.AddAnswer(
+                    answerDto.AnswerText, 
+                    answerDto.IsPrimary,
+                    null, // languageCode
+                    answerDto.AllowFuzzyMatch,
+                    answerDto.MaxEditDistance,
+                    answerDto.MinConfidence);
+                    
+                _logger.LogInformation("Added answer '{Text}' with fuzzy settings: Allow={Allow}, MaxDist={MaxDist}, MinConf={MinConf}",
+                    answerDto.AnswerText, answerDto.AllowFuzzyMatch, answerDto.MaxEditDistance, answerDto.MinConfidence);
 
                 // Добавляем алиасы
                 foreach (var aliasDto in answerDto.Aliases)
@@ -191,6 +204,21 @@ public class QuestionsController : ControllerBase
                 {
                     question.AddTag(tag);
                 }
+            }
+            
+            // Добавляем медиа-ресурс если есть URL
+            if (!string.IsNullOrWhiteSpace(request.MediaUrl))
+            {
+                string mediaType = questionType switch
+                {
+                    QuestionType.Image => "IMAGE",
+                    QuestionType.Audio => "AUDIO",
+                    QuestionType.Video => "VIDEO",
+                    _ => "OTHER"
+                };
+                
+                question.AddMediaAsset(mediaType, request.MediaUrl, "FileSystem");
+                _logger.LogInformation("📎 [CreateQuestion] Added media asset: {Type} - {Url}", mediaType, request.MediaUrl);
             }
 
             await _unitOfWork.Questions.AddAsync(question);
@@ -219,6 +247,9 @@ public class QuestionsController : ControllerBase
                     AnswerText = a.AnswerText,
                     IsPrimary = a.IsPrimary,
                     IsActive = a.IsActive,
+                    AllowFuzzyMatch = a.AllowFuzzyMatch, // 🔥 НОВОЕ
+                    MaxEditDistance = a.MaxEditDistance, // 🔥 НОВОЕ
+                    MinConfidence = a.MinConfidence,     // 🔥 НОВОЕ
                     Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
                     {
                         Id = alias.Id,

@@ -143,6 +143,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Static files (для uploads)
+app.UseStaticFiles();
+
 // Routing ПЕРВЫМ!
 app.UseRouting();
 

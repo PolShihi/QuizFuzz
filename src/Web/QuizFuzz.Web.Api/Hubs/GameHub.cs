@@ -304,6 +304,18 @@ public class GameHub : Hub
 
             _logger.LogInformation("Round {RoundId} started in session {SessionId}", round.Id, sessionId);
 
+            // Получаем MediaUrl если есть и конвертируем в ПОЛНЫЙ URL
+            var mediaAsset = question.MediaAssets.FirstOrDefault();
+            var mediaUrl = ConvertToFullMediaUrl(mediaAsset?.Url);
+            
+            _logger.LogInformation("📎 [StartRound] Question type: {Type}, Media: {HasMedia}", 
+                question.Type, mediaUrl != null ? "YES" : "NO");
+            
+            if (mediaUrl != null)
+            {
+                _logger.LogInformation("   📎 Media FULL URL: {Url}", mediaUrl);
+            }
+
             // Уведомляем всех игроков
             var groupName = GetRoomGroupName(room.Id);
             await Clients.Group(groupName).SendAsync("RoundStarted", new
@@ -314,6 +326,8 @@ public class GameHub : Hub
                 promptText = question.PromptText,
                 title = question.Title,
                 difficulty = question.Difficulty.ToString(),
+                questionType = question.Type.ToString(),
+                mediaUrl = mediaUrl, // ✅ Теперь ПОЛНЫЙ URL!
                 timeLimitSec = round.TimeLimitSec,
                 startedAt = round.StartedAt,
                 hints = question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
@@ -668,6 +682,34 @@ public class GameHub : Hub
     }
 
     private static string GetRoomGroupName(Guid roomId) => $"{RoomGroupPrefix}{roomId}";
+    
+    /// <summary>
+    /// Конвертирует относительный MediaUrl в полный URL с хостом
+    /// </summary>
+    private string? ConvertToFullMediaUrl(string? mediaUrl)
+    {
+        if (string.IsNullOrEmpty(mediaUrl))
+            return null;
+            
+        // Если уже полный URL - возвращаем как есть
+        if (mediaUrl.StartsWith("http://") || mediaUrl.StartsWith("https://"))
+            return mediaUrl;
+            
+        // Если относительный - добавляем base URL
+        if (mediaUrl.StartsWith("/"))
+        {
+            var request = Context.GetHttpContext()?.Request;
+            if (request != null)
+            {
+                var baseUrl = $"{request.Scheme}://{request.Host}";
+                var fullUrl = $"{baseUrl}{mediaUrl}";
+                _logger.LogInformation("🔗 [ConvertMediaUrl] {RelativeUrl} → {FullUrl}", mediaUrl, fullUrl);
+                return fullUrl;
+            }
+        }
+        
+        return mediaUrl;
+    }
 
     private int CalculateScore(int answerTimeMs, int timeLimitSec)
     {
@@ -807,36 +849,109 @@ public class GameHub : Hub
             // Пауза 5 секунд перед следующим раундом
             await Task.Delay(5000);
             
-            // Проверяем, не закончилась ли игра
-            if (session.TotalRoundsPlayed >= session.TotalRoundsPlanned)
+            // 🏆 Проверяем условия победы
+            var roomWithDetails = await _unitOfWork.Rooms.GetWithDetailsAsync(room.Id);
+            if (roomWithDetails == null)
             {
-                _logger.LogInformation("🏁 [AutoEnd] Game finished! Total rounds: {Total}", session.TotalRoundsPlayed);
+                _logger.LogError("❌ [AutoEnd] Room {RoomId} not found for victory check!", room.Id);
+                return;
+            }
+            
+            _logger.LogInformation("🏆 [AutoEnd] ========== CHECKING VICTORY CONDITIONS ==========");
+            _logger.LogInformation("🏆 [AutoEnd] Victory Type: {VictoryType}", roomWithDetails.VictoryConditionType);
+            _logger.LogInformation("🏆 [AutoEnd] Victory Value: {VictoryValue}", roomWithDetails.VictoryValue);
+            _logger.LogInformation("🏆 [AutoEnd] Rounds Played: {Played}/{Planned}", session.TotalRoundsPlayed, session.TotalRoundsPlanned);
+            
+            bool gameFinished = false;
+            string finishReason = "";
+            
+            // Проверка условия 1: По очкам (POINTS)
+            if (roomWithDetails.VictoryConditionType == VictoryConditionType.Points)
+            {
+                var maxScore = scoreboards.Any() ? scoreboards.Max(s => s.ScoreTotal) : 0;
+                _logger.LogInformation("🎯 [AutoEnd] Points Mode - Max score: {MaxScore}/{Target}", maxScore, roomWithDetails.VictoryValue);
+                
+                if (maxScore >= roomWithDetails.VictoryValue)
+                {
+                    gameFinished = true;
+                    finishReason = $"Player reached {roomWithDetails.VictoryValue} points";
+                    _logger.LogInformation("✅ [AutoEnd] Victory by POINTS! Max score {MaxScore} >= target {Target}", maxScore, roomWithDetails.VictoryValue);
+                }
+                else
+                {
+                    _logger.LogInformation("⏳ [AutoEnd] Game continues - Max score {MaxScore} < target {Target}", maxScore, roomWithDetails.VictoryValue);
+                }
+            }
+            // Проверка условия 2: По количеству вопросов (QUESTIONS)
+            else if (roomWithDetails.VictoryConditionType == VictoryConditionType.Questions)
+            {
+                _logger.LogInformation("📝 [AutoEnd] Questions Mode - Played: {Played}/{Target}", session.TotalRoundsPlayed, roomWithDetails.VictoryValue);
+                
+                if (session.TotalRoundsPlayed >= roomWithDetails.VictoryValue)
+                {
+                    gameFinished = true;
+                    finishReason = $"Completed {roomWithDetails.VictoryValue} questions";
+                    _logger.LogInformation("✅ [AutoEnd] Victory by QUESTIONS! Played {Played} >= target {Target}", session.TotalRoundsPlayed, roomWithDetails.VictoryValue);
+                }
+                else
+                {
+                    _logger.LogInformation("⏳ [AutoEnd] Game continues - Played {Played} < target {Target}", session.TotalRoundsPlayed, roomWithDetails.VictoryValue);
+                }
+            }
+            
+            // Если игра завершена - отправляем уведомление и выходим
+            if (gameFinished)
+            {
+                _logger.LogInformation("🏁 [AutoEnd] ========== GAME FINISHED ==========");
+                _logger.LogInformation("🏁 [AutoEnd] Reason: {Reason}", finishReason);
                 
                 session.Finish();
                 room.FinishGame();
                 await _unitOfWork.SaveChangesAsync();
                 
+                // Определяем победителя
+                var winner = scoreboards.FirstOrDefault();
+                var winnerInfo = winner != null ? new
+                {
+                    userId = winner.UserId,
+                    username = winner.User.Username,
+                    scoreTotal = winner.ScoreTotal,
+                    correctCount = winner.CorrectCount
+                } : null;
+                
                 var gameFinishedData = new
                 {
                     sessionId = session.Id,
+                    reason = finishReason,
+                    victoryType = roomWithDetails.VictoryConditionType.ToString(),
+                    victoryValue = roomWithDetails.VictoryValue,
+                    winner = winnerInfo,
                     finalScoreboard = scoreboards.Select((s, index) => new
                     {
                         rank = index + 1,
                         userId = s.UserId,
                         username = s.User.Username,
                         scoreTotal = s.ScoreTotal,
-                        correctCount = s.CorrectCount
+                        correctCount = s.CorrectCount,
+                        isWinner = s.UserId == winner?.UserId
                     }).ToList()
                 };
                 
-                // Отправляем ВСЕМ клиентам (группа + All) чтобы никто не потерял уведомление
+                // Отправляем ВСЕМ клиентам
                 _logger.LogInformation("📡 [AutoEnd] Broadcasting GameFinished to ALL clients...");
+                _logger.LogInformation("🏆 [AutoEnd] Winner: {Winner} with {Score} points", 
+                    winnerInfo?.username ?? "None", winnerInfo?.scoreTotal ?? 0);
+                
                 await Clients.Group(groupName).SendAsync("GameFinished", gameFinishedData);
                 await Clients.All.SendAsync("GameFinished", gameFinishedData);
                 
                 _logger.LogInformation("🎉 [AutoEnd] Game finished notification sent to all!");
+                _logger.LogInformation("🏁 [AutoEnd] ========== END ==========");
                 return;
             }
+            
+            _logger.LogInformation("⏳ [AutoEnd] Game continues - Victory conditions not met yet");
+            _logger.LogInformation("🏆 [AutoEnd] ========== VICTORY CHECK COMPLETE ==========");
             
             // Создаем следующий раунд
             _logger.LogInformation("🎲 [AutoEnd] Creating next round...");
@@ -903,6 +1018,18 @@ public class GameHub : Hub
             
             _logger.LogInformation("✅ [AutoEnd] Next round created: {RoundId}", nextRound.Id);
             
+            // Получаем MediaUrl если есть и конвертируем в ПОЛНЫЙ URL
+            var nextMediaAsset = question.MediaAssets.FirstOrDefault();
+            var nextMediaUrl = ConvertToFullMediaUrl(nextMediaAsset?.Url);
+            
+            _logger.LogInformation("📎 [AutoEnd] Question type: {Type}, Media: {HasMedia}", 
+                question.Type, nextMediaUrl != null ? "YES" : "NO");
+            
+            if (nextMediaUrl != null)
+            {
+                _logger.LogInformation("   📎 Media FULL URL: {Url}", nextMediaUrl);
+            }
+            
             // Уведомляем всех о новом раунде
             var roundStartedData = new
             {
@@ -915,7 +1042,7 @@ public class GameHub : Hub
                 timeLimit = nextRound.TimeLimitSec,  // Клиент ожидает "timeLimit"
                 startedAt = nextRound.StartedAt,
                 questionType = question.Type.ToString(),
-                mediaUrl = (string?)null,  // TODO: загрузка медиа
+                mediaUrl = nextMediaUrl,  // ✅ Отправляем ПОЛНЫЙ MediaUrl!
                 hints = question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
                 {
                     orderIndex = h.OrderIndex,

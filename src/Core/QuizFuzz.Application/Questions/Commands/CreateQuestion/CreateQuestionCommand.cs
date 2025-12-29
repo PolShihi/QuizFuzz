@@ -22,6 +22,11 @@ public record CreateAnswerDto
     public string AnswerText { get; init; } = string.Empty;
     public bool IsPrimary { get; init; }
     public List<CreateAliasDto> Aliases { get; init; } = new();
+    
+    // 🔥 НОВОЕ: Настройки fuzzy matching
+    public bool AllowFuzzyMatch { get; init; } = true;
+    public int? MaxEditDistance { get; init; }
+    public decimal? MinConfidence { get; init; }
 }
 
 public record CreateAliasDto

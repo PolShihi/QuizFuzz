@@ -26,6 +26,11 @@ public class QuestionAnswerDto
     public bool IsPrimary { get; set; }
     public bool IsActive { get; set; }
     public List<FuzzyAliasDto> Aliases { get; set; } = new();
+    
+    // 🔥 НОВОЕ: Настройки fuzzy matching
+    public bool AllowFuzzyMatch { get; set; }
+    public int? MaxEditDistance { get; set; }
+    public decimal? MinConfidence { get; set; }
 }
 
 public class FuzzyAliasDto

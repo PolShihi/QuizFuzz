@@ -13,12 +13,15 @@ public class FuzzyMatchingService : IFuzzyMatchingService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<FuzzyMatchingService> _logger;
 
-    // Thresholds для разных стратегий
+    // 🔥 DEFAULT Thresholds (используются если не заданы в QuestionAnswer)
+    private const decimal DefaultMinConfidenceThreshold = 0.75m;
+    private const int DefaultMaxEditDistance = 2;
+    
+    // Старые константы (для обратной совместимости)
     private const decimal ExactMatchThreshold = 1.0m;
     private const decimal HighConfidenceThreshold = 0.9m;
     private const decimal MediumConfidenceThreshold = 0.75m;
     private const decimal LowConfidenceThreshold = 0.6m;
-    private const int MaxEditDistance = 2;
 
     public FuzzyMatchingService(
         IUnitOfWork unitOfWork,
@@ -200,22 +203,40 @@ public class FuzzyMatchingService : IFuzzyMatchingService
         IReadOnlyCollection<Domain.Entities.QuestionAnswer> answers,
         string normalizedUserAnswer)
     {
+        _logger.LogInformation("   🔍 [EditDistance] Trying edit distance match...");
         MatchResult? bestMatch = null;
         var bestSimilarity = 0m;
 
         foreach (var answer in answers.Where(a => a.IsActive))
         {
+            // 🔥 НОВОЕ: Проверяем разрешен ли fuzzy matching для этого ответа
+            if (!answer.AllowFuzzyMatch)
+            {
+                _logger.LogInformation("   ⏭️ [EditDistance] Answer {AnswerId}: Fuzzy matching DISABLED, skipping", answer.Id);
+                continue;
+            }
+            
+            // 🔥 НОВОЕ: Получаем настройки из ответа или используем defaults
+            var maxEditDistance = answer.MaxEditDistance ?? DefaultMaxEditDistance;
+            var minConfidence = answer.MinConfidence ?? DefaultMinConfidenceThreshold;
+            
+            _logger.LogInformation("   🔍 [EditDistance] Answer {AnswerId}: '{Text}' (MaxEditDist: {MaxDist}, MinConf: {MinConf:P0})", 
+                answer.Id, answer.AnswerText, maxEditDistance, minConfidence);
+
+            var distance = LevenshteinDistance.Calculate(
+                answer.NormalizedAnswer,
+                normalizedUserAnswer);
+            
             var similarity = LevenshteinDistance.CalculateSimilarity(
                 answer.NormalizedAnswer,
                 normalizedUserAnswer);
 
-            if (similarity >= HighConfidenceThreshold && similarity > bestSimilarity)
-            {
-                var distance = LevenshteinDistance.Calculate(
-                    answer.NormalizedAnswer,
-                    normalizedUserAnswer);
+            _logger.LogInformation("      Distance: {Distance}, Similarity: {Similarity:P2}", distance, similarity);
 
-                if (distance <= MaxEditDistance)
+            // 🔥 НОВОЕ: Проверяем по настройкам конкретного ответа!
+            if (distance <= maxEditDistance && similarity >= minConfidence)
+            {
+                if (similarity > bestSimilarity)
                 {
                     bestSimilarity = similarity;
                     bestMatch = new MatchResult
@@ -228,9 +249,15 @@ public class FuzzyMatchingService : IFuzzyMatchingService
                     };
 
                     _logger.LogInformation(
-                        "Edit distance match: {Similarity:P2}, distance: {Distance} for answer {AnswerId}",
-                        similarity, distance, answer.Id);
+                        "      ✅ [EditDistance] MATCH! Distance: {Distance} <= {MaxDist}, Similarity: {Similarity:P2} >= {MinConf:P2} for answer {AnswerId}",
+                        distance, maxEditDistance, similarity, minConfidence, answer.Id);
                 }
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "      ❌ [EditDistance] NO MATCH. Distance: {Distance} > {MaxDist} OR Similarity: {Similarity:P2} < {MinConf:P2}",
+                    distance, maxEditDistance, similarity, minConfidence);
             }
         }
 
@@ -241,30 +268,56 @@ public class FuzzyMatchingService : IFuzzyMatchingService
         IReadOnlyCollection<Domain.Entities.QuestionAnswer> answers,
         string normalizedUserAnswer)
     {
+        _logger.LogInformation("   🔍 [Token] Trying token similarity match...");
         MatchResult? bestMatch = null;
         var bestSimilarity = 0m;
 
         foreach (var answer in answers.Where(a => a.IsActive))
         {
+            // 🔥 НОВОЕ: Проверяем разрешен ли fuzzy matching для этого ответа
+            if (!answer.AllowFuzzyMatch)
+            {
+                _logger.LogInformation("   ⏭️ [Token] Answer {AnswerId}: Fuzzy matching DISABLED, skipping", answer.Id);
+                continue;
+            }
+            
+            // 🔥 НОВОЕ: Получаем минимальную confidence из ответа или используем default
+            var minConfidence = answer.MinConfidence ?? DefaultMinConfidenceThreshold;
+            
+            _logger.LogInformation("   🔍 [Token] Answer {AnswerId}: '{Text}' (MinConf: {MinConf:P0})", 
+                answer.Id, answer.AnswerText, minConfidence);
+
             var weightedRatio = TokenSimilarity.CalculateWeightedRatio(
                 answer.NormalizedAnswer,
                 normalizedUserAnswer);
+                
+            _logger.LogInformation("      Weighted ratio: {Ratio:P2}", weightedRatio);
 
-            if (weightedRatio >= MediumConfidenceThreshold && weightedRatio > bestSimilarity)
+            // 🔥 НОВОЕ: Проверяем по настройкам конкретного ответа!
+            if (weightedRatio >= minConfidence)
             {
-                bestSimilarity = weightedRatio;
-                bestMatch = new MatchResult
+                if (weightedRatio > bestSimilarity)
                 {
-                    IsCorrect = true,
-                    Strategy = MatchStrategy.Token,
-                    Confidence = weightedRatio,
-                    NormalizedAnswer = normalizedUserAnswer,
-                    MatchedQuestionAnswerId = answer.Id
-                };
+                    bestSimilarity = weightedRatio;
+                    bestMatch = new MatchResult
+                    {
+                        IsCorrect = true,
+                        Strategy = MatchStrategy.Token,
+                        Confidence = weightedRatio,
+                        NormalizedAnswer = normalizedUserAnswer,
+                        MatchedQuestionAnswerId = answer.Id
+                    };
 
+                    _logger.LogInformation(
+                        "      ✅ [Token] MATCH! Ratio: {Ratio:P2} >= {MinConf:P2} for answer {AnswerId}",
+                        weightedRatio, minConfidence, answer.Id);
+                }
+            }
+            else
+            {
                 _logger.LogInformation(
-                    "Token match: {Similarity:P2} for answer {AnswerId}",
-                    weightedRatio, answer.Id);
+                    "      ❌ [Token] NO MATCH. Ratio: {Ratio:P2} < {MinConf:P2}",
+                    weightedRatio, minConfidence);
             }
         }
 
