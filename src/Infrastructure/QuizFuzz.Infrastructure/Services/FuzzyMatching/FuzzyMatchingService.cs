@@ -109,8 +109,18 @@ public class FuzzyMatchingService : IFuzzyMatchingService
         }
         _logger.LogInformation("⏭️ [FuzzyMatching] No edit distance match");
 
-        // 4. Token similarity
-        _logger.LogInformation("🔍 [FuzzyMatching] Step 4: Trying TOKEN match...");
+        // 4. 🔥 НОВОЕ: Transliteration match
+        _logger.LogInformation("🔍 [FuzzyMatching] Step 4: Trying TRANSLITERATION match...");
+        var translitMatch = TryTranslitMatch(question.Answers, normalizedUserAnswer);
+        if (translitMatch != null)
+        {
+            _logger.LogInformation("✅ [FuzzyMatching] TRANSLITERATION MATCH FOUND!");
+            return translitMatch;
+        }
+        _logger.LogInformation("⏭️ [FuzzyMatching] No transliteration match");
+
+        // 5. Token similarity
+        _logger.LogInformation("🔍 [FuzzyMatching] Step 5: Trying TOKEN match...");
         var tokenMatch = TryTokenMatch(question.Answers, normalizedUserAnswer);
         if (tokenMatch != null)
         {
@@ -119,7 +129,17 @@ public class FuzzyMatchingService : IFuzzyMatchingService
         }
         _logger.LogInformation("⏭️ [FuzzyMatching] No token match");
 
-        // 5. No match
+        // 6. 🔥 НОВОЕ: Phonetic match (последний шаг - самый мягкий)
+        _logger.LogInformation("🔍 [FuzzyMatching] Step 6: Trying PHONETIC match...");
+        var phoneticMatch = TryPhoneticMatch(question.Answers, normalizedUserAnswer);
+        if (phoneticMatch != null)
+        {
+            _logger.LogInformation("✅ [FuzzyMatching] PHONETIC MATCH FOUND!");
+            return phoneticMatch;
+        }
+        _logger.LogInformation("⏭️ [FuzzyMatching] No phonetic match");
+
+        // 7. No match
         _logger.LogWarning("❌ [FuzzyMatching] NO MATCH FOUND - Answer is INCORRECT");
         _logger.LogInformation("🔍 [FuzzyMatching] ========== EVALUATION COMPLETE: INCORRECT ==========");
         return new MatchResult
@@ -321,6 +341,152 @@ public class FuzzyMatchingService : IFuzzyMatchingService
             }
         }
 
+        return bestMatch;
+    }
+    
+    /// <summary>
+    /// 🔥 НОВОЕ: Транслитерация + Levenshtein
+    /// Конвертирует оба текста в латиницу и сравнивает
+    /// </summary>
+    private MatchResult? TryTranslitMatch(
+        IReadOnlyCollection<Domain.Entities.QuestionAnswer> answers,
+        string normalizedUserAnswer)
+    {
+        _logger.LogInformation("   🔍 [Translit] Trying transliteration match...");
+        
+        // Транслитерируем ответ пользователя
+        var userTranslit = Transliterator.ToLatin(normalizedUserAnswer);
+        _logger.LogInformation("      User answer transliterated: '{Original}' → '{Translit}'", 
+            normalizedUserAnswer, userTranslit);
+        
+        MatchResult? bestMatch = null;
+        var bestSimilarity = 0m;
+        
+        foreach (var answer in answers.Where(a => a.IsActive))
+        {
+            // 🔥 Проверяем разрешен ли fuzzy matching для этого ответа
+            if (!answer.AllowFuzzyMatch)
+            {
+                _logger.LogInformation("      ⏭️ [Translit] Answer {AnswerId}: Fuzzy matching DISABLED, skipping", answer.Id);
+                continue;
+            }
+            
+            // 🔥 Получаем настройки из ответа или используем defaults
+            var maxEditDistance = answer.MaxEditDistance ?? DefaultMaxEditDistance;
+            var minConfidence = answer.MinConfidence ?? DefaultMinConfidenceThreshold;
+            
+            // Транслитерируем правильный ответ
+            var answerTranslit = Transliterator.ToLatin(answer.NormalizedAnswer);
+            
+            _logger.LogInformation("      Answer '{Original}' → '{Translit}' (MaxEditDist: {MaxDist}, MinConf: {MinConf:P0})", 
+                answer.AnswerText, answerTranslit, maxEditDistance, minConfidence);
+            
+            var distance = LevenshteinDistance.Calculate(answerTranslit, userTranslit);
+            var similarity = LevenshteinDistance.CalculateSimilarity(answerTranslit, userTranslit);
+            
+            _logger.LogInformation("         Distance: {Distance}, Similarity: {Similarity:P2}", distance, similarity);
+            
+            // 🔥 Проверяем по ИНДИВИДУАЛЬНЫМ настройкам!
+            if (distance <= maxEditDistance && similarity >= minConfidence)
+            {
+                if (similarity > bestSimilarity)
+                {
+                    bestSimilarity = similarity;
+                    bestMatch = new MatchResult
+                    {
+                        IsCorrect = true,
+                        Strategy = MatchStrategy.Transliteration,
+                        Confidence = similarity,
+                        NormalizedAnswer = normalizedUserAnswer,
+                        MatchedQuestionAnswerId = answer.Id
+                    };
+                    
+                    _logger.LogInformation(
+                        "         ✅ [Translit] MATCH via transliteration! Distance: {Distance} <= {MaxDist}, Similarity: {Similarity:P2} >= {MinConf:P2}",
+                        distance, maxEditDistance, similarity, minConfidence);
+                }
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "         ❌ [Translit] NO MATCH. Distance: {Distance} > {MaxDist} OR Similarity: {Similarity:P2} < {MinConf:P2}",
+                    distance, maxEditDistance, similarity, minConfidence);
+            }
+        }
+        
+        return bestMatch;
+    }
+    
+    /// <summary>
+    /// 🔥 НОВОЕ: Фонетическое сравнение (Soundex + Metaphone)
+    /// Транслитерирует в латиницу, затем применяет фонетические алгоритмы
+    /// </summary>
+    private MatchResult? TryPhoneticMatch(
+        IReadOnlyCollection<Domain.Entities.QuestionAnswer> answers,
+        string normalizedUserAnswer)
+    {
+        _logger.LogInformation("   🔍 [Phonetic] Trying phonetic match (Soundex + Metaphone)...");
+        
+        // Транслитерируем ответ пользователя
+        var userTranslit = Transliterator.ToLatin(normalizedUserAnswer);
+        _logger.LogInformation("      User answer transliterated for phonetic: '{Original}' → '{Translit}'", 
+            normalizedUserAnswer, userTranslit);
+        
+        MatchResult? bestMatch = null;
+        var bestConfidence = 0m;
+        
+        foreach (var answer in answers.Where(a => a.IsActive))
+        {
+            // 🔥 Проверяем разрешен ли fuzzy matching для этого ответа
+            if (!answer.AllowFuzzyMatch)
+            {
+                _logger.LogInformation("      ⏭️ [Phonetic] Answer {AnswerId}: Fuzzy matching DISABLED, skipping", answer.Id);
+                continue;
+            }
+            
+            // 🔥 Получаем минимальную confidence из ответа или используем default
+            // Для фонетики используем чуть более низкий порог (т.к. это последний шаг)
+            var minConfidence = (answer.MinConfidence ?? DefaultMinConfidenceThreshold) * 0.9m;
+            
+            // Транслитерируем правильный ответ
+            var answerTranslit = Transliterator.ToLatin(answer.NormalizedAnswer);
+            
+            _logger.LogInformation("      Answer '{Original}' → '{Translit}' (MinConf: {MinConf:P0})", 
+                answer.AnswerText, answerTranslit, minConfidence);
+            
+            // Фонетическое сравнение
+            var phoneticConfidence = PhoneticMatcher.CalculateSimilarity(userTranslit, answerTranslit);
+            
+            _logger.LogInformation("         Phonetic confidence: {Confidence:P2}", phoneticConfidence);
+            
+            // 🔥 Проверяем по порогу
+            if (phoneticConfidence >= minConfidence)
+            {
+                if (phoneticConfidence > bestConfidence)
+                {
+                    bestConfidence = phoneticConfidence;
+                    bestMatch = new MatchResult
+                    {
+                        IsCorrect = true,
+                        Strategy = MatchStrategy.Phonetic,
+                        Confidence = phoneticConfidence,
+                        NormalizedAnswer = normalizedUserAnswer,
+                        MatchedQuestionAnswerId = answer.Id
+                    };
+                    
+                    _logger.LogInformation(
+                        "         ✅ [Phonetic] MATCH via phonetic algorithms! Confidence: {Confidence:P2} >= {MinConf:P2}",
+                        phoneticConfidence, minConfidence);
+                }
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "         ❌ [Phonetic] NO MATCH. Confidence: {Confidence:P2} < {MinConf:P2}",
+                    phoneticConfidence, minConfidence);
+            }
+        }
+        
         return bestMatch;
     }
 }
