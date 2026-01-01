@@ -1,0 +1,323 @@
+@page "/suggest-question"
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Questions
+@using QuizFuzz.Shared.Dtos.Moderation
+@using Microsoft.AspNetCore.Authorization
+@using QuizFuzz.Shared.Enums
+@attribute [Authorize]
+@inject IQuestionsApiClient QuestionsClient
+@inject ITagsApiClient TagsClient
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ILogger<SuggestQuestion> Logger
+
+<PageTitle>Suggest a Question - QuizFuzz</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
+    <MudPaper Elevation="3" Class="pa-6">
+        <MudText Typo="Typo.h4" Class="mb-4">
+            <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Class="mr-2" />
+            Suggest a Question
+        </MudText>
+
+        <MudText Color="Color.Info" Class="mb-6">
+            Submit your question for moderation. Once approved, it will be available in the game!
+        </MudText>
+
+        @if (isSubmitting)
+        {
+            <MudProgressLinear Indeterminate="true" Class="mb-4" />
+        }
+
+        <MudForm @ref="form" @bind-IsValid="@isValid">
+            <MudGrid>
+                <!-- Title -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="title"
+                                  Label="Title (Optional)"
+                                  Variant="Variant.Outlined"
+                                  HelperText="Short descriptive title for your question" />
+                </MudItem>
+
+                <!-- Question Text -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="promptText"
+                                  Label="Question Text"
+                                  Variant="Variant.Outlined"
+                                  Lines="3"
+                                  Required="true"
+                                  RequiredError="Question text is required"
+                                  HelperText="Enter your question here" />
+                </MudItem>
+
+                <!-- Type -->
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="questionType"
+                               Label="Question Type"
+                               Variant="Variant.Outlined"
+                               Required="true">
+                        <MudSelectItem Value="@("Text")">Text</MudSelectItem>
+                        <MudSelectItem Value="@("Image")">Image</MudSelectItem>
+                        <MudSelectItem Value="@("Audio")">Audio</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Difficulty -->
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="difficulty"
+                               Label="Difficulty"
+                               Variant="Variant.Outlined"
+                               Required="true">
+                        <MudSelectItem Value="@("Easy")">Easy</MudSelectItem>
+                        <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                        <MudSelectItem Value="@("Hard")">Hard</MudSelectItem>
+                        <MudSelectItem Value="@("Expert")">Expert</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Correct Answers -->
+                <MudItem xs="12">
+                    <MudText Typo="Typo.h6" Class="mb-2">Correct Answers</MudText>
+                    @foreach (var answer in correctAnswers)
+                    {
+                        <MudStack Class="mb-3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudTextField @bind-Value="answer.Text"
+                                              Label="Answer"
+                                              Variant="Variant.Outlined"
+                                              Required="true"
+                                              Style="flex-grow: 1;" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                               Color="Color.Error"
+                                               OnClick="@(() => RemoveAnswer(answer))"
+                                               Disabled="@(correctAnswers.Count <= 1)" />
+                            </MudStack>
+                            
+                            <!-- Fuzzy Matching Settings -->
+                            <MudExpansionPanels Dense="true">
+                                <MudExpansionPanel Text="⚙️ Fuzzy Matching Settings" IsInitiallyExpanded="false">
+                                    <MudStack Spacing="2">
+                                        <MudSwitch T="bool" @bind-Checked="answer.AllowFuzzyMatch" 
+                                                   Color="Color.Primary" 
+                                                   Label="Enable Fuzzy Matching" />
+                                        
+                                        @if (answer.AllowFuzzyMatch)
+                                        {
+                                            <MudSlider @bind-Value="answer.MinConfidence" 
+                                                       Min="0.0" 
+                                                       Max="1.0" 
+                                                       Step="0.05"
+                                                       Color="Color.Info">
+                                                Min Confidence: @answer.MinConfidence.ToString("P0")
+                                            </MudSlider>
+                                            
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @GetConfidenceDescription(answer.MinConfidence)
+                                            </MudText>
+                                        }
+                                    </MudStack>
+                                </MudExpansionPanel>
+                            </MudExpansionPanels>
+                        </MudStack>
+                    }
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="AddAnswer"
+                               Class="mt-2">
+                        Add Answer
+                    </MudButton>
+                </MudItem>
+
+                <!-- Tags -->
+                <MudItem xs="12">
+                    <MudSelect @bind-SelectedValues="selectedTagIds"
+                               Label="Tags"
+                               Variant="Variant.Outlined"
+                               MultiSelection="true"
+                               HelperText="Select relevant tags for your question">
+                        @foreach (var tag in availableTags)
+                        {
+                            <MudSelectItem Value="@tag.Id">@tag.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Explanation -->
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="explanation"
+                                  Label="Explanation (Optional)"
+                                  Variant="Variant.Outlined"
+                                  Lines="3"
+                                  HelperText="Provide additional context or explanation for the answer" />
+                </MudItem>
+
+                <!-- Submit Button -->
+                <MudItem xs="12">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+                        <MudButton Variant="Variant.Outlined"
+                                   OnClick="@(() => Navigation.NavigateTo("/lobby"))">
+                            Cancel
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="@(!isValid || isSubmitting)"
+                                   OnClick="SubmitQuestion">
+                            @if (isSubmitting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ml-2">Submitting...</MudText>
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.Send" Class="mr-2" />
+                                <MudText>Submit for Review</MudText>
+                            }
+                        </MudButton>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm form = null!;
+    private bool isValid;
+    private bool isSubmitting;
+
+    private string title = string.Empty;
+    private string promptText = string.Empty;
+    private string questionType = "Text";
+    private string difficulty = "Medium";
+    private string explanation = string.Empty;
+
+    private List<AnswerItem> correctAnswers = new() { new AnswerItem() };
+    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+    private List<QuizFuzz.Shared.Dtos.Questions.TagDto> availableTags = new();
+
+    private class AnswerItem
+    {
+        public string Text { get; set; } = string.Empty;
+        public bool AllowFuzzyMatch { get; set; } = true;
+        public double MinConfidence { get; set; } = 0.7;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogInformation("💡 [SuggestQuestion] Page initialized");
+        await LoadTags();
+    }
+
+    private async Task LoadTags()
+    {
+        try
+        {
+            Logger.LogInformation("🏷️ [SuggestQuestion] Loading tags...");
+            availableTags = await TagsClient.GetAllTagsAsync();
+            Logger.LogInformation("✅ [SuggestQuestion] Loaded {Count} tags", availableTags.Count);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ [SuggestQuestion] Error loading tags");
+            Snackbar.Add($"Error loading tags: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetConfidenceDescription(double confidence)
+    {
+        return confidence switch
+        {
+            >= 0.9 => "Very strict - only near-exact matches",
+            >= 0.8 => "Strict - minor typos allowed",
+            >= 0.7 => "Moderate - common typos and variations",
+            >= 0.6 => "Lenient - more variations allowed",
+            _ => "Very lenient - accepts many variations"
+        };
+    }
+
+    private void AddAnswer()
+    {
+        correctAnswers.Add(new AnswerItem());
+    }
+
+    private void RemoveAnswer(AnswerItem answer)
+    {
+        if (correctAnswers.Count > 1)
+        {
+            correctAnswers.Remove(answer);
+        }
+    }
+
+    private async Task SubmitQuestion()
+    {
+        Logger.LogInformation("📤 [SuggestQuestion] Starting question submission");
+        
+        await form.Validate();
+        if (!isValid)
+        {
+            Logger.LogWarning("⚠️ [SuggestQuestion] Form validation failed");
+            Snackbar.Add("Please fill in all required fields", Severity.Warning);
+            return;
+        }
+
+        if (correctAnswers.All(a => string.IsNullOrWhiteSpace(a.Text)))
+        {
+            Logger.LogWarning("⚠️ [SuggestQuestion] No correct answers provided");
+            Snackbar.Add("Please provide at least one correct answer", Severity.Warning);
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            Logger.LogInformation("🔧 [SuggestQuestion] Building request - Type: {Type}, Difficulty: {Difficulty}, Answers: {Count}", 
+                questionType, difficulty, correctAnswers.Count);
+
+            var request = new SuggestQuestionRequest
+            {
+                Title = string.IsNullOrWhiteSpace(title) ? null : title,
+                PromptText = promptText,
+                Type = Enum.Parse<QuestionType>(questionType),
+                Difficulty = Enum.Parse<Difficulty>(difficulty),
+                CorrectAnswers = correctAnswers
+                    .Where(a => !string.IsNullOrWhiteSpace(a.Text))
+                    .Select(a => new AnswerWithSettings 
+                    { 
+                        Text = a.Text,
+                        AllowFuzzyMatch = a.AllowFuzzyMatch,
+                        MinConfidence = a.MinConfidence
+                    })
+                    .ToList(),
+                TagIds = selectedTagIds.ToList(),
+                Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation
+            };
+
+            Logger.LogInformation("📡 [SuggestQuestion] Sending request to API...");
+            var success = await QuestionsClient.SuggestQuestionAsync(request);
+
+            if (success)
+            {
+                Logger.LogInformation("✅ [SuggestQuestion] Question submitted successfully!");
+                Snackbar.Add("Question submitted successfully! It will be reviewed by moderators.", Severity.Success);
+                Navigation.NavigateTo("/lobby");
+            }
+            else
+            {
+                Logger.LogError("❌ [SuggestQuestion] API returned failure");
+                Snackbar.Add("Failed to submit question. Please try again.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "💥 [SuggestQuestion] Exception during submission");
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSubmitting = false;
+            Logger.LogInformation("🏁 [SuggestQuestion] Submission process completed");
+        }
+    }
+}

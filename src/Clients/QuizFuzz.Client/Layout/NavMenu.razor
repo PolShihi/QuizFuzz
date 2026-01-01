@@ -2,6 +2,7 @@
     <AuthorizeView>
         <Authorized>
             <MudNavLink Href="/lobby" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Lobby</MudNavLink>
+            <MudNavLink Href="/suggest-question" Icon="@Icons.Material.Filled.Lightbulb">Suggest Question</MudNavLink>
             <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">Profile</MudNavLink>
             
             <AuthorizeView Roles="Moderator,Admin" Context="modAdminContext">

@@ -156,7 +156,6 @@
                                 <MudSelectItem Value="@("TEXT")">Text</MudSelectItem>
                                 <MudSelectItem Value="@("IMAGE")">Image</MudSelectItem>
                                 <MudSelectItem Value="@("AUDIO")">Audio</MudSelectItem>
-                                <MudSelectItem Value="@("VIDEO")">Video</MudSelectItem>
                             </MudSelect>
 
                             <MudSelect T="string" Label="Difficulty" @bind-Value="currentQuestion.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">

@@ -35,6 +35,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<PlayerAnswer> PlayerAnswers => Set<PlayerAnswer>();
     public DbSet<AnswerEvaluation> AnswerEvaluations => Set<AnswerEvaluation>();
     public DbSet<Scoreboard> Scoreboards => Set<Scoreboard>();
+    public DbSet<ModerationAction> ModerationActions => Set<ModerationAction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

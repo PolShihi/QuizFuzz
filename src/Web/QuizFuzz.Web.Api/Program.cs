@@ -19,6 +19,12 @@ builder.Services.AddScoped<QuizFuzz.Application.Common.Interfaces.Services.ICurr
 // Infrastructure Layer
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// MediatR - CRITICAL for Moderation Commands/Queries
+builder.Services.AddMediatR(cfg => 
+{
+    cfg.RegisterServicesFromAssembly(typeof(QuizFuzz.Application.Moderation.Commands.ApproveQuestion.ApproveQuestionCommand).Assembly);
+});
+
 // CORS
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() 
     ?? new[] { "http://localhost:5173", "https://localhost:5002", "http://localhost:5003" };

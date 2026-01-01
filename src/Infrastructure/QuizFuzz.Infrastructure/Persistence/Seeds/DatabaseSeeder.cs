@@ -424,7 +424,6 @@ public class DatabaseSeeder
                 {
                     Domain.Enums.QuestionType.Image => "IMAGE",
                     Domain.Enums.QuestionType.Audio => "AUDIO",
-                    Domain.Enums.QuestionType.Video => "VIDEO",
                     _ => "OTHER"
                 };
                 

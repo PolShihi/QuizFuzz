@@ -213,7 +213,6 @@ public class QuestionsController : ControllerBase
                 {
                     QuestionType.Image => "IMAGE",
                     QuestionType.Audio => "AUDIO",
-                    QuestionType.Video => "VIDEO",
                     _ => "OTHER"
                 };
                 

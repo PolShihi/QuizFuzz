@@ -8,7 +8,7 @@ namespace QuizFuzz.Domain.Entities;
 public class MediaAsset : BaseEntity
 {
     public Guid QuestionId { get; private set; }
-    public string MediaType { get; private set; } // IMAGE, AUDIO, VIDEO
+    public string MediaType { get; private set; } // IMAGE, AUDIO
     public string Url { get; private set; }
     public string StorageProvider { get; private set; }
     public string? Checksum { get; private set; }
