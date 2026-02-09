@@ -78,9 +78,12 @@
                 <!-- Correct Answers -->
                 <MudItem xs="12">
                     <MudText Typo="Typo.h6" Class="mb-2">Correct Answers</MudText>
-                    @foreach (var answer in correctAnswers)
+                    @for (int i = 0; i < correctAnswers.Count; i++)
                     {
-                        <MudStack Class="mb-3">
+                        var index = i;
+                        var answer = correctAnswers[index];
+                        
+                        <MudStack Class="mb-3" @key="@index">
                             <MudStack Row="true" AlignItems="AlignItems.Center">
                                 <MudTextField @bind-Value="answer.Text"
                                               Label="Answer"
@@ -89,35 +92,41 @@
                                               Style="flex-grow: 1;" />
                                 <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                                Color="Color.Error"
-                                               OnClick="@(() => RemoveAnswer(answer))"
+                                               OnClick="@(() => RemoveAnswerAtIndex(index))"
                                                Disabled="@(correctAnswers.Count <= 1)" />
                             </MudStack>
                             
                             <!-- Fuzzy Matching Settings -->
-                            <MudExpansionPanels Dense="true">
-                                <MudExpansionPanel Text="⚙️ Fuzzy Matching Settings" IsInitiallyExpanded="false">
-                                    <MudStack Spacing="2">
-                                        <MudSwitch T="bool" @bind-Checked="answer.AllowFuzzyMatch" 
-                                                   Color="Color.Primary" 
-                                                   Label="Enable Fuzzy Matching" />
-                                        
-                                        @if (answer.AllowFuzzyMatch)
-                                        {
-                                            <MudSlider @bind-Value="answer.MinConfidence" 
+                            <MudPaper Class="pa-3 mt-2" Outlined="true">
+                                <MudText Typo="Typo.subtitle2" Class="mb-2">⚙️ Fuzzy Matching Settings</MudText>
+                                <MudStack Spacing="2">
+                                    <MudSwitch T="bool" 
+                                               Checked="@answer.AllowFuzzyMatch" 
+                                               CheckedChanged="@((bool val) => { answer.AllowFuzzyMatch = val; StateHasChanged(); })"
+                                               Color="Color.Primary" 
+                                               Label="Enable Fuzzy Matching" />
+                                    
+                                    @if (answer.AllowFuzzyMatch)
+                                    {
+                                        <MudStack>
+                                            <MudText Typo="Typo.caption">
+                                                Min Confidence: @answer.MinConfidence.ToString("P0")
+                                            </MudText>
+                                            <MudSlider T="double"
+                                                       Value="@answer.MinConfidence" 
+                                                       ValueChanged="@((double val) => { answer.MinConfidence = val; StateHasChanged(); })"
                                                        Min="0.0" 
                                                        Max="1.0" 
                                                        Step="0.05"
-                                                       Color="Color.Info">
-                                                Min Confidence: @answer.MinConfidence.ToString("P0")
-                                            </MudSlider>
+                                                       Color="Color.Info" />
                                             
                                             <MudText Typo="Typo.caption" Color="Color.Secondary">
                                                 @GetConfidenceDescription(answer.MinConfidence)
                                             </MudText>
-                                        }
-                                    </MudStack>
-                                </MudExpansionPanel>
-                            </MudExpansionPanels>
+                                        </MudStack>
+                                    }
+                                </MudStack>
+                            </MudPaper>
                         </MudStack>
                     }
                     <MudButton Variant="Variant.Outlined"
@@ -239,13 +248,15 @@
     private void AddAnswer()
     {
         correctAnswers.Add(new AnswerItem());
+        StateHasChanged();
     }
 
-    private void RemoveAnswer(AnswerItem answer)
+    private void RemoveAnswerAtIndex(int index)
     {
-        if (correctAnswers.Count > 1)
+        if (correctAnswers.Count > 1 && index >= 0 && index < correctAnswers.Count)
         {
-            correctAnswers.Remove(answer);
+            correctAnswers.RemoveAt(index);
+            StateHasChanged();
         }
     }
 

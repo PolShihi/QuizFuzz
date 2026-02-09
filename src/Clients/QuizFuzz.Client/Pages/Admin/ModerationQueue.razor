@@ -16,16 +16,16 @@
                 <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
                 Moderation Queue
             </MudText>
-            <MudChip T="string" Color="Color.Warning">@pendingCount Pending</MudChip>
+            <MudChip T="string" Color="Color.Warning">@pendingCount Under Review</MudChip>
         </MudStack>
     </MudPaper>
 
     <MudPaper Elevation="2" Class="pa-4 mb-4">
         <MudStack Row="true" Spacing="2">
-            <MudButton Variant="@(selectedStatus == "PENDING" ? Variant.Filled : Variant.Outlined)"
+            <MudButton Variant="@(selectedStatus == "UnderReview" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Warning"
-                       OnClick="@(() => FilterByStatus("PENDING"))">
-                Pending (@pendingCount)
+                       OnClick="@(() => FilterByStatus("UnderReview"))">
+                Under Review (@pendingCount)
             </MudButton>
             <MudButton Variant="@(selectedStatus == "APPROVED" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Success"
@@ -104,7 +104,7 @@
                                    OnClick="@(() => ReviewQuestion(context))">
                             Review
                         </MudButton>
-                        @if (context.Status == "PENDING")
+                        @if (context.Status == "UnderReview")
                         {
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
@@ -192,7 +192,7 @@
     private ModerationQueueDto? selectedQueueItem;
     private bool isLoading = true;
     private bool showReviewDialog = false;
-    private string? selectedStatus = "PENDING";
+    private string? selectedStatus = "UnderReview";
     private int pendingCount = 0;
     private string moderationComment = string.Empty;
 
@@ -205,7 +205,7 @@
     {
         isLoading = true;
         queue = await ModerationClient.GetModerationQueueAsync(selectedStatus);
-        pendingCount = queue.Count(q => q.Status == "PENDING");
+        pendingCount = queue.Count(q => q.Status == "UnderReview");
         isLoading = false;
     }
 
@@ -297,7 +297,7 @@
     {
         return status switch
         {
-            "PENDING" => Color.Warning,
+            "UnderReview" => Color.Warning,
             "APPROVED" => Color.Success,
             "REJECTED" => Color.Error,
             _ => Color.Default
