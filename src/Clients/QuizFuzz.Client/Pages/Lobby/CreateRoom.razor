@@ -14,8 +14,9 @@
     <MudPaper Elevation="3" Class="pa-8">
         <MudText Typo="Typo.h4" GutterBottom="true">Create New Room</MudText>
         
-        <EditForm Model="@request" OnValidSubmit="@HandleCreateRoom">
+        <EditForm Model="@request" OnValidSubmit="@HandleCreateRoom" OnInvalidSubmit="@HandleInvalidSubmit">
             <DataAnnotationsValidator />
+            <ValidationSummary />
             
             <MudTextField @bind-Value="request.Name" 
                           Label="Room Name" 
@@ -79,7 +80,7 @@
                 <MudNumericField @bind-Value="request.NumberOfRounds" 
                                  Label="Number of Questions" 
                                  Min="3" 
-                                 Max="50"
+                                 Max="20"
                                  Variant="Variant.Outlined"
                                  HelperText="Total questions in the game. Player with highest score wins."
                                  Adornment="Adornment.Start"
@@ -129,6 +130,19 @@
                 </MudAlert>
             }
 
+            @if (validationErrors.Count > 0)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-4">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Please fix the following issues:</MudText>
+                    <ul class="mb-0">
+                        @foreach (var error in validationErrors)
+                        {
+                            <li>@error</li>
+                        }
+                    </ul>
+                </MudAlert>
+            }
+
             <MudStack Row="true" Spacing="2">
                 <MudButton ButtonType="ButtonType.Submit" 
                            Variant="Variant.Filled" 
@@ -149,6 +163,7 @@
     private CreateRoomRequest request = new();
     private string errorMessage = string.Empty;
     private bool isLoading = false;
+    private List<string> validationErrors = new();
     private List<TagDto> availableTags = new();
     private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private IEnumerable<string> selectedDifficulties = new List<string>();
@@ -237,14 +252,71 @@
         return string.Join(", ", selectedValues.Select(GetTagName));
     }
 
+    private void HandleInvalidSubmit()
+    {
+        validationErrors = new List<string> { "Please fix the highlighted validation errors before creating the room." };
+        errorMessage = string.Empty;
+    }
+    private List<string> ValidateRoomRequest()
+    {
+        var errors = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+            errors.Add("Room name is required.");
+        else
+        {
+            var nameLength = request.Name.Trim().Length;
+            if (nameLength < 3)
+                errors.Add("Room name must be at least 3 characters.");
+            if (nameLength > 100)
+                errors.Add("Room name cannot exceed 100 characters.");
+        }
+
+        if (request.MaxPlayers is < 2 or > 50)
+            errors.Add("Max players must be between 2 and 50.");
+
+        if (selectedVictoryMode == "Points")
+        {
+            if (request.VictoryValue is < 50 or > 10000)
+                errors.Add("Target points must be between 50 and 10000.");
+        }
+        else if (selectedVictoryMode == "Questions")
+        {
+            if (request.NumberOfRounds is < 3 or > 20)
+                errors.Add("Number of questions must be between 3 and 20.");
+        }
+        else
+        {
+            errors.Add("Select a valid victory condition.");
+        }
+
+        var invalidTags = selectedTagIds.Where(id => !Guid.TryParse(id, out _)).ToList();
+        if (invalidTags.Count > 0)
+            errors.Add("One or more selected tags are invalid. Please reselect tags.");
+
+        var allowedDifficulties = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Easy", "Medium", "Hard" };
+        var invalidDifficulties = selectedDifficulties.Where(d => !allowedDifficulties.Contains(d)).ToList();
+        if (invalidDifficulties.Count > 0)
+            errors.Add("One or more selected difficulties are invalid.");
+
+        return errors;
+    }
+
+
     private async Task HandleCreateRoom()
     {
-        isLoading = true;
         errorMessage = string.Empty;
+        validationErrors = ValidateRoomRequest();
+        if (validationErrors.Count > 0)
+            return;
+
+        isLoading = true;
 
         try
         {
             // ������������� ����� ������
+            request.Name = request.Name.Trim();
+            request.Visibility = request.Visibility.Trim();
             request.VictoryConditionType = selectedVictoryMode.ToUpperInvariant();
             
             await LogToConsole($"?? [CreateRoom] Creating room: {request.Name}");

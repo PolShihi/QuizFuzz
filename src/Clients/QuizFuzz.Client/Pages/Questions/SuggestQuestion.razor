@@ -31,6 +31,19 @@
             <MudProgressLinear Indeterminate="true" Class="mb-4" />
         }
 
+        @if (validationErrors.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                <MudText Typo="Typo.subtitle2" Class="mb-2">Please fix the following issues:</MudText>
+                <ul class="mb-0">
+                    @foreach (var error in validationErrors)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </MudAlert>
+        }
+
         <MudForm @ref="form" @bind-IsValid="@isValid">
             <MudGrid>
                 <!-- Title -->
@@ -38,6 +51,9 @@
                     <MudTextField @bind-Value="title"
                                   Label="Title (Optional)"
                                   Variant="Variant.Outlined"
+                                  MaxLength="100"
+                                  Counter="100"
+                                  Immediate="true"
                                   HelperText="Short descriptive title for your question" />
                 </MudItem>
 
@@ -49,7 +65,10 @@
                                   Lines="3"
                                   Required="true"
                                   RequiredError="Question text is required"
-                                  HelperText="Enter your question here" />
+                                  MaxLength="2000"
+                                  Counter="2000"
+                                  Immediate="true"
+                                  HelperText="Enter your question here. Minimum 10 characters." />
                 </MudItem>
 
                 <!-- Type -->
@@ -150,6 +169,10 @@
                                               Label="Answer"
                                               Variant="Variant.Outlined"
                                               Required="true"
+                                              RequiredError="Answer is required"
+                                              MaxLength="200"
+                                              Counter="200"
+                                              Immediate="true"
                                               Style="flex-grow: 1;" />
                                 <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                                Color="Color.Error"
@@ -192,6 +215,7 @@
                                Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.Add"
                                OnClick="AddAnswer"
+                               Disabled="@(correctAnswers.Count >= MaxAnswers)"
                                Class="mt-2">
                         Add Answer
                     </MudButton>
@@ -230,10 +254,14 @@
                                               Label="New tag name"
                                               Variant="Variant.Outlined"
                                               Immediate="true"
+                                              MaxLength="50"
+                                              Counter="50"
                                               Style="min-width: 220px; flex-grow: 1;" />
                                 <MudTextField @bind-Value="suggestedTagDescription"
                                               Label="Description"
                                               Variant="Variant.Outlined"
+                                              MaxLength="500"
+                                              Counter="500"
                                               Style="min-width: 260px; flex-grow: 2;" />
                                 <MudButton Variant="Variant.Outlined"
                                            Color="Color.Primary"
@@ -253,6 +281,8 @@
                                   Label="Explanation (Optional)"
                                   Variant="Variant.Outlined"
                                   Lines="3"
+                                  MaxLength="1000"
+                                  Counter="1000"
                                   HelperText="Provide additional context or explanation for the answer" />
                 </MudItem>
 
@@ -265,7 +295,7 @@
                         </MudButton>
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
-                                   Disabled="@(!isValid || isSubmitting)"
+                                   Disabled="@(isSubmitting || isUploadingMedia)"
                                    OnClick="SubmitQuestion">
                             @if (isSubmitting)
                             {
@@ -302,7 +332,11 @@
     private string? uploadedMediaUrl;
     private string? mediaUploadError;
 
+    private const int MaxAnswers = 10;
+    private const int MaxSelectedTags = 8;
+
     private bool isUploadingMedia;
+    private List<string> validationErrors = new();
     private List<AnswerItem> correctAnswers = new() { new AnswerItem() };
     private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private List<QuizFuzz.Shared.Dtos.Questions.TagDto> availableTags = new();
@@ -443,6 +477,12 @@
 
     private void AddAnswer()
     {
+        if (correctAnswers.Count >= MaxAnswers)
+        {
+            Snackbar.Add($"You can add up to {MaxAnswers} correct answers.", Severity.Info);
+            return;
+        }
+
         correctAnswers.Add(new AnswerItem());
         StateHasChanged();
     }
@@ -463,16 +503,17 @@
         if (isSuggestingTag)
             return;
 
-        if (string.IsNullOrWhiteSpace(suggestedTagName))
+        var tagValidationError = ValidateSuggestedTag();
+        if (tagValidationError is not null)
         {
-            Snackbar.Add("Enter a tag name first.", Severity.Warning);
+            Snackbar.Add(tagValidationError, Severity.Warning);
             return;
         }
 
         try
         {
             isSuggestingTag = true;
-            var suggested = await TagsClient.SuggestTagAsync(suggestedTagName, suggestedTagDescription);
+            var suggested = await TagsClient.SuggestTagAsync(suggestedTagName.Trim(), suggestedTagDescription.Trim());
             if (suggested == null)
             {
                 Snackbar.Add("Failed to suggest tag. It may already exist or be pending review.", Severity.Error);
@@ -494,31 +535,107 @@
             isSuggestingTag = false;
         }
     }
+    private List<string> ValidateQuestionSuggestion()
+    {
+        var errors = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(title) && title.Trim().Length > 100)
+            errors.Add("Title cannot exceed 100 characters.");
+
+        if (string.IsNullOrWhiteSpace(promptText))
+            errors.Add("Question text is required.");
+        else
+        {
+            var promptLength = promptText.Trim().Length;
+            if (promptLength < 10)
+                errors.Add("Question text must be at least 10 characters.");
+            if (promptLength > 2000)
+                errors.Add("Question text cannot exceed 2000 characters.");
+        }
+
+        if (questionType is not ("Text" or "Image" or "Audio"))
+            errors.Add("Select a valid question type.");
+
+        if (difficulty is not ("Easy" or "Medium" or "Hard" or "Expert"))
+            errors.Add("Select a valid difficulty.");
+
+        var nonEmptyAnswers = correctAnswers
+            .Select(a => a.Text?.Trim() ?? string.Empty)
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToList();
+
+        if (nonEmptyAnswers.Count == 0)
+            errors.Add("Add at least one correct answer.");
+
+        if (correctAnswers.Count > MaxAnswers)
+            errors.Add($"A question can have at most {MaxAnswers} correct answers.");
+
+        var tooLongAnswer = nonEmptyAnswers.FirstOrDefault(a => a.Length > 200);
+        if (tooLongAnswer is not null)
+            errors.Add("Each answer must be 200 characters or fewer.");
+
+        var duplicateAnswer = nonEmptyAnswers
+            .GroupBy(NormalizeForDuplicateCheck)
+            .FirstOrDefault(g => g.Count() > 1);
+        if (duplicateAnswer is not null)
+            errors.Add($"Duplicate answer: '{duplicateAnswer.First()}'.");
+
+        if (RequiresMedia)
+        {
+            if (isUploadingMedia)
+                errors.Add("Wait until the media upload finishes.");
+            else if (string.IsNullOrWhiteSpace(uploadedMediaUrl))
+                errors.Add(questionType == "Image"
+                    ? "Upload an image file for this question."
+                    : "Upload an audio file for this question.");
+        }
+
+        var validTagIds = selectedTagIds
+            .Where(id => Guid.TryParse(id, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (validTagIds.Count > MaxSelectedTags)
+            errors.Add($"Select at most {MaxSelectedTags} tags.");
+
+        if (!string.IsNullOrWhiteSpace(explanation) && explanation.Trim().Length > 1000)
+            errors.Add("Explanation cannot exceed 1000 characters.");
+
+        return errors;
+    }
+
+    private string? ValidateSuggestedTag()
+    {
+        var name = suggestedTagName.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+            return "Enter a tag name first.";
+        if (name.Length < 2)
+            return "Tag name must be at least 2 characters.";
+        if (name.Length > 50)
+            return "Tag name cannot exceed 50 characters.";
+        if (availableTags.Any(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)))
+            return "A tag with this name already exists or is pending moderation.";
+        if (!string.IsNullOrWhiteSpace(suggestedTagDescription) && suggestedTagDescription.Trim().Length > 500)
+            return "Tag description cannot exceed 500 characters.";
+
+        return null;
+    }
+
+    private static string NormalizeForDuplicateCheck(string value)
+        => string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
 
     private async Task SubmitQuestion()
     {
         Logger.LogInformation("📤 [SuggestQuestion] Starting question submission");
         
         await form.Validate();
-        if (!isValid)
-        {
-            Logger.LogWarning("⚠️ [SuggestQuestion] Form validation failed");
-            Snackbar.Add("Please fill in all required fields", Severity.Warning);
-            return;
-        }
+        validationErrors = ValidateQuestionSuggestion();
 
-        if (correctAnswers.All(a => string.IsNullOrWhiteSpace(a.Text)))
+        if (!isValid || validationErrors.Count > 0)
         {
-            Logger.LogWarning("⚠️ [SuggestQuestion] No correct answers provided");
-            Snackbar.Add("Please provide at least one correct answer", Severity.Warning);
-            return;
-        }
-
-        if (RequiresMedia && string.IsNullOrWhiteSpace(uploadedMediaUrl))
-        {
-            Snackbar.Add(questionType == "Image"
-                ? "Please upload an image file for this question."
-                : "Please upload an audio file for this question.", Severity.Warning);
+            Logger.LogWarning("⚠️ [SuggestQuestion] Form validation failed: {Errors}", string.Join("; ", validationErrors));
+            Snackbar.Add("Please fix the validation errors before submitting.", Severity.Warning);
+            StateHasChanged();
             return;
         }
 
@@ -531,15 +648,15 @@
 
             var request = new SuggestQuestionRequest
             {
-                Title = string.IsNullOrWhiteSpace(title) ? null : title,
-                PromptText = promptText,
+                Title = string.IsNullOrWhiteSpace(title) ? null : title.Trim(),
+                PromptText = promptText.Trim(),
                 Type = Enum.Parse<QuestionType>(questionType),
                 Difficulty = Enum.Parse<Difficulty>(difficulty),
                 CorrectAnswers = correctAnswers
                     .Where(a => !string.IsNullOrWhiteSpace(a.Text))
                     .Select(a => new AnswerWithSettings 
                     { 
-                        Text = a.Text,
+                        Text = a.Text.Trim(),
                         AllowFuzzyMatch = a.AllowFuzzyMatch,
                         MinConfidence = a.MinConfidence
                     })
@@ -549,7 +666,7 @@
                     .Where(id => id != Guid.Empty)
                     .ToList(),
                 MediaUrl = RequiresMedia ? uploadedMediaUrl : null,
-                Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation
+                Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation.Trim()
             };
 
             Logger.LogInformation("📡 [SuggestQuestion] Sending request to API...");

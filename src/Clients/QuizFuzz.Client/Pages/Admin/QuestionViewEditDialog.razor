@@ -58,6 +58,47 @@
                                           @bind-Value="question.MediaUrl"
                                           Variant="Variant.Outlined"
                                           ReadOnly="@(!isEdit)" />
+
+                            <MudPaper Elevation="1" Class="pa-3" Outlined="true">
+                                <MudText Typo="Typo.subtitle2" Class="mb-2">Media preview</MudText>
+                                @if (string.IsNullOrWhiteSpace(question.MediaUrl))
+                                {
+                                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                        This question has no media URL.
+                                    </MudAlert>
+                                }
+                                else if (IsImageQuestion(question.QuestionType, question.MediaUrl))
+                                {
+                                    <img src="@question.MediaUrl"
+                                         alt="Question media preview"
+                                         style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px; display: block;"
+                                         @onerror="OnMediaPreviewError" />
+                                    @if (mediaPreviewFailed)
+                                    {
+                                        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
+                                            Browser could not load this image. Open the URL below and check that the API serves /uploads correctly.
+                                        </MudAlert>
+                                    }
+                                }
+                                else if (IsAudioQuestion(question.QuestionType, question.MediaUrl))
+                                {
+                                    <audio controls style="width: 100%;">
+                                        <source src="@question.MediaUrl" />
+                                        Your browser does not support audio preview.
+                                    </audio>
+                                }
+                                else
+                                {
+                                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                        Preview is not available for this media type.
+                                    </MudAlert>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(question.MediaUrl))
+                                {
+                                    <MudLink Href="@question.MediaUrl" Target="_blank" Class="mt-2 d-inline-block">Open media in new tab</MudLink>
+                                }
+                            </MudPaper>
                         }
 
                         <MudText Typo="Typo.h6" Class="mt-4">Answers (@question.Answers.Count)</MudText>
@@ -174,6 +215,7 @@
     private IEnumerable<string> selectedTagIds = Array.Empty<string>();
     private bool isLoading = true;
     private bool isSaving = false;
+    private bool mediaPreviewFailed = false;
     private string? error;
 
     protected override async Task OnInitializedAsync()
@@ -195,6 +237,7 @@
 
             question.Answers ??= new List<QuestionAnswerDto>();
             question.Tags ??= new List<TagDto>();
+            mediaPreviewFailed = false;
             selectedTagIds = question.Tags.Select(t => t.Id.ToString()).ToArray();
         }
         catch (Exception ex)
@@ -314,7 +357,33 @@
         _ => "Medium"
     };
 
+    private void OnMediaPreviewError()
+    {
+        mediaPreviewFailed = true;
+    }
+
     private static bool IsTextQuestion(string? questionType) =>
         string.Equals(questionType, "TEXT", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(questionType, "Text", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsImageQuestion(string? questionType, string? mediaUrl) =>
+        string.Equals(questionType, "IMAGE", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(questionType, "Image", StringComparison.OrdinalIgnoreCase) ||
+        HasExtension(mediaUrl, ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg");
+
+    private static bool IsAudioQuestion(string? questionType, string? mediaUrl) =>
+        string.Equals(questionType, "AUDIO", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(questionType, "Audio", StringComparison.OrdinalIgnoreCase) ||
+        HasExtension(mediaUrl, ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm");
+
+    private static bool HasExtension(string? value, params string[] extensions)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var path = value.Split('?', '#')[0];
+        return extensions.Any(ext => path.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+    }
 }

@@ -173,6 +173,8 @@
     private bool lastAnswerCorrect = false;
     private int lastScore = 0;
     private DateTime questionStartTime;
+    private System.Threading.Timer? hintTimer;
+    private bool timeoutRequestInProgress = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -244,99 +246,30 @@
         // Round Started - New Question
         hubConnection.On<string>("RoundStarted", async (questionJson) =>
         {
-            await InvokeAsync(async () =>
-            {
-                Console.WriteLine("════════════════════════════════════════");
-                Console.WriteLine("🎮 [Game] RoundStarted event received!");
-                Console.WriteLine($"📦 [Game] Raw JSON: {questionJson}");
-                
-                try
-                {
-                    var options = new System.Text.Json.JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true,
-                        // Игнорировать лишние поля которых нет в DTO
-                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
-                    };
-                    
-                    currentQuestion = System.Text.Json.JsonSerializer.Deserialize<GameQuestionDto>(questionJson, options);
-                    Console.WriteLine($"✅ [Game] Question deserialized successfully!");
-                    Console.WriteLine($"   Question ID: {currentQuestion?.QuestionId}");
-                    Console.WriteLine($"   Text: {currentQuestion?.Text}");
-                    Console.WriteLine($"   Round ID: {currentQuestion?.RoundId}");
-                    Console.WriteLine($"   🎯 Type: {currentQuestion?.QuestionType}");
-                    Console.WriteLine($"   🔗 MediaUrl: {currentQuestion?.MediaUrl ?? "NULL"}");
-                    Console.WriteLine($"   ⏱️ TimeLimit: {currentQuestion?.TimeLimit}s");
-                    
-                    // 🔥 ПРОВЕРКА: Отображается ли MediaUrl в UI?
-                    if (!string.IsNullOrEmpty(currentQuestion?.MediaUrl))
-                    {
-                        Console.WriteLine($"🖼️ [Game] MEDIA DETECTED! Type={currentQuestion.QuestionType}, URL={currentQuestion.MediaUrl}");
-                        if (currentQuestion.QuestionType?.Equals("Image", StringComparison.OrdinalIgnoreCase) == true)
-                        {
-                            Console.WriteLine($"   📸 [Game] Will display IMAGE: {currentQuestion.MediaUrl}");
-                        }
-                        else if (currentQuestion.QuestionType?.Equals("Audio", StringComparison.OrdinalIgnoreCase) == true)
-                        {
-                            Console.WriteLine($"   🔊 [Game] Will play AUDIO: {currentQuestion.MediaUrl}");
-                        }
-                        else
-                        {
-                            Console.WriteLine($"   ⚠️ [Game] Unknown media type: {currentQuestion.QuestionType}");
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine($"ℹ️ [Game] No media for this question (Type: {currentQuestion?.QuestionType})");
-                    }
-                    
-                    hasAnsweredCorrectly = false;
-                    timeExpired = false;
-                    currentAnswer = string.Empty;
-                    previousAnswers.Clear();
-                    visibleHints.Clear();
-                    lastAnswerCorrect = false;
-                    lastScore = 0;
-                    
-                    if (currentQuestion != null)
-                    {
-                        questionStartTime = currentQuestion.StartedAt;
-                        StartHintTimer();
-                        Console.WriteLine($"⏱️ [Game] Timer started. Question start time: {questionStartTime}");
-                    }
-                    else
-                    {
-                        Console.WriteLine("⚠️ [Game] currentQuestion is NULL after deserialization!");
-                    }
-                    
-                    Console.WriteLine("🔄 [Game] Calling StateHasChanged...");
-                    StateHasChanged();
-                    Console.WriteLine("✅ [Game] StateHasChanged complete. UI should update now!");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"❌ [Game] ERROR in RoundStarted handler: {ex.Message}");
-                    Console.WriteLine($"   Stack: {ex.StackTrace}");
-                }
-                
-                Console.WriteLine("════════════════════════════════════════");
-            });
+            await HandleRoundStartedJson(questionJson);
         });
 
         // Round Ended
         hubConnection.On<object>("RoundEnded", async (data) =>
         {
-            await InvokeAsync(() =>
+            await InvokeAsync(async () =>
             {
                 Console.WriteLine("════════════════════════════════════════");
                 Console.WriteLine("🏁 [Game] RoundEnded event received!");
                 Console.WriteLine($"📦 [Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
-                
+
                 timeExpired = true;
-                
+                hasAnsweredCorrectly = false;
+                currentAnswer = string.Empty;
+                currentQuestion = null;
+                visibleHints.Clear();
+                DisposeHintTimer();
+
+                scoreboard = await GameClient.GetScoreboardAsync(SessionId);
+
                 Console.WriteLine("⏳ [Game] Waiting for next round...");
                 Console.WriteLine("   (Should receive RoundStarted in ~5 seconds)");
-                
+
                 StateHasChanged();
                 Console.WriteLine("════════════════════════════════════════");
             });
@@ -450,13 +383,81 @@
         }
     }
 
+    private async Task HandleRoundStartedJson(string questionJson)
+    {
+        await InvokeAsync(() =>
+        {
+            Console.WriteLine("════════════════════════════════════════");
+            Console.WriteLine("🎮 [Game] RoundStarted event received!");
+            Console.WriteLine($"📦 [Game] Raw JSON: {questionJson}");
+
+            try
+            {
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
+                };
+
+                currentQuestion = System.Text.Json.JsonSerializer.Deserialize<GameQuestionDto>(questionJson, options);
+                Console.WriteLine($"✅ [Game] Question deserialized successfully!");
+                Console.WriteLine($"   Question ID: {currentQuestion?.QuestionId}");
+                Console.WriteLine($"   Text: {currentQuestion?.Text}");
+                Console.WriteLine($"   Round ID: {currentQuestion?.RoundId}");
+                Console.WriteLine($"   🎯 Type: {currentQuestion?.QuestionType}");
+                Console.WriteLine($"   🔗 MediaUrl: {currentQuestion?.MediaUrl ?? "NULL"}");
+                Console.WriteLine($"   ⏱️ TimeLimit: {currentQuestion?.TimeLimit}s");
+
+                ResetRoundUiState();
+
+                if (currentQuestion != null)
+                {
+                    questionStartTime = currentQuestion.StartedAt;
+                    StartHintTimer();
+                    Console.WriteLine($"⏱️ [Game] Timer started. Question start time: {questionStartTime}");
+                }
+                else
+                {
+                    Console.WriteLine("⚠️ [Game] currentQuestion is NULL after deserialization!");
+                }
+
+                StateHasChanged();
+                Console.WriteLine("✅ [Game] StateHasChanged complete. UI should update now!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ [Game] ERROR in RoundStarted handler: {ex.Message}");
+                Console.WriteLine($"   Stack: {ex.StackTrace}");
+            }
+
+            Console.WriteLine("════════════════════════════════════════");
+        });
+    }
+
+    private void ResetRoundUiState()
+    {
+        hasAnsweredCorrectly = false;
+        timeExpired = false;
+        timeoutRequestInProgress = false;
+        currentAnswer = string.Empty;
+        previousAnswers.Clear();
+        visibleHints.Clear();
+        lastAnswerCorrect = false;
+        lastScore = 0;
+        DisposeHintTimer();
+    }
+
     private void StartHintTimer()
     {
+        DisposeHintTimer();
+
         if (currentQuestion?.Hints == null) return;
 
-        // Запускаем таймер для показа подсказок
-        var timer = new System.Threading.Timer(_ =>
+        hintTimer = new System.Threading.Timer(_ =>
         {
+            if (currentQuestion == null)
+                return;
+
             var elapsed = (DateTime.UtcNow - questionStartTime).TotalSeconds;
             var newHints = currentQuestion.Hints
                 .Where(h => h.RevealTimeSeconds <= elapsed && !visibleHints.Contains(h))
@@ -471,6 +472,12 @@
                 });
             }
         }, null, 1000, 1000);
+    }
+
+    private void DisposeHintTimer()
+    {
+        hintTimer?.Dispose();
+        hintTimer = null;
     }
 
     private async Task SubmitAnswer()
@@ -519,14 +526,42 @@
         }
     }
 
-    private void OnTimeExpired()
+    private async Task OnTimeExpired()
     {
+        if (timeExpired || currentQuestion == null || timeoutRequestInProgress)
+            return;
+
         timeExpired = true;
+        timeoutRequestInProgress = true;
         StateHasChanged();
+
+        try
+        {
+            if (hubConnection?.State == HubConnectionState.Connected)
+            {
+                Console.WriteLine($"⏰ [Game] Timer expired. Requesting server timeout check for round {currentQuestion.RoundId}");
+                await hubConnection.InvokeAsync("RequestRoundTimeout", currentQuestion.RoundId);
+            }
+            else
+            {
+                Console.WriteLine("⚠️ [Game] Timer expired but SignalR is not connected. Reloading game data...");
+                await LoadGameData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ [Game] Error requesting round timeout: {ex.Message}");
+        }
+        finally
+        {
+            timeoutRequestInProgress = false;
+        }
     }
 
     public async ValueTask DisposeAsync()
     {
+        DisposeHintTimer();
+
         if (hubConnection != null)
         {
             await hubConnection.DisposeAsync();

@@ -316,27 +316,32 @@ public class GameHub : Hub
                 _logger.LogInformation("   📎 Media FULL URL: {Url}", mediaUrl);
             }
 
-            // Уведомляем всех игроков
+            // Уведомляем всех игроков.
+            // Важно: клиент Game.razor ожидает JSON string и имена полей из GameQuestionDto
+            // (text/timeLimit/hints[].text/revealTimeSeconds), поэтому не отправляем anonymous object напрямую.
             var groupName = GetRoomGroupName(room.Id);
-            await Clients.Group(groupName).SendAsync("RoundStarted", new
+            var roundStartedData = new
             {
                 roundId = round.Id,
                 roundIndex = round.RoundIndex,
                 questionId = question.Id,
-                promptText = question.PromptText,
+                text = question.PromptText,
                 title = question.Title,
                 difficulty = question.Difficulty.ToString(),
                 questionType = question.Type.ToString(),
-                mediaUrl = mediaUrl, // ✅ Теперь ПОЛНЫЙ URL!
-                timeLimitSec = round.TimeLimitSec,
+                mediaUrl = mediaUrl,
+                timeLimit = round.TimeLimitSec,
                 startedAt = round.StartedAt,
                 hints = question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
                 {
                     orderIndex = h.OrderIndex,
-                    hintText = h.HintText,
-                    revealTimeSec = h.RevealTimeSec
-                })
-            });
+                    text = h.HintText,
+                    revealTimeSeconds = h.RevealTimeSec
+                }).ToList()
+            };
+
+            var roundStartedJson = System.Text.Json.JsonSerializer.Serialize(roundStartedData);
+            await Clients.Group(groupName).SendAsync("RoundStarted", roundStartedJson);
         }
         catch (Exception ex)
         {
@@ -563,6 +568,69 @@ public class GameHub : Hub
             _logger.LogError(ex, "   Answer: '{AnswerText}'", answerText);
             await Clients.Caller.SendAsync("Error", ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Клиент сообщает, что его таймер дошёл до нуля.
+    /// Сервер сам проверяет deadline и только после этого завершает раунд.
+    /// Это закрывает сценарий, когда после истечения времени никто больше не отправляет ответы,
+    /// поэтому SubmitAnswer не вызывается и старый вопрос зависает на frontend.
+    /// </summary>
+    public async Task RequestRoundTimeout(Guid roundId)
+    {
+        _logger.LogInformation("⏰ [RequestRoundTimeout] Timeout check requested for round {RoundId}", roundId);
+
+        var round = await _unitOfWork.GameRounds.GetWithDetailsAsync(roundId);
+        if (round == null)
+        {
+            _logger.LogWarning("⚠️ [RequestRoundTimeout] Round {RoundId} not found", roundId);
+            await Clients.Caller.SendAsync("Error", "Round not found");
+            return;
+        }
+
+        if (round.Status != RoundStatus.Active)
+        {
+            _logger.LogInformation("ℹ️ [RequestRoundTimeout] Round {RoundId} is already {Status}", roundId, round.Status);
+            return;
+        }
+
+        if (!round.IsDeadlinePassed())
+        {
+            var delay = round.GetDeadline() - DateTime.UtcNow;
+            if (delay > TimeSpan.Zero && delay <= TimeSpan.FromSeconds(5))
+            {
+                _logger.LogInformation("⏳ [RequestRoundTimeout] Deadline has not passed yet. Waiting {DelayMs} ms and rechecking", delay.TotalMilliseconds);
+                await Task.Delay(delay.Add(TimeSpan.FromMilliseconds(250)));
+
+                round = await _unitOfWork.GameRounds.GetWithDetailsAsync(roundId);
+                if (round == null || round.Status != RoundStatus.Active || !round.IsDeadlinePassed())
+                    return;
+            }
+            else
+            {
+                _logger.LogInformation("⏳ [RequestRoundTimeout] Round {RoundId} deadline has not passed yet", roundId);
+                return;
+            }
+        }
+
+        var session = await _unitOfWork.GameSessions.GetWithDetailsAsync(round.SessionId);
+        if (session == null)
+        {
+            _logger.LogError("❌ [RequestRoundTimeout] Session {SessionId} not found", round.SessionId);
+            await Clients.Caller.SendAsync("Error", "Session not found");
+            return;
+        }
+
+        var room = await _unitOfWork.Rooms.GetWithDetailsAsync(session.RoomId);
+        if (room == null)
+        {
+            _logger.LogError("❌ [RequestRoundTimeout] Room {RoomId} not found", session.RoomId);
+            await Clients.Caller.SendAsync("Error", "Room not found");
+            return;
+        }
+
+        var groupName = GetRoomGroupName(room.Id);
+        await AutoEndRoundAndStartNext(round.Id, session, room, groupName, "Time expired");
     }
 
     /// <summary>

@@ -10,11 +10,16 @@
                           @bind-Value="name"
                           Variant="Variant.Outlined"
                           Required="true"
+                          RequiredError="Tag name is required."
                           Immediate="true"
-                          HelperText="Tag name is fixed after creation." />
+                          MaxLength="50"
+                          Counter="50"
+                          HelperText="Tag name is fixed after creation. Use 2-50 characters." />
             <MudTextField Label="Description"
                           @bind-Value="description"
                           Lines="3"
+                          MaxLength="500"
+                          Counter="500"
                           Variant="Variant.Outlined" />
 
             @if (!string.IsNullOrWhiteSpace(validationError))
@@ -42,16 +47,37 @@
     {
         validationError = null;
 
-        if (string.IsNullOrWhiteSpace(name))
+        var trimmedName = name.Trim();
+        var trimmedDescription = description?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(trimmedName))
         {
             validationError = "Tag name is required.";
             return;
         }
 
+        if (trimmedName.Length < 2)
+        {
+            validationError = "Tag name must be at least 2 characters.";
+            return;
+        }
+
+        if (trimmedName.Length > 50)
+        {
+            validationError = "Tag name cannot exceed 50 characters.";
+            return;
+        }
+
+        if (trimmedDescription.Length > 500)
+        {
+            validationError = "Description cannot exceed 500 characters.";
+            return;
+        }
+
         MudDialog.Close(DialogResult.Ok(new TagEditModel
         {
-            Name = name.Trim(),
-            Description = description?.Trim()
+            Name = trimmedName,
+            Description = trimmedDescription
         }));
     }
 }

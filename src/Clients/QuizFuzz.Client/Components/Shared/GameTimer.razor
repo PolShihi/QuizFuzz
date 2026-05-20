@@ -19,19 +19,45 @@
     private Timer? _timer;
     private int _remainingSeconds;
     private bool _isExpired;
+    private DateTime _lastStartedAt;
+    private int _lastTotalSeconds;
 
     protected override void OnInitialized()
     {
-        _remainingSeconds = TotalSeconds;
+        ResetTimer();
         _timer = new Timer(UpdateTimer, null, 0, 1000);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_lastStartedAt != StartedAt || _lastTotalSeconds != TotalSeconds)
+        {
+            ResetTimer();
+        }
+    }
+
+    private void ResetTimer()
+    {
+        _lastStartedAt = StartedAt;
+        _lastTotalSeconds = TotalSeconds;
+        _remainingSeconds = CalculateRemainingSeconds();
+        _isExpired = _remainingSeconds <= 0;
+    }
+
+    private int CalculateRemainingSeconds()
+    {
+        if (TotalSeconds <= 0)
+            return 0;
+
+        var elapsed = (DateTime.UtcNow - StartedAt).TotalSeconds;
+        return Math.Max(0, TotalSeconds - (int)elapsed);
     }
 
     private void UpdateTimer(object? state)
     {
         if (_isExpired) return;
 
-        var elapsed = (DateTime.UtcNow - StartedAt).TotalSeconds;
-        _remainingSeconds = Math.Max(0, TotalSeconds - (int)elapsed);
+        _remainingSeconds = CalculateRemainingSeconds();
 
         if (_remainingSeconds <= 0 && !_isExpired)
         {

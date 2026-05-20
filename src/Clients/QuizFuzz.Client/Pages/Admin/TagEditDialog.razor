@@ -21,7 +21,13 @@
                 <MudTextField Label="Description"
                               @bind-Value="description"
                               Lines="4"
+                              MaxLength="500"
+                              Counter="500"
                               Variant="Variant.Outlined" />
+                @if (!string.IsNullOrWhiteSpace(validationError))
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true">@validationError</MudAlert>
+                }
             </MudStack>
         }
     </DialogContent>
@@ -36,6 +42,7 @@
     [Parameter] public TagDto? Tag { get; set; }
 
     private string description = string.Empty;
+    private string? validationError;
 
     protected override void OnParametersSet()
     {
@@ -43,5 +50,16 @@
     }
 
     private void Cancel() => MudDialog.Cancel();
-    private void Submit() => MudDialog.Close(DialogResult.Ok(description.Trim()));
+
+    private void Submit()
+    {
+        var trimmedDescription = description?.Trim() ?? string.Empty;
+        if (trimmedDescription.Length > 500)
+        {
+            validationError = "Description cannot exceed 500 characters.";
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(trimmedDescription));
+    }
 }
