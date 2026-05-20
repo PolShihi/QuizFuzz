@@ -12,16 +12,16 @@
 
 <PageTitle>Game - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-game-shell">
     @if (isLoading)
     {
-        <MudPaper Class="pa-8 d-flex justify-center">
+        <MudPaper Class="qf-empty-state" Elevation="0">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     }
     else if (currentQuestion == null)
     {
-        <MudPaper Elevation="3" Class="pa-8">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudStack AlignItems="AlignItems.Center" Spacing="4">
                 <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Large" Color="Color.Secondary" />
                 <MudText Typo="Typo.h5">Waiting for next question...</MudText>
@@ -33,7 +33,7 @@
         <MudGrid>
             <!-- Timer and Scoreboard Column -->
             <MudItem xs="12" md="4" lg="3">
-                <MudStack Spacing="3">
+                <MudStack Spacing="3" Class="qf-side-stack">
                     <GameTimer TotalSeconds="@currentQuestion.TimeLimit"
                                StartedAt="@currentQuestion.StartedAt"
                                OnTimeExpired="@OnTimeExpired" />
@@ -44,14 +44,19 @@
 
             <!-- Question and Answer Column -->
             <MudItem xs="12" md="8" lg="9">
-                <MudPaper Elevation="3" Class="pa-6">
+                <MudPaper Elevation="0" Class="qf-question-card pa-6">
+                    <div class="qf-question-content">
                     <!-- Question -->
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Quiz" Color="Color.Secondary" Size="Size.Small" />
+                        <MudText Typo="Typo.overline" Class="qf-question-label">Current question</MudText>
+                    </MudStack>
                     <MudText Typo="Typo.h4" Class="mb-4">@currentQuestion.Text</MudText>
 
                     <!-- Media (if any) -->
                     @if (!string.IsNullOrEmpty(currentQuestion.MediaUrl))
                     {
-                        <MudPaper Elevation="2" Class="pa-4 mb-4">
+                        <MudPaper Elevation="0" Class="qf-media-frame pa-4 mb-4">
                             @if (currentQuestion.QuestionType?.Equals("Image", StringComparison.OrdinalIgnoreCase) == true)
                             {
                                 <MudImage Src="@currentQuestion.MediaUrl" 
@@ -74,7 +79,7 @@
                     <!-- Hints -->
                     @if (visibleHints.Any())
                     {
-                        <MudPaper Elevation="1" Class="pa-3 mb-4" Style="background-color: #fff3cd;">
+                        <MudPaper Elevation="0" Class="qf-hints-panel pa-3 mb-4">
                             <MudStack Spacing="2">
                                 @foreach (var hint in visibleHints)
                                 {
@@ -88,17 +93,17 @@
                     }
 
                     <!-- Answer Input -->
-                    <MudPaper Elevation="2" Class="pa-4">
+                    <MudPaper Elevation="0" Class="qf-answer-panel pa-4">
                         @if (hasAnsweredCorrectly)
                         {
-                            <MudAlert Severity="Severity.Success" Class="mb-4">
-                                <MudText>✅ Correct! +@lastScore points</MudText>
+                            <MudAlert Severity="Severity.Success" Class="mb-4" Icon="@Icons.Material.Filled.CheckCircle">
+                                <MudText>Correct answer! +@lastScore points</MudText>
                                 <MudText Typo="Typo.caption">Waiting for round to end...</MudText>
                             </MudAlert>
                         }
                         else if (isSubmitting || previousAnswers.Any(a => a.IsPending))
                         {
-                            <MudAlert Severity="Severity.Info" Class="mb-4">
+                            <MudAlert Severity="Severity.Info" Class="mb-4" Icon="@Icons.Material.Filled.HourglassTop">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                     <MudProgressCircular Size="Size.Small" Indeterminate="true" />
                                     <MudText>Checking your answer...</MudText>
@@ -107,8 +112,8 @@
                         }
                         else if (lastAnswerCorrect == false && previousAnswers.Any())
                         {
-                            <MudAlert Severity="Severity.Warning" Class="mb-4">
-                                <MudText>❌ Wrong answer. Try again!</MudText>
+                            <MudAlert Severity="Severity.Warning" Class="mb-4" Icon="@Icons.Material.Filled.Cancel">
+                                <MudText>Wrong answer. Try again!</MudText>
                             </MudAlert>
                         }
 
@@ -119,12 +124,14 @@
                                       OnKeyDown="@OnKeyDown"
                                       Immediate="true"
                                       HelperText="@(hasAnsweredCorrectly ? "Correct! Waiting for others..." : "Press Enter to submit. Multiple attempts allowed!")"
-                                      Class="mb-4" />
+                                      Class="qf-answer-input mb-4" />
 
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    FullWidth="true"
                                    Size="Size.Large"
+                                   StartIcon="@GetSubmitButtonIcon()"
+                                   Class="qf-submit-button"
                                    OnClick="@SubmitAnswer"
                                    Disabled="@(string.IsNullOrWhiteSpace(currentAnswer) || hasAnsweredCorrectly || timeExpired)">
                             @if (isSubmitting)
@@ -134,7 +141,7 @@
                             }
                             else if (hasAnsweredCorrectly)
                             {
-                                <span>✓ Correct! Waiting for others...</span>
+                                <span>Correct! Waiting for others...</span>
                             }
                             else if (timeExpired)
                             {
@@ -150,21 +157,27 @@
                     <!-- Previous Answers -->
                     @if (previousAnswers.Any())
                     {
-                        <MudPaper Elevation="1" Class="pa-3 mt-4">
+                        <MudPaper Elevation="0" Class="qf-attempts-panel pa-3 mt-4">
                             <MudText Typo="Typo.subtitle2" Class="mb-2">Your attempts this round:</MudText>
                             <MudStack Spacing="1">
                                 @foreach (var ans in previousAnswers)
                                 {
-                                    <MudPaper Elevation="0" Class="pa-2 rounded" Style="@GetAttemptStyle(ans)">
+                                    <MudPaper Elevation="0" Class="@GetAttemptClass(ans)">
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
-                                            <MudText Typo="Typo.body2">@GetAttemptIcon(ans) @ans.Text</MudText>
-                                            <MudText Typo="Typo.caption">@GetAttemptStatusText(ans)</MudText>
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@GetAttemptIcon(ans)" Color="@GetAttemptIconColor(ans)" Size="Size.Small" />
+                                                <MudText Typo="Typo.body2">@ans.Text</MudText>
+                                            </MudStack>
+                                            <MudChip T="string" Size="Size.Small" Color="@GetAttemptChipColor(ans)" Variant="Variant.Outlined" Class="qf-status-chip">
+                                                @GetAttemptStatusText(ans)
+                                            </MudChip>
                                         </MudStack>
                                     </MudPaper>
                                 }
                             </MudStack>
                         </MudPaper>
                     }
+                </div>
                 </MudPaper>
             </MudItem>
         </MudGrid>
@@ -199,7 +212,7 @@
 
     private async Task LoadGameData()
     {
-        Console.WriteLine($"🔄 [Game.LoadGameData] Loading game data for session {SessionId}");
+        Console.WriteLine($"[Game.LoadGameData] Loading game data for session {SessionId}");
         isLoading = true;
         
         currentQuestion = await GameClient.GetCurrentQuestionAsync(SessionId);
@@ -207,41 +220,41 @@
         
         if (currentQuestion != null)
         {
-            Console.WriteLine($"✅ [Game.LoadGameData] Question loaded:");
-            Console.WriteLine($"   📝 Text: {currentQuestion.Text}");
-            Console.WriteLine($"   🎯 Type: {currentQuestion.QuestionType}");
-            Console.WriteLine($"   🔗 MediaUrl: {currentQuestion.MediaUrl ?? "NULL"}");
+            Console.WriteLine($"[Game.LoadGameData] Question loaded:");
+            Console.WriteLine($"   Text: {currentQuestion.Text}");
+            Console.WriteLine($"   Type: {currentQuestion.QuestionType}");
+            Console.WriteLine($"   MediaUrl: {currentQuestion.MediaUrl ?? "NULL"}");
             
             questionStartTime = currentQuestion.StartedAt;
             
-            // 🔥 ПРОВЕРКА: Есть ли MediaUrl при первой загрузке?
+            // ПРОВЕРКА: Есть ли MediaUrl при первой загрузке?
             if (!string.IsNullOrEmpty(currentQuestion.MediaUrl))
             {
-                Console.WriteLine($"🖼️ [Game.LoadGameData] MEDIA DETECTED on initial load!");
+                Console.WriteLine($"[Game.LoadGameData] MEDIA DETECTED on initial load!");
             }
         }
         else
         {
-            Console.WriteLine($"⚠️ [Game.LoadGameData] No current question available");
+            Console.WriteLine($"[Game.LoadGameData] No current question available");
         }
         
         isLoading = false;
-        Console.WriteLine($"✅ [Game.LoadGameData] Loading complete");
+        Console.WriteLine($"[Game.LoadGameData] Loading complete");
     }
 
     private async Task InitializeSignalR()
     {
-        Console.WriteLine("🎮 [Game] ========== INITIALIZING SIGNALR ==========");
+        Console.WriteLine("[Game] ========== INITIALIZING SIGNALR ==========");
         
         var token = await AuthService.GetTokenAsync();
-        Console.WriteLine($"🔑 [Game] Token: {(string.IsNullOrEmpty(token) ? "MISSING!" : "EXISTS")}");
+        Console.WriteLine($"[Game] Token: {(string.IsNullOrEmpty(token) ? "MISSING!" : "EXISTS")}");
         
-        // 🔥 КРИТИЧНО: Используем правильный API URL!
+        // КРИТИЧНО: Используем правильный API URL!
         var apiBase = "https://localhost:7001";
         var hubUrl = $"{apiBase}/hubs/game";
         
-        Console.WriteLine($"🔌 [Game] Connecting to GameHub: {hubUrl}");
-        Console.WriteLine($"🎯 [Game] Session ID: {SessionId}");
+        Console.WriteLine($"[Game] Connecting to GameHub: {hubUrl}");
+        Console.WriteLine($"[Game] Session ID: {SessionId}");
         
         hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl, options =>
@@ -255,7 +268,7 @@
             .WithAutomaticReconnect()
             .Build();
         
-        Console.WriteLine("✅ [Game] HubConnection created");
+        Console.WriteLine("[Game] HubConnection created");
 
         // Round Started - New Question
         hubConnection.On<string>("RoundStarted", async (questionJson) =>
@@ -269,8 +282,8 @@
             await InvokeAsync(async () =>
             {
                 Console.WriteLine("════════════════════════════════════════");
-                Console.WriteLine("🏁 [Game] RoundEnded event received!");
-                Console.WriteLine($"📦 [Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
+                Console.WriteLine("[Game] RoundEnded event received!");
+                Console.WriteLine($"[Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
 
                 timeExpired = true;
                 hasAnsweredCorrectly = false;
@@ -281,7 +294,7 @@
 
                 scoreboard = await GameClient.GetScoreboardAsync(SessionId);
 
-                Console.WriteLine("⏳ [Game] Waiting for next round...");
+                Console.WriteLine("[Game] Waiting for next round...");
                 Console.WriteLine("   (Should receive RoundStarted in ~5 seconds)");
 
                 StateHasChanged();
@@ -294,7 +307,7 @@
         {
             await InvokeAsync(() =>
             {
-                Console.WriteLine("📊 [Game] ScoreboardUpdated event received!");
+                Console.WriteLine("[Game] ScoreboardUpdated event received!");
                 scoreboard = System.Text.Json.JsonSerializer.Deserialize<ScoreboardDto>(scoreboardJson);
                 StateHasChanged();
             });
@@ -305,10 +318,10 @@
         {
             await InvokeAsync(async () =>
             {
-                Console.WriteLine("👤 [Game] PlayerAnswered event received! Reloading scoreboard...");
+                Console.WriteLine("[Game] PlayerAnswered event received! Reloading scoreboard...");
                 // Перезагружаем scoreboard чтобы получить актуальные очки
                 scoreboard = await GameClient.GetScoreboardAsync(SessionId);
-                Console.WriteLine($"📊 [Game] Scoreboard reloaded. Players: {scoreboard?.Players?.Count ?? 0}");
+                Console.WriteLine($"[Game] Scoreboard reloaded. Players: {scoreboard?.Players?.Count ?? 0}");
                 StateHasChanged();
             });
         });
@@ -318,7 +331,7 @@
         {
             await InvokeAsync(() =>
             {
-                Console.WriteLine("📝 [Game] AnswerResult event received!");
+                Console.WriteLine("[Game] AnswerResult event received!");
                 Console.WriteLine($"   Data: {System.Text.Json.JsonSerializer.Serialize(resultData)}");
                 
                 var json = System.Text.Json.JsonSerializer.Serialize(resultData);
@@ -337,14 +350,14 @@
                     if (lastAnswerCorrect == true)
                     {
                         hasAnsweredCorrectly = true;
-                        Console.WriteLine("✅ [Game] Correct answer! Waiting for round to end...");
+                        Console.WriteLine("[Game] Correct answer! Waiting for round to end...");
                     }
                 }
                 
                 // Если получили ответ - перезагрузим scoreboard для актуальных данных
                 if (lastAnswerCorrect == true)
                 {
-                    Console.WriteLine("📊 [Game] Correct answer! Reloading scoreboard...");
+                    Console.WriteLine("[Game] Correct answer! Reloading scoreboard...");
                     Task.Run(async () =>
                     {
                         await Task.Delay(500); // Небольшая задержка чтобы backend успел обновить
@@ -363,38 +376,38 @@
             await InvokeAsync(() =>
             {
                 Console.WriteLine("════════════════════════════════════════");
-                Console.WriteLine("🏁 [Game] GameFinished event received!");
-                Console.WriteLine($"📦 [Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
-                Console.WriteLine($"🎯 [Game] Navigating to results page...");
+                Console.WriteLine("[Game] GameFinished event received!");
+                Console.WriteLine($"[Game] Data: {System.Text.Json.JsonSerializer.Serialize(data)}");
+                Console.WriteLine($"[Game] Navigating to results page...");
                 
                 Navigation.NavigateTo($"/game/{SessionId}/results");
                 
-                Console.WriteLine("✅ [Game] Navigation complete!");
+                Console.WriteLine("[Game] Navigation complete!");
                 Console.WriteLine("════════════════════════════════════════");
             });
         });
 
         try
         {
-            Console.WriteLine("🚀 [Game] Starting SignalR connection...");
+            Console.WriteLine("[Game] Starting SignalR connection...");
             await hubConnection.StartAsync();
-            Console.WriteLine("✅ [Game] SignalR connection started!");
+            Console.WriteLine("[Game] SignalR connection started!");
             Console.WriteLine($"   ConnectionId: {hubConnection.ConnectionId}");
             Console.WriteLine($"   State: {hubConnection.State}");
             
-            Console.WriteLine($"📡 [Game] Invoking JoinGame with SessionId: {SessionId}");
+            Console.WriteLine($"[Game] Invoking JoinGame with SessionId: {SessionId}");
             await hubConnection.InvokeAsync("JoinGame", SessionId.ToString());
-            Console.WriteLine("✅ [Game] Successfully joined game!");
+            Console.WriteLine("[Game] Successfully joined game!");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ [Game] SignalR Error: {ex.GetType().Name}");
-            Console.WriteLine($"❌ [Game] Message: {ex.Message}");
+            Console.WriteLine($"[Game] SignalR Error: {ex.GetType().Name}");
+            Console.WriteLine($"[Game] Message: {ex.Message}");
             if (ex.InnerException != null)
             {
-                Console.WriteLine($"❌ [Game] Inner: {ex.InnerException.Message}");
+                Console.WriteLine($"[Game] Inner: {ex.InnerException.Message}");
             }
-            Console.WriteLine($"❌ [Game] Stack: {ex.StackTrace}");
+            Console.WriteLine($"[Game] Stack: {ex.StackTrace}");
             throw;
         }
     }
@@ -404,8 +417,8 @@
         await InvokeAsync(() =>
         {
             Console.WriteLine("════════════════════════════════════════");
-            Console.WriteLine("🎮 [Game] RoundStarted event received!");
-            Console.WriteLine($"📦 [Game] Raw JSON: {questionJson}");
+            Console.WriteLine("[Game] RoundStarted event received!");
+            Console.WriteLine($"[Game] Raw JSON: {questionJson}");
 
             try
             {
@@ -416,13 +429,13 @@
                 };
 
                 currentQuestion = System.Text.Json.JsonSerializer.Deserialize<GameQuestionDto>(questionJson, options);
-                Console.WriteLine($"✅ [Game] Question deserialized successfully!");
+                Console.WriteLine($"[Game] Question deserialized successfully!");
                 Console.WriteLine($"   Question ID: {currentQuestion?.QuestionId}");
                 Console.WriteLine($"   Text: {currentQuestion?.Text}");
                 Console.WriteLine($"   Round ID: {currentQuestion?.RoundId}");
-                Console.WriteLine($"   🎯 Type: {currentQuestion?.QuestionType}");
-                Console.WriteLine($"   🔗 MediaUrl: {currentQuestion?.MediaUrl ?? "NULL"}");
-                Console.WriteLine($"   ⏱️ TimeLimit: {currentQuestion?.TimeLimit}s");
+                Console.WriteLine($"   Type: {currentQuestion?.QuestionType}");
+                Console.WriteLine($"   MediaUrl: {currentQuestion?.MediaUrl ?? "NULL"}");
+                Console.WriteLine($"   TimeLimit: {currentQuestion?.TimeLimit}s");
 
                 ResetRoundUiState();
 
@@ -430,19 +443,19 @@
                 {
                     questionStartTime = currentQuestion.StartedAt;
                     StartHintTimer();
-                    Console.WriteLine($"⏱️ [Game] Timer started. Question start time: {questionStartTime}");
+                    Console.WriteLine($"[Game] Timer started. Question start time: {questionStartTime}");
                 }
                 else
                 {
-                    Console.WriteLine("⚠️ [Game] currentQuestion is NULL after deserialization!");
+                    Console.WriteLine("[Game] currentQuestion is NULL after deserialization!");
                 }
 
                 StateHasChanged();
-                Console.WriteLine("✅ [Game] StateHasChanged complete. UI should update now!");
+                Console.WriteLine("[Game] StateHasChanged complete. UI should update now!");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"❌ [Game] ERROR in RoundStarted handler: {ex.Message}");
+                Console.WriteLine($"[Game] ERROR in RoundStarted handler: {ex.Message}");
                 Console.WriteLine($"   Stack: {ex.StackTrace}");
             }
 
@@ -505,7 +518,7 @@
 
         var elapsed = (DateTime.UtcNow - questionStartTime).TotalMilliseconds;
         
-        Console.WriteLine($"📤 [Game] Submitting answer: '{currentAnswer}'");
+        Console.WriteLine($"[Game] Submitting answer: '{currentAnswer}'");
         
         var answerToSubmit = currentAnswer.Trim();
         previousAnswers.Add(new AnswerAttempt(answerToSubmit));
@@ -518,18 +531,18 @@
             if (hubConnection?.State == HubConnectionState.Connected)
             {
                 await hubConnection.InvokeAsync("SubmitAnswer", currentQuestion!.RoundId, answerToSubmit);
-                Console.WriteLine("✅ [Game] Answer submitted via SignalR");
+                Console.WriteLine("[Game] Answer submitted via SignalR");
             }
             else
             {
-                Console.WriteLine("❌ [Game] SignalR not connected!");
+                Console.WriteLine("[Game] SignalR not connected!");
                 MarkLatestPendingAttempt(false);
                 lastAnswerCorrect = false;
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ [Game] Error submitting answer: {ex.Message}");
+            Console.WriteLine($"[Game] Error submitting answer: {ex.Message}");
             MarkLatestPendingAttempt(false);
             lastAnswerCorrect = false;
         }
@@ -550,12 +563,42 @@
         attempt.ScoreAwarded = isCorrect ? lastScore : 0;
     }
 
+    private string GetSubmitButtonIcon()
+    {
+        if (isSubmitting)
+            return Icons.Material.Filled.HourglassTop;
+
+        if (hasAnsweredCorrectly)
+            return Icons.Material.Filled.CheckCircle;
+
+        if (timeExpired)
+            return Icons.Material.Filled.TimerOff;
+
+        return Icons.Material.Filled.Send;
+    }
+
     private string GetAttemptIcon(AnswerAttempt attempt)
     {
         if (attempt.IsPending)
-            return "⏳";
+            return Icons.Material.Filled.HourglassTop;
 
-        return attempt.IsCorrect == true ? "✅" : "❌";
+        return attempt.IsCorrect == true ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Cancel;
+    }
+
+    private Color GetAttemptIconColor(AnswerAttempt attempt)
+    {
+        if (attempt.IsPending)
+            return Color.Info;
+
+        return attempt.IsCorrect == true ? Color.Success : Color.Error;
+    }
+
+    private Color GetAttemptChipColor(AnswerAttempt attempt)
+    {
+        if (attempt.IsPending)
+            return Color.Info;
+
+        return attempt.IsCorrect == true ? Color.Success : Color.Error;
     }
 
     private string GetAttemptStatusText(AnswerAttempt attempt)
@@ -569,15 +612,15 @@
         return "Wrong";
     }
 
-    private string GetAttemptStyle(AnswerAttempt attempt)
+    private string GetAttemptClass(AnswerAttempt attempt)
     {
-        if (attempt.IsPending)
-            return "border: 1px solid var(--mud-palette-info); background-color: var(--mud-palette-info-hover);";
+        var stateClass = attempt.IsPending
+            ? "qf-attempt-row-pending"
+            : attempt.IsCorrect == true
+                ? "qf-attempt-row-correct"
+                : "qf-attempt-row-wrong";
 
-        if (attempt.IsCorrect == true)
-            return "border: 1px solid var(--mud-palette-success); background-color: var(--mud-palette-success-hover);";
-
-        return "border: 1px solid var(--mud-palette-lines-default);";
+        return $"qf-attempt-row pa-2 {stateClass}";
     }
 
     private sealed class AnswerAttempt
@@ -614,18 +657,18 @@
         {
             if (hubConnection?.State == HubConnectionState.Connected)
             {
-                Console.WriteLine($"⏰ [Game] Timer expired. Requesting server timeout check for round {currentQuestion.RoundId}");
+                Console.WriteLine($"[Game] Timer expired. Requesting server timeout check for round {currentQuestion.RoundId}");
                 await hubConnection.InvokeAsync("RequestRoundTimeout", currentQuestion.RoundId);
             }
             else
             {
-                Console.WriteLine("⚠️ [Game] Timer expired but SignalR is not connected. Reloading game data...");
+                Console.WriteLine("[Game] Timer expired but SignalR is not connected. Reloading game data...");
                 await LoadGameData();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ [Game] Error requesting round timeout: {ex.Message}");
+            Console.WriteLine($"[Game] Error requesting round timeout: {ex.Message}");
         }
         finally
         {

@@ -1,39 +1,96 @@
+@using QuizFuzz.Client.Services
 @inherits LayoutComponentBase
+@implements IDisposable
+@inject AppThemeService ThemeService
 
-<MudLayout>
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
-        <MudText Typo="Typo.h6">QuizFuzz</MudText>
+<MudLayout Class="@LayoutClass">
+    <MudAppBar Elevation="0" Class="qf-appbar">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" Class="qf-menu-button" />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="qf-brand">
+            <MudAvatar Size="Size.Medium" Class="qf-brand-mark">
+                <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" />
+            </MudAvatar>
+            <div class="qf-brand-copy">
+                <MudText Typo="Typo.h6" Class="qf-brand-title">QuizFuzz</MudText>
+                <MudText Typo="Typo.caption" Class="qf-brand-subtitle">Real-time fuzzy quiz platform</MudText>
+            </div>
+        </MudStack>
         <MudSpacer />
+        <MudTooltip Text="@ThemeToggleTooltip">
+            <MudIconButton Icon="@ThemeToggleIcon" Color="Color.Inherit" OnClick="@ToggleThemeAsync" Class="qf-theme-toggle" />
+        </MudTooltip>
         <AuthorizeView>
             <Authorized>
-                <MudIconButton Icon="@Icons.Material.Filled.Person" Color="Color.Inherit" />
+                <MudButton Href="/suggest-question" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Lightbulb" Class="qf-appbar-action">
+                    Suggest
+                </MudButton>
+                <MudIconButton Href="/profile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" />
             </Authorized>
             <NotAuthorized>
-                <MudButton Href="/login" Variant="Variant.Text" Color="Color.Inherit">Login</MudButton>
+                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
-    
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="2">
-        <MudDrawerHeader>
-            <MudText Typo="Typo.h6">QuizFuzz</MudText>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Class="qf-drawer" ClipMode="DrawerClipMode.Always">
+        <MudDrawerHeader Class="qf-drawer-header">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Size="Size.Large" Class="qf-brand-mark qf-brand-mark-large">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" />
+                </MudAvatar>
+                <div>
+                    <MudText Typo="Typo.h6" Class="qf-brand-title">QuizFuzz</MudText>
+                    <MudText Typo="Typo.caption" Class="qf-brand-subtitle">Play, guess, compete</MudText>
+                </div>
+            </MudStack>
         </MudDrawerHeader>
         <NavMenu />
     </MudDrawer>
-    
-    <MudMainContent>
-        <MudContainer MaxWidth="MaxWidth.False" Class="mt-4">
+
+    <MudMainContent Class="qf-main">
+        <MudContainer MaxWidth="MaxWidth.False" Class="qf-content">
             @Body
         </MudContainer>
     </MudMainContent>
 </MudLayout>
 
 @code {
-    private bool _drawerOpen = false;
+    private bool _drawerOpen = true;
+
+    private string LayoutClass => ThemeService.IsDarkMode
+        ? "qf-layout qf-theme-dark"
+        : "qf-layout qf-theme-light";
+
+    private string ThemeToggleIcon => ThemeService.IsDarkMode
+        ? Icons.Material.Filled.LightMode
+        : Icons.Material.Filled.DarkMode;
+
+    private string ThemeToggleTooltip => ThemeService.IsDarkMode
+        ? "Switch to light theme"
+        : "Switch to dark theme";
+
+    protected override void OnInitialized()
+    {
+        ThemeService.Changed += HandleThemeChanged;
+    }
 
     private void ToggleDrawer()
     {
         _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        await ThemeService.ToggleAsync();
+    }
+
+    private void HandleThemeChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeService.Changed -= HandleThemeChanged;
     }
 }

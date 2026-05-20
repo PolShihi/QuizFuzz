@@ -1,5 +1,9 @@
-﻿<CascadingAuthenticationState>
-    <MudThemeProvider />
+@using QuizFuzz.Client.Services
+@implements IDisposable
+@inject AppThemeService ThemeService
+
+<CascadingAuthenticationState>
+    <MudThemeProvider Theme="@_theme" IsDarkMode="@ThemeService.IsDarkMode" />
     <MudPopoverProvider />
     <MudDialogProvider />
     <MudSnackbarProvider />
@@ -14,7 +18,9 @@
                     }
                     else
                     {
-                        <p role="alert">You are not authorized to access this resource.</p>
+                        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="ma-4">
+                            You are not authorized to access this resource.
+                        </MudAlert>
                     }
                 </NotAuthorized>
             </AuthorizeRouteView>
@@ -23,14 +29,116 @@
         <NotFound>
             <PageTitle>Not found</PageTitle>
             <LayoutView Layout="@typeof(MainLayout)">
-                <p role="alert">Sorry, there's nothing at this address.</p>
+                <MudContainer MaxWidth="MaxWidth.Medium" Class="qf-page-shell">
+                    <MudPaper Class="qf-empty-state" Elevation="0">
+                        <MudIcon Icon="@Icons.Material.Filled.TravelExplore" Size="Size.Large" Color="Color.Primary" />
+                        <MudText Typo="Typo.h5">Page not found</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">The page you opened does not exist or was moved.</MudText>
+                        <MudButton Href="/lobby" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Home">
+                            Back to lobby
+                        </MudButton>
+                    </MudPaper>
+                </MudContainer>
             </LayoutView>
         </NotFound>
     </Router>
 </CascadingAuthenticationState>
 
 @code {
-    // Компонент для редиректа на логин
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#7C3AED",
+            Secondary = "#0891B2",
+            Tertiary = "#F59E0B",
+            Success = "#16A34A",
+            Warning = "#D97706",
+            Error = "#DC2626",
+            Info = "#0284C7",
+            Background = "#F5F7FB",
+            Surface = "#FFFFFF",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#1E293B",
+            AppbarBackground = "rgba(255, 255, 255, 0.88)",
+            AppbarText = "#0F172A",
+            TextPrimary = "#0F172A",
+            TextSecondary = "#64748B",
+            LinesDefault = "rgba(15, 23, 42, 0.12)",
+            Divider = "rgba(15, 23, 42, 0.12)",
+            ActionDefault = "#334155"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#8B5CF6",
+            Secondary = "#22D3EE",
+            Tertiary = "#F59E0B",
+            Success = "#22C55E",
+            Warning = "#F59E0B",
+            Error = "#EF4444",
+            Info = "#38BDF8",
+            Background = "#080B1A",
+            Surface = "#11162A",
+            DrawerBackground = "#0D1224",
+            DrawerText = "#D8E1FF",
+            AppbarBackground = "rgba(12, 18, 38, 0.82)",
+            AppbarText = "#F8FAFC",
+            TextPrimary = "#F8FAFC",
+            TextSecondary = "#A9B4D0",
+            LinesDefault = "rgba(148, 163, 184, 0.20)",
+            Divider = "rgba(148, 163, 184, 0.20)",
+            ActionDefault = "#D8E1FF"
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "18px",
+            DrawerWidthLeft = "288px"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "Arial", "sans-serif" }
+            },
+            H4 = new H4Typography
+            {
+                FontWeight = "800",
+                LetterSpacing = "-.04em"
+            },
+            H5 = new H5Typography
+            {
+                FontWeight = "760",
+                LetterSpacing = "-.03em"
+            },
+            H6 = new H6Typography
+            {
+                FontWeight = "720",
+                LetterSpacing = "-.02em"
+            },
+            Button = new ButtonTypography
+            {
+                FontWeight = "700",
+                TextTransform = "none"
+            }
+        }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        ThemeService.Changed += HandleThemeChanged;
+        await ThemeService.InitializeAsync();
+    }
+
+    private void HandleThemeChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        ThemeService.Changed -= HandleThemeChanged;
+    }
+
     private class RedirectToLogin : ComponentBase
     {
         [Inject] private NavigationManager Navigation { get; set; } = default!;

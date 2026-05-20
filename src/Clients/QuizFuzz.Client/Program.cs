@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.Components.Authorization;
 using QuizFuzz.Client;
 using QuizFuzz.Client.Services.Auth;
+using QuizFuzz.Client.Services;
 using QuizFuzz.Client.Services.Api;
 using Blazored.LocalStorage;
 using MudBlazor.Services;
@@ -19,6 +20,7 @@ builder.Services.AddBlazoredLocalStorage();
 
 // MudBlazor
 builder.Services.AddMudServices();
+builder.Services.AddScoped<AppThemeService>();
 
 // Authentication
 builder.Services.AddAuthorizationCore();
