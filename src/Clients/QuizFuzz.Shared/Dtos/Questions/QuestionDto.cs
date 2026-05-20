@@ -29,7 +29,7 @@ public class QuestionAnswerDto
     public List<FuzzyAliasDto> Aliases { get; set; } = new();
     
     // 🔥 НОВОЕ: Настройки fuzzy matching
-    public bool AllowFuzzyMatch { get; set; }
+    public bool AllowFuzzyMatch { get; set; } = true;
     public int? MaxEditDistance { get; set; }
     public decimal? MinConfidence { get; set; }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 
@@ -61,6 +62,18 @@ public class QuestionConfiguration : IEntityTypeConfiguration<Question>
         builder.Property(q => q.UpdatedAt)
             .HasColumnName("updated_at")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        builder.Navigation(q => q.Answers)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Navigation(q => q.Hints)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Navigation(q => q.MediaAssets)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.Navigation(q => q.Tags)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // Relationships
         builder.HasOne(q => q.Author)

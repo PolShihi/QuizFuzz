@@ -25,13 +25,13 @@
             <MudGrid>
                 <MudItem xs="12" md="8">
                     <MudStack Spacing="3">
-                        <MudTextField Label="Title"
+                        <MudTextField T="string" Label="Title"
                                       @bind-Value="question.Title"
                                       Variant="Variant.Outlined"
                                       Required="true"
                                       ReadOnly="@(!isEdit)" />
 
-                        <MudTextField Label="Question Text"
+                        <MudTextField T="string" Label="Question Text"
                                       @bind-Value="question.PromptText"
                                       Lines="3"
                                       Variant="Variant.Outlined"
@@ -40,38 +40,49 @@
 
                         <MudStack Row="true" Spacing="2">
                             <MudSelect T="string" Label="Type" @bind-Value="question.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
-                                <MudSelectItem Value="@("TEXT")">Text</MudSelectItem>
-                                <MudSelectItem Value="@("IMAGE")">Image</MudSelectItem>
-                                <MudSelectItem Value="@("AUDIO")">Audio</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("TEXT")'>Text</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("IMAGE")'>Image</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("AUDIO")'>Audio</MudSelectItem>
                             </MudSelect>
 
                             <MudSelect T="string" Label="Difficulty" @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
-                                <MudSelectItem Value="@("Easy")">Easy</MudSelectItem>
-                                <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
-                                <MudSelectItem Value="@("Hard")">Hard</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Easy")'>Easy</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Medium")'>Medium</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Hard")'>Hard</MudSelectItem>
                             </MudSelect>
                         </MudStack>
 
-                        @if (question.QuestionType != "TEXT")
+                        @if (!IsTextQuestion(question.QuestionType))
                         {
-                            <MudTextField Label="Media URL"
+                            <MudTextField T="string" Label="Media URL"
                                           @bind-Value="question.MediaUrl"
                                           Variant="Variant.Outlined"
                                           ReadOnly="@(!isEdit)" />
                         }
 
-                        <MudText Typo="Typo.h6" Class="mt-4">Answers</MudText>
-                        @foreach (var (answer, index) in question.Answers.Select((a, i) => (a, i)))
+                        <MudText Typo="Typo.h6" Class="mt-4">Answers (@question.Answers.Count)</MudText>
+                        @if (question.Answers.Count == 0)
                         {
-                            <MudPaper Elevation="2" Class="pa-3">
+                            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                                No answers were returned by the API for this question.
+                            </MudAlert>
+                        }
+
+                        @for (var i = 0; i < question.Answers.Count; i++)
+                        {
+                            var index = i;
+                            var answer = question.Answers[index];
+                            var answerKey = answer.Id == Guid.Empty ? $"new-answer-{index}" : answer.Id.ToString();
+
+                            <MudPaper @key="answerKey" Elevation="2" Class="pa-3">
                                 <MudStack Spacing="2">
                                     <MudStack Row="true" AlignItems="AlignItems.Center">
-                                        <MudTextField Label="@($"Answer {index + 1}")"
+                                        <MudTextField T="string" Label="@($"Answer {index + 1}")"
                                                       @bind-Value="answer.AnswerText"
                                                       Variant="Variant.Outlined"
                                                       FullWidth="true"
                                                       ReadOnly="@(!isEdit)" />
-                                        <MudCheckBox T="bool" @bind-Checked="answer.IsPrimary" Label="Primary" ReadOnly="@(!isEdit)" />
+                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label="Primary" Disabled="@(!isEdit)" />
                                         @if (isEdit)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -99,12 +110,21 @@
                         <MudText Typo="Typo.h6" Class="mb-3">Tags</MudText>
                         @if (isEdit)
                         {
-                            <MudSelect T="Guid" Label="Select Tags" MultiSelection="true" @bind-SelectedValues="selectedTagIds" Variant="Variant.Outlined">
+                            <MudSelect T="string"
+                                       Label="Select Tags"
+                                       MultiSelection="true"
+                                       SelectedValues="@selectedTagIds"
+                                       SelectedValuesChanged="@OnSelectedTagsChanged"
+                                       Variant="Variant.Outlined">
                                 @foreach (var tag in availableTags)
                                 {
-                                    <MudSelectItem T="Guid" Value="@tag.Id">@tag.Name</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
                                 }
                             </MudSelect>
+                        }
+                        else if (question.Tags.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">No tags</MudText>
                         }
                         else
                         {
@@ -151,7 +171,7 @@
 
     private QuestionDto? question;
     private List<TagDto> availableTags = new();
-    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+    private IEnumerable<string> selectedTagIds = Array.Empty<string>();
     private bool isLoading = true;
     private bool isSaving = false;
     private string? error;
@@ -165,15 +185,17 @@
             await Task.WhenAll(loadQuestionTask, loadTagsTask);
 
             question = loadQuestionTask.Result;
-            availableTags = loadTagsTask.Result;
+            availableTags = loadTagsTask.Result ?? new List<TagDto>();
 
             if (question == null)
             {
-                error = "Question not found (null response).";
+                error = "Question not found or API request failed.";
                 return;
             }
 
-            selectedTagIds = question.Tags.Select(t => t.Id);
+            question.Answers ??= new List<QuestionAnswerDto>();
+            question.Tags ??= new List<TagDto>();
+            selectedTagIds = question.Tags.Select(t => t.Id.ToString()).ToArray();
         }
         catch (Exception ex)
         {
@@ -187,16 +209,32 @@
 
     private void Close() => MudDialog.Cancel();
 
+    private void OnSelectedTagsChanged(IEnumerable<string> values)
+    {
+        selectedTagIds = values?.Where(v => !string.IsNullOrWhiteSpace(v)).ToArray() ?? Array.Empty<string>();
+    }
+
     private void AddAnswer()
     {
-        question?.Answers.Add(new QuestionAnswerDto { AnswerText = "", IsPrimary = false, IsActive = true });
+        question?.Answers.Add(new QuestionAnswerDto
+        {
+            AnswerText = string.Empty,
+            IsPrimary = question.Answers.Count == 0,
+            IsActive = true,
+            AllowFuzzyMatch = true,
+            Aliases = new List<FuzzyAliasDto>()
+        });
     }
 
     private void RemoveAnswer(int index)
     {
-        if (question?.Answers.Count > 1)
+        if (question?.Answers.Count > 1 && index >= 0 && index < question.Answers.Count)
         {
             question.Answers.RemoveAt(index);
+            if (!question.Answers.Any(a => a.IsPrimary))
+            {
+                question.Answers[0].IsPrimary = true;
+            }
         }
     }
 
@@ -205,16 +243,32 @@
         if (question == null) return;
         isSaving = true;
         error = null;
+
         try
         {
+            var answers = question.Answers
+                .Where(a => !string.IsNullOrWhiteSpace(a.AnswerText))
+                .ToList();
+
+            if (answers.Count == 0)
+            {
+                error = "At least one non-empty answer is required.";
+                return;
+            }
+
+            if (!answers.Any(a => a.IsPrimary))
+            {
+                answers[0].IsPrimary = true;
+            }
+
             var request = new UpdateQuestionFullRequest
             {
                 Title = question.Title,
                 PromptText = question.PromptText,
-                Difficulty = question.Difficulty,
+                Difficulty = NormalizeDifficulty(question.Difficulty),
                 MediaUrl = question.MediaUrl,
-                TagIds = selectedTagIds.ToList(),
-                Answers = question.Answers.Select(a => new UpdateAnswerRequest
+                TagIds = selectedTagIds.Select(ParseGuid).Where(id => id.HasValue).Select(id => id!.Value).ToList(),
+                Answers = answers.Select(a => new UpdateAnswerRequest
                 {
                     Id = a.Id == Guid.Empty ? null : a.Id,
                     AnswerText = a.AnswerText,
@@ -222,7 +276,7 @@
                     AllowFuzzyMatch = a.AllowFuzzyMatch,
                     MaxEditDistance = a.MaxEditDistance,
                     MinConfidence = a.MinConfidence,
-                    Aliases = a.Aliases.Select(al => new UpdateAliasRequest
+                    Aliases = (a.Aliases ?? new List<FuzzyAliasDto>()).Where(al => !string.IsNullOrWhiteSpace(al.AliasText)).Select(al => new UpdateAliasRequest
                     {
                         Id = al.Id == Guid.Empty ? null : al.Id,
                         AliasText = al.AliasText,
@@ -234,7 +288,7 @@
             var updated = await QuestionsClient.UpdateQuestionAsync(question.Id, request);
             if (updated == null)
             {
-                error = "Save failed (null response).";
+                error = "Save failed. Check the API response in Network tab.";
                 return;
             }
 
@@ -249,5 +303,18 @@
             isSaving = false;
         }
     }
-}
 
+    private static Guid? ParseGuid(string value) => Guid.TryParse(value, out var guid) ? guid : null;
+
+    private static string NormalizeDifficulty(string? difficulty) => difficulty?.ToLowerInvariant() switch
+    {
+        "easy" => "Easy",
+        "medium" => "Medium",
+        "hard" => "Hard",
+        _ => "Medium"
+    };
+
+    private static bool IsTextQuestion(string? questionType) =>
+        string.Equals(questionType, "TEXT", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(questionType, "Text", StringComparison.OrdinalIgnoreCase);
+}

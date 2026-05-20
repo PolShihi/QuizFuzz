@@ -24,6 +24,7 @@ public class QuestionRepository : BaseRepository<Question>, IQuestionRepository
     public async Task<Question?> GetWithAllDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _dbSet
+            .AsSplitQuery()
             .Include(q => q.Answers)
                 .ThenInclude(a => a.Aliases)
             .Include(q => q.Hints)

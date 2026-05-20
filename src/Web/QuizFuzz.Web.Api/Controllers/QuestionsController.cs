@@ -93,63 +93,36 @@ public class QuestionsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить вопрос по ID
+    /// Получить вопрос по ID. Для совместимости возвращает полный DTO.
     /// </summary>
-    [HttpGet("{id}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(QuestionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetQuestion(Guid id)
     {
-        var question = await _unitOfWork.Questions.GetWithAllDetailsAsync(id);
+        var question = await _unitOfWork.Questions.GetWithAllDetailsAsync(id, HttpContext.RequestAborted);
 
         if (question == null)
             return NotFound($"Question with ID {id} not found");
 
-        var result = new QuestionDto
-        {
-            Id = question.Id,
-            QuestionType = question.Type.ToString(),
-            Title = question.Title ?? string.Empty,
-            PromptText = question.PromptText,
-            Difficulty = question.Difficulty.ToString(),
-            LanguageCode = question.LanguageCode,
-            Status = question.Status.ToString(),
-            AuthorUserId = question.AuthorUserId,
-            CreatedAt = question.CreatedAt,
-            UpdatedAt = question.UpdatedAt,
-            Answers = question.Answers.Select(a => new QuestionAnswerDto
-            {
-                Id = a.Id,
-                AnswerText = a.AnswerText,
-                IsPrimary = a.IsPrimary,
-                IsActive = a.IsActive,
-                AllowFuzzyMatch = a.AllowFuzzyMatch, // 🔥 НОВОЕ
-                MaxEditDistance = a.MaxEditDistance, // 🔥 НОВОЕ
-                MinConfidence = a.MinConfidence,     // 🔥 НОВОЕ
-                Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
-                {
-                    Id = alias.Id,
-                    AliasText = alias.AliasText,
-                    Kind = alias.Kind.ToString()
-                }).ToList()
-            }).ToList(),
-            Hints = question.Hints.Select(h => new HintDto
-            {
-                Id = h.Id,
-                OrderIndex = h.OrderIndex,
-                HintText = h.HintText ?? "",
-                RevealTimeSeconds = h.RevealTimeSec
-            }).ToList(),
-            Tags = question.Tags.Select(qt => new TagDto
-            {
-                Id = qt.Tag.Id,
-                Name = qt.Tag.Name,
-                Description = qt.Tag.Description,
-                IsActive = qt.Tag.IsActive
-            }).ToList()
-        };
+        return Ok(MapQuestionToDto(question));
+    }
 
-        return Ok(result);
+    /// <summary>
+    /// Получить полный вопрос для админ-панели: ответы, алиасы, теги, подсказки и media.
+    /// </summary>
+    [HttpGet("{id:guid}/full")]
+    [Authorize(Roles = "Moderator,Admin")]
+    [ProducesResponseType(typeof(QuestionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetQuestionFull(Guid id)
+    {
+        var question = await _unitOfWork.Questions.GetWithAllDetailsAsync(id, HttpContext.RequestAborted);
+
+        if (question == null)
+            return NotFound($"Question with ID {id} not found");
+
+        return Ok(MapQuestionToDto(question));
     }
 
     /// <summary>
@@ -252,49 +225,7 @@ public class QuestionsController : ControllerBase
             // Return created question with DTO
             var createdQuestion = await _unitOfWork.Questions.GetWithAllDetailsAsync(question.Id);
             
-            var resultDto = new QuestionDto
-            {
-                Id = createdQuestion!.Id,
-                QuestionType = createdQuestion.Type.ToString(),
-                Title = createdQuestion.Title ?? string.Empty,
-                PromptText = createdQuestion.PromptText,
-                Difficulty = createdQuestion.Difficulty.ToString(),
-                Status = createdQuestion.Status.ToString(),
-                LanguageCode = createdQuestion.LanguageCode,
-                AuthorUserId = createdQuestion.AuthorUserId,
-                CreatedAt = createdQuestion.CreatedAt,
-                UpdatedAt = createdQuestion.UpdatedAt,
-                Answers = createdQuestion.Answers.Select(a => new QuestionAnswerDto
-                {
-                    Id = a.Id,
-                    AnswerText = a.AnswerText,
-                    IsPrimary = a.IsPrimary,
-                    IsActive = a.IsActive,
-                    AllowFuzzyMatch = a.AllowFuzzyMatch, // 🔥 НОВОЕ
-                    MaxEditDistance = a.MaxEditDistance, // 🔥 НОВОЕ
-                    MinConfidence = a.MinConfidence,     // 🔥 НОВОЕ
-                    Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
-                    {
-                        Id = alias.Id,
-                        AliasText = alias.AliasText,
-                        Kind = alias.Kind.ToString()
-                    }).ToList()
-                }).ToList(),
-                Hints = createdQuestion.Hints.Select(h => new HintDto
-                {
-                    Id = h.Id,
-                    OrderIndex = h.OrderIndex,
-                    HintText = h.HintText ?? "",
-                    RevealTimeSeconds = h.RevealTimeSec
-                }).ToList(),
-                Tags = createdQuestion.Tags.Select(qt => new TagDto
-                {
-                    Id = qt.Tag.Id,
-                    Name = qt.Tag.Name,
-                    Description = qt.Tag.Description,
-                    IsActive = qt.Tag.IsActive
-                }).ToList()
-            };
+            var resultDto = MapQuestionToDto(createdQuestion!);
             
             return CreatedAtAction(
                 nameof(GetQuestion),
@@ -524,20 +455,15 @@ public class QuestionsController : ControllerBase
             return NotFound();
         }
 
-        var dto = new QuestionDto
-        {
-            Id = refreshed.Id,
-            QuestionType = refreshed.Type.ToString(),
-            Title = refreshed.Title ?? string.Empty,
-            PromptText = refreshed.PromptText,
-            Difficulty = refreshed.Difficulty.ToString(),
-            LanguageCode = refreshed.LanguageCode,
-            Status = refreshed.Status.ToString(),
-            AuthorUserId = refreshed.AuthorUserId,
-            AuthorUsername = refreshed.Author?.Username,
-            CreatedAt = refreshed.CreatedAt,
-            UpdatedAt = refreshed.UpdatedAt,
-            Answers = refreshed.Answers.Select(a => new QuestionAnswerDto
+        return Ok(MapQuestionToDto(refreshed));
+    }
+
+    private static QuestionDto MapQuestionToDto(Question question)
+    {
+        var answers = question.Answers?
+            .OrderByDescending(a => a.IsPrimary)
+            .ThenBy(a => a.AnswerText)
+            .Select(a => new QuestionAnswerDto
             {
                 Id = a.Id,
                 AnswerText = a.AnswerText,
@@ -546,30 +472,48 @@ public class QuestionsController : ControllerBase
                 AllowFuzzyMatch = a.AllowFuzzyMatch,
                 MaxEditDistance = a.MaxEditDistance,
                 MinConfidence = a.MinConfidence,
-                Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
+                Aliases = (a.Aliases ?? Array.Empty<FuzzyAlias>()).Select(alias => new FuzzyAliasDto
                 {
                     Id = alias.Id,
                     AliasText = alias.AliasText,
                     Kind = alias.Kind.ToString()
                 }).ToList()
-            }).ToList(),
-            Hints = refreshed.Hints.Select(h => new HintDto
+            }).ToList() ?? new List<QuestionAnswerDto>();
+
+        return new QuestionDto
+        {
+            Id = question.Id,
+            QuestionType = question.Type.ToString(),
+            Title = question.Title ?? string.Empty,
+            PromptText = question.PromptText,
+            Difficulty = question.Difficulty.ToString(),
+            LanguageCode = question.LanguageCode,
+            Status = question.Status.ToString(),
+            AuthorUserId = question.AuthorUserId,
+            AuthorUsername = question.Author?.Username,
+            CreatedAt = question.CreatedAt,
+            UpdatedAt = question.UpdatedAt,
+            Answers = answers,
+            AnswersCount = answers.Count,
+            Hints = (question.Hints ?? Array.Empty<Hint>()).OrderBy(h => h.OrderIndex).Select(h => new HintDto
             {
                 Id = h.Id,
                 OrderIndex = h.OrderIndex,
-                HintText = h.HintText ?? "",
+                HintText = h.HintText ?? string.Empty,
                 RevealTimeSeconds = h.RevealTimeSec
             }).ToList(),
-            Tags = refreshed.Tags.Select(qt => new TagDto
-            {
-                Id = qt.Tag.Id,
-                Name = qt.Tag.Name,
-                Description = qt.Tag.Description,
-                IsActive = qt.Tag.IsActive
-            }).ToList()
+            Tags = (question.Tags ?? Array.Empty<QuestionTag>())
+                .Where(qt => qt.Tag != null)
+                .OrderBy(qt => qt.Tag.Name)
+                .Select(qt => new TagDto
+                {
+                    Id = qt.Tag.Id,
+                    Name = qt.Tag.Name,
+                    Description = qt.Tag.Description,
+                    IsActive = qt.Tag.IsActive
+                }).ToList(),
+            MediaUrl = question.MediaAssets?.FirstOrDefault()?.Url
         };
-
-        return Ok(dto);
     }
 
     /// <summary>

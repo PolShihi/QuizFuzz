@@ -34,7 +34,7 @@ public class QuestionsApiClient : IQuestionsApiClient
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<QuestionDto>($"api/questions/{questionId}");
+            return await _httpClient.GetFromJsonAsync<QuestionDto>($"api/questions/{questionId}/full");
         }
         catch
         {

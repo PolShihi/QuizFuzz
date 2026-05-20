@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.Metadata;
 using QuizFuzz.Domain.Entities;
 
 namespace QuizFuzz.Infrastructure.Persistence.Configurations;
@@ -47,6 +48,9 @@ public class QuestionAnswerConfiguration : IEntityTypeConfiguration<QuestionAnsw
         builder.Property(qa => qa.CreatedAt)
             .HasColumnName("created_at")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+        builder.Navigation(qa => qa.Aliases)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         // Relationships
         builder.HasMany(qa => qa.Aliases)
