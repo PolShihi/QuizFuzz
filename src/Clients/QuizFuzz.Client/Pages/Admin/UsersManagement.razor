@@ -1,18 +1,28 @@
-﻿@page "/admin/users"
+@page "/admin/users"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Admin
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Admin")]
 @inject IAdminApiClient AdminClient
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Users Management - QuizFuzz</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
     <MudPaper Elevation="3" Class="pa-4 mb-4">
-        <MudText Typo="Typo.h4">
-            <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
-            Users Management
-        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap gap-2">
+            <MudText Typo="Typo.h4">
+                <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
+                Users Management
+            </MudText>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Refresh"
+                       OnClick="@LoadUsers">
+                Refresh
+            </MudButton>
+        </MudStack>
     </MudPaper>
 
     @if (isLoading)
@@ -23,9 +33,15 @@
     }
     else
     {
-        <MudTable Items="@users" Hover="true" Breakpoint="Breakpoint.Sm" Filter="new Func<UserManagementDto, bool>(FilterFunc)">
+        <MudTable Items="@users" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm" Filter="new Func<UserManagementDto, bool>(FilterFunc)">
             <ToolBarContent>
-                <MudTextField @bind-Value="searchString" Placeholder="Search users..." Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                <MudTextField @bind-Value="searchString"
+                              Placeholder="Search by username, email, role or status..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Immediate="true"
+                              Class="mt-0" />
             </ToolBarContent>
             <HeaderContent>
                 <MudTh>Username</MudTh>
@@ -37,18 +53,25 @@
                 <MudTh>Actions</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Username">@context.Username</MudTd>
+                <MudTd DataLabel="Username">
+                    <MudText Typo="Typo.body2"><b>@context.Username</b></MudText>
+                </MudTd>
                 <MudTd DataLabel="Email">@context.Email</MudTd>
                 <MudTd DataLabel="Roles">
-                    @foreach (var role in context.Roles)
-                    {
-                        <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(role)">@role</MudChip>
-                    }
+                    <MudStack Row="true" Spacing="1" Class="flex-wrap">
+                        @foreach (var role in context.Roles.OrderBy(GetRoleSortOrder))
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(role)">@role</MudChip>
+                        }
+                    </MudStack>
                 </MudTd>
                 <MudTd DataLabel="Status">
                     @if (context.IsBanned)
                     {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Error">Banned</MudChip>
+                        <MudStack Spacing="0">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error">Banned</MudChip>
+                            <MudText Typo="Typo.caption">@GetBanCaption(context)</MudText>
+                        </MudStack>
                     }
                     else
                     {
@@ -64,19 +87,22 @@
                 <MudTd DataLabel="Actions">
                     <MudStack Row="true" Spacing="1">
                         <MudIconButton Icon="@Icons.Material.Filled.ManageAccounts"
+                                       Title="Change roles"
                                        Size="Size.Small"
                                        Color="Color.Primary"
-                                       OnClick="@(() => ManageRoles(context))" />
+                                       OnClick="@(() => OpenRolesDialog(context))" />
                         @if (!context.IsBanned)
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.Block"
+                                           Title="Ban user"
                                            Size="Size.Small"
                                            Color="Color.Error"
-                                           OnClick="@(() => BanUser(context))" />
+                                           OnClick="@(() => OpenBanDialog(context))" />
                         }
                         else
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                           Title="Unban user"
                                            Size="Size.Small"
                                            Color="Color.Success"
                                            OnClick="@(() => UnbanUser(context))" />
@@ -84,51 +110,18 @@
                     </MudStack>
                 </MudTd>
             </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">No users found.</MudText>
+            </NoRecordsContent>
         </MudTable>
     }
 </MudContainer>
 
-<!-- Manage Roles Dialog -->
-<MudDialog @bind-IsVisible="@showRolesDialog">
-    <TitleContent>
-        <MudText Typo="Typo.h6">Manage Roles - @selectedUser?.Username</MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudStack Spacing="2">
-            <MudCheckBox T="bool" @bind-Checked="@hasUserRole" Label="User" Color="Color.Primary" />
-            <MudCheckBox T="bool" @bind-Checked="@hasModeratorRole" Label="Moderator" Color="Color.Warning" />
-            <MudCheckBox T="bool" @bind-Checked="@hasAdminRole" Label="Admin" Color="Color.Error" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => showRolesDialog = false)">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@SaveRoles">Save</MudButton>
-    </DialogActions>
-</MudDialog>
-
-<!-- Ban User Dialog -->
-<MudDialog @bind-IsVisible="@showBanDialog">
-    <TitleContent>
-        <MudText Typo="Typo.h6">Ban User - @selectedUser?.Username</MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudTextField Label="Reason" @bind-Value="banReason" Lines="3" Variant="Variant.Outlined" />
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => showBanDialog = false)">Cancel</MudButton>
-        <MudButton Color="Color.Error" Variant="Variant.Filled" OnClick="@ConfirmBan">Ban</MudButton>
-    </DialogActions>
-</MudDialog>
-
 @code {
     private List<UserManagementDto> users = new();
-    private UserManagementDto? selectedUser;
     private bool isLoading = true;
-    private bool showRolesDialog = false;
-    private bool showBanDialog = false;
-    private string searchString = "";
-    private string banReason = "";
-    private bool hasUserRole, hasModeratorRole, hasAdminRole;
+    private bool isSaving;
+    private string searchString = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,94 +130,200 @@
 
     private async Task LoadUsers()
     {
-        isLoading = true;
-        users = await AdminClient.GetUsersAsync();
-        isLoading = false;
-    }
-
-    private void ManageRoles(UserManagementDto user)
-    {
-        selectedUser = user;
-        hasUserRole = user.Roles.Contains("User");
-        hasModeratorRole = user.Roles.Contains("Moderator");
-        hasAdminRole = user.Roles.Contains("Admin");
-        showRolesDialog = true;
-    }
-
-    private async Task SaveRoles()
-    {
-        if (selectedUser == null) return;
-
-        var roles = new List<string>();
-        if (hasUserRole) roles.Add("User");
-        if (hasModeratorRole) roles.Add("Moderator");
-        if (hasAdminRole) roles.Add("Admin");
-
-        var request = new UpdateUserRolesRequest
+        try
         {
-            UserId = selectedUser.Id,
-            Roles = roles
-        };
-
-        var success = await AdminClient.UpdateUserRolesAsync(request);
-        if (success)
+            isLoading = true;
+            users = await AdminClient.GetUsersAsync();
+        }
+        catch (Exception ex)
         {
-            showRolesDialog = false;
-            await LoadUsers();
+            Snackbar.Add($"Failed to load users: {ex.Message}", Severity.Error);
+            users = new List<UserManagementDto>();
+        }
+        finally
+        {
+            isLoading = false;
         }
     }
 
-    private void BanUser(UserManagementDto user)
+    private async Task OpenRolesDialog(UserManagementDto user)
     {
-        selectedUser = user;
-        banReason = "";
-        showBanDialog = true;
-    }
-
-    private async Task ConfirmBan()
-    {
-        if (selectedUser == null) return;
-
-        var request = new BanUserRequest
+        var parameters = new DialogParameters<UserRolesDialog>
         {
-            UserId = selectedUser.Id,
-            Reason = banReason
+            { x => x.User, user }
         };
 
-        var success = await AdminClient.BanUserAsync(request);
-        if (success)
+        var options = new DialogOptions
         {
-            showBanDialog = false;
-            await LoadUsers();
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<UserRolesDialog>($"Manage Roles - {user.Username}", parameters, options);
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not List<string> roles)
+            return;
+
+        await SaveRoles(user, roles);
+    }
+
+    private async Task SaveRoles(UserManagementDto user, List<string> roles)
+    {
+        if (isSaving)
+            return;
+
+        var normalizedRoles = roles
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Select(role => role.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!normalizedRoles.Contains("User", StringComparer.OrdinalIgnoreCase))
+            normalizedRoles.Insert(0, "User");
+
+        var request = new UpdateUserRolesRequest
+        {
+            UserId = user.Id,
+            Roles = normalizedRoles
+        };
+
+        try
+        {
+            isSaving = true;
+            var success = await AdminClient.UpdateUserRolesAsync(request);
+            if (success)
+            {
+                Snackbar.Add("User roles updated", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Failed to update user roles", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to update user roles: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task OpenBanDialog(UserManagementDto user)
+    {
+        var parameters = new DialogParameters<UserBanDialog>
+        {
+            { x => x.User, user }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<UserBanDialog>($"Ban User - {user.Username}", parameters, options);
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not BanUserRequest request)
+            return;
+
+        await ConfirmBan(request);
+    }
+
+    private async Task ConfirmBan(BanUserRequest request)
+    {
+        if (isSaving)
+            return;
+
+        try
+        {
+            isSaving = true;
+            var success = await AdminClient.BanUserAsync(request);
+            if (success)
+            {
+                Snackbar.Add("User banned", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Failed to ban user", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to ban user: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 
     private async Task UnbanUser(UserManagementDto user)
     {
-        var success = await AdminClient.UnbanUserAsync(user.Id);
-        if (success)
+        if (isSaving)
+            return;
+
+        try
         {
-            await LoadUsers();
+            isSaving = true;
+            var success = await AdminClient.UnbanUserAsync(user.Id);
+            if (success)
+            {
+                Snackbar.Add("User unbanned", Severity.Success);
+                await LoadUsers();
+            }
+            else
+            {
+                Snackbar.Add("Failed to unban user", Severity.Error);
+            }
         }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private static string GetBanCaption(UserManagementDto user)
+    {
+        return user.BannedUntil.HasValue
+            ? $"until {user.BannedUntil.Value.ToLocalTime():dd/MM/yyyy HH:mm}"
+            : "permanent";
     }
 
     private bool FilterFunc(UserManagementDto user)
     {
         if (string.IsNullOrWhiteSpace(searchString))
             return true;
-        if (user.Username.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-            return true;
-        if (user.Email.Contains(searchString, StringComparison.OrdinalIgnoreCase))
-            return true;
-        return false;
+
+        var search = searchString.Trim();
+        return user.Username.Contains(search, StringComparison.OrdinalIgnoreCase)
+               || user.Email.Contains(search, StringComparison.OrdinalIgnoreCase)
+               || user.Roles.Any(r => r.Contains(search, StringComparison.OrdinalIgnoreCase))
+               || (user.IsBanned ? "banned" : "active").Contains(search, StringComparison.OrdinalIgnoreCase);
     }
 
-    private Color GetRoleColor(string role) => role switch
+    private static Color GetRoleColor(string role) => role switch
     {
         "Admin" => Color.Error,
         "Moderator" => Color.Warning,
         "User" => Color.Primary,
         _ => Color.Default
     };
-}
 
+    private static int GetRoleSortOrder(string role) => role switch
+    {
+        "Admin" => 0,
+        "Moderator" => 1,
+        "User" => 2,
+        _ => 3
+    };
+}

@@ -29,6 +29,15 @@
                     </MudCardContent>
                 </MudCard>
             </MudItem>
+            <MudItem xs="12" sm="6" md="4">
+                <MudCard Class="cursor-pointer" Style="height: 200px;" @onclick="@(() => Navigation.NavigateTo("/admin/tags"))">
+                    <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
+                        <MudIcon Icon="@Icons.Material.Filled.Label" Size="Size.Large" Color="Color.Success" />
+                        <MudText Typo="Typo.h5" Class="mt-4">Tags</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage and approve question tags</MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
         </AuthorizeView>
 
         <AuthorizeView Roles="Admin" Context="adminContext">
@@ -38,16 +47,6 @@
                         <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Info" />
                         <MudText Typo="Typo.h5" Class="mt-4">Users</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">Manage users and roles</MudText>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
-
-            <MudItem xs="12" sm="6" md="4">
-                <MudCard Class="cursor-pointer" Style="height: 200px;" @onclick="@(() => Navigation.NavigateTo("/admin/tags"))">
-                    <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
-                        <MudIcon Icon="@Icons.Material.Filled.Label" Size="Size.Large" Color="Color.Success" />
-                        <MudText Typo="Typo.h5" Class="mt-4">Tags</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage question tags</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>

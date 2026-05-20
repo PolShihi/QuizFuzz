@@ -152,6 +152,39 @@
                     </MudSelect>
                 </MudItem>
 
+                <!-- Suggest Tag -->
+                <MudItem xs="12">
+                    <MudPaper Class="pa-3" Outlined="true">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.subtitle2">
+                                <MudIcon Icon="@Icons.Material.Filled.NewLabel" Class="mr-1" />
+                                Missing a tag?
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                Suggest a new tag. It will appear for moderators/admins in Tags Management and can be approved later.
+                            </MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Class="flex-wrap gap-2">
+                                <MudTextField @bind-Value="suggestedTagName"
+                                              Label="New tag name"
+                                              Variant="Variant.Outlined"
+                                              Immediate="true"
+                                              Style="min-width: 220px; flex-grow: 1;" />
+                                <MudTextField @bind-Value="suggestedTagDescription"
+                                              Label="Description"
+                                              Variant="Variant.Outlined"
+                                              Style="min-width: 260px; flex-grow: 2;" />
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Send"
+                                           Disabled="@(isSuggestingTag || string.IsNullOrWhiteSpace(suggestedTagName))"
+                                           OnClick="@SuggestTag">
+                                    Suggest Tag
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+
                 <!-- Explanation -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="explanation"
@@ -194,12 +227,15 @@
     private MudForm form = null!;
     private bool isValid;
     private bool isSubmitting;
+    private bool isSuggestingTag;
 
     private string title = string.Empty;
     private string promptText = string.Empty;
     private string questionType = "Text";
     private string difficulty = "Medium";
     private string explanation = string.Empty;
+    private string suggestedTagName = string.Empty;
+    private string suggestedTagDescription = string.Empty;
 
     private List<AnswerItem> correctAnswers = new() { new AnswerItem() };
     private IEnumerable<Guid> selectedTagIds = new List<Guid>();
@@ -257,6 +293,45 @@
         {
             correctAnswers.RemoveAt(index);
             StateHasChanged();
+        }
+    }
+
+
+
+    private async Task SuggestTag()
+    {
+        if (isSuggestingTag)
+            return;
+
+        if (string.IsNullOrWhiteSpace(suggestedTagName))
+        {
+            Snackbar.Add("Enter a tag name first.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            isSuggestingTag = true;
+            var suggested = await TagsClient.SuggestTagAsync(suggestedTagName, suggestedTagDescription);
+            if (suggested == null)
+            {
+                Snackbar.Add("Failed to suggest tag. It may already exist or be pending review.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Tag '{suggested.Name}' suggested for moderation.", Severity.Success);
+            suggestedTagName = string.Empty;
+            suggestedTagDescription = string.Empty;
+            await LoadTags();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ [SuggestQuestion] Error suggesting tag");
+            Snackbar.Add($"Error suggesting tag: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSuggestingTag = false;
         }
     }
 

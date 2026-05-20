@@ -11,9 +11,9 @@
                     <MudNavLink Href="/admin" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
                     <MudNavLink Href="/admin/moderation" Icon="@Icons.Material.Filled.Gavel">Moderation Queue</MudNavLink>
                     <MudNavLink Href="/admin/questions" Icon="@Icons.Material.Filled.Quiz">Questions</MudNavLink>
+                    <MudNavLink Href="/admin/tags" Icon="@Icons.Material.Filled.Label">Tags</MudNavLink>
                     <AuthorizeView Roles="Admin" Context="adminContext">
                         <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
-                        <MudNavLink Href="/admin/tags" Icon="@Icons.Material.Filled.Label">Tags</MudNavLink>
                     </AuthorizeView>
                 </MudNavGroup>
             </AuthorizeView>

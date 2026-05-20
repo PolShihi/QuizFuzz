@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using QuizFuzz.Domain.Entities;
+using QuizFuzz.Domain.Enums;
 
 namespace QuizFuzz.Infrastructure.Persistence.Configurations;
 
@@ -56,15 +58,27 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                 .HasDatabaseName("ix_users_email");
         });
 
-        // Roles as JSON
+        // Roles are stored in a single string column and backed by the private _roles field.
+        // The ValueComparer is important: without it EF Core does not reliably detect
+        // in-place changes inside the role collection, so role updates can appear to
+        // succeed but are not written to the database.
+        var rolesComparer = new ValueComparer<IReadOnlyCollection<UserRole>>(
+            (left, right) => (left ?? Array.Empty<UserRole>()).SequenceEqual(right ?? Array.Empty<UserRole>()),
+            roles => roles == null
+                ? 0
+                : roles.Aggregate(0, (hash, role) => HashCode.Combine(hash, role.GetHashCode())),
+            roles => roles == null ? Array.Empty<UserRole>() : roles.ToList());
+
         builder.Property(u => u.Roles)
+            .HasField("_roles")
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
             .HasColumnName("roles")
             .HasConversion(
-                v => string.Join(',', v.Select(r => r.ToString())),
-                v => v.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                      .Select(r => Enum.Parse<Domain.Enums.UserRole>(r))
-                      .ToList()
-            );
+                roles => string.Join(',', roles.Select(role => role.ToString())),
+                value => value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(role => Enum.Parse<UserRole>(role))
+                    .ToList())
+            .Metadata.SetValueComparer(rolesComparer);
 
         // Indexes
         builder.HasIndex(u => u.Username)

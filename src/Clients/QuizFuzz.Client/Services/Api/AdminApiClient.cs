@@ -81,7 +81,7 @@ public class AdminApiClient : IAdminApiClient
     {
         try
         {
-            var tags = await _httpClient.GetFromJsonAsync<List<TagDto>>("api/tags");
+            var tags = await _httpClient.GetFromJsonAsync<List<TagDto>>("api/tags/all");
             return tags ?? new List<TagDto>();
         }
         catch
@@ -101,6 +101,33 @@ public class AdminApiClient : IAdminApiClient
         catch
         {
             return null;
+        }
+    }
+
+    public async Task<TagDto?> UpdateTagDescriptionAsync(Guid tagId, string? description)
+    {
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/tags/{tagId}", new { description });
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<TagDto>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<bool> ActivateTagAsync(Guid tagId)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync($"api/tags/{tagId}/activate", null);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
         }
     }
 

@@ -125,13 +125,18 @@ public class AuthController : ControllerBase
             return Unauthorized("Invalid credentials");
 
         // Check if user is banned
-        if (user.IsBanned)
+        if (user.IsBanActive())
         {
-            if (user.BannedUntil.HasValue && user.BannedUntil.Value > DateTime.UtcNow)
+            if (user.BannedUntil.HasValue)
                 return Unauthorized($"Account is banned until {user.BannedUntil.Value:yyyy-MM-dd HH:mm}");
-            
-            if (!user.BannedUntil.HasValue)
-                return Unauthorized("Account is permanently banned");
+
+            return Unauthorized("Account is permanently banned");
+        }
+
+        if (user.IsBanned && user.BannedUntil.HasValue && user.BannedUntil.Value <= DateTime.UtcNow)
+        {
+            user.Unban();
+            await _unitOfWork.SaveChangesAsync();
         }
 
         // Verify password
@@ -201,7 +206,7 @@ public class AuthController : ControllerBase
         if (user == null)
             return Unauthorized("User not found");
 
-        if (user.IsBanned)
+        if (user.IsBanActive())
             return Unauthorized("User is banned");
 
         // Генерируем новые токены

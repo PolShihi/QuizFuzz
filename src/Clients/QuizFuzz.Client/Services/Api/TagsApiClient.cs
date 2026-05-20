@@ -23,7 +23,7 @@ public class TagsApiClient : ITagsApiClient
         {
             _logger.LogInformation("🏷️ [TagsApiClient] Fetching active tags...");
             
-            var response = await _httpClient.GetAsync("api/Tags");
+            var response = await _httpClient.GetAsync("api/tags");
             
             if (!response.IsSuccessStatusCode)
             {
@@ -50,7 +50,7 @@ public class TagsApiClient : ITagsApiClient
         {
             _logger.LogInformation("🏷️ [TagsApiClient] Fetching tag {TagId}...", id);
             
-            var response = await _httpClient.GetAsync($"api/Tags/{id}");
+            var response = await _httpClient.GetAsync($"api/tags/{id}");
             
             if (!response.IsSuccessStatusCode)
             {
@@ -77,7 +77,7 @@ public class TagsApiClient : ITagsApiClient
         {
             _logger.LogInformation("🏷️ [TagsApiClient] Fetching all tags...");
             
-            var response = await _httpClient.GetAsync("api/Tags");
+            var response = await _httpClient.GetAsync("api/tags");
             
             if (!response.IsSuccessStatusCode)
             {
@@ -97,4 +97,30 @@ public class TagsApiClient : ITagsApiClient
             return new List<TagDto>();
         }
     }
+
+    public async Task<TagDto?> SuggestTagAsync(string name, string? description)
+    {
+        try
+        {
+            _logger.LogInformation("🏷️ [TagsApiClient] Suggesting tag {TagName}...", name);
+
+            var response = await _httpClient.PostAsJsonAsync("api/tags/suggestions", new { name, description });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("❌ [TagsApiClient] Failed to suggest tag. Status: {Status}", response.StatusCode);
+                return null;
+            }
+
+            var tag = await response.Content.ReadFromJsonAsync<TagDto>();
+            _logger.LogInformation("✅ [TagsApiClient] Tag suggestion saved: {Name}", tag?.Name);
+            return tag;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [TagsApiClient] Error suggesting tag {TagName}", name);
+            return null;
+        }
+    }
+
 }

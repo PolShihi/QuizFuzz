@@ -1,0 +1,74 @@
+@using QuizFuzz.Shared.Dtos.Admin
+@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Manage Roles - @User?.Username</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (User == null)
+        {
+            <MudAlert Severity="Severity.Error">User was not provided.</MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudAlert Severity="Severity.Info" Dense="true">
+                    The base User role is required and will always be kept.
+                </MudAlert>
+
+                <MudPaper Elevation="0" Class="pa-3 mud-background-gray">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.subtitle2">@User.Username</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@User.Email</MudText>
+                    </MudStack>
+                </MudPaper>
+
+                <MudStack Spacing="2">
+                    <MudCheckBox T="bool" Value="true" Disabled="true" Label="User" Color="Color.Primary" />
+                    <MudCheckBox T="bool" @bind-Value="hasModeratorRole" Label="Moderator" Color="Color.Warning" />
+                    <MudCheckBox T="bool" @bind-Value="hasAdminRole" Label="Admin" Color="Color.Error" />
+                </MudStack>
+
+                @if (hasAdminRole)
+                {
+                    <MudAlert Severity="Severity.Warning" Dense="true">
+                        Admin users can manage roles and bans. Grant this role only to trusted users.
+                    </MudAlert>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(User == null)" OnClick="@Submit">
+            Save
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public UserManagementDto? User { get; set; }
+
+    private bool hasModeratorRole;
+    private bool hasAdminRole;
+
+    protected override void OnParametersSet()
+    {
+        hasModeratorRole = User?.Roles.Contains("Moderator", StringComparer.OrdinalIgnoreCase) == true;
+        hasAdminRole = User?.Roles.Contains("Admin", StringComparer.OrdinalIgnoreCase) == true;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        var roles = new List<string> { "User" };
+        if (hasModeratorRole) roles.Add("Moderator");
+        if (hasAdminRole) roles.Add("Admin");
+
+        MudDialog.Close(DialogResult.Ok(roles));
+    }
+}

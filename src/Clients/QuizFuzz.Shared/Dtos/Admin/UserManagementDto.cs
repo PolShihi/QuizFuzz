@@ -7,6 +7,7 @@ public class UserManagementDto
     public string Email { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public bool IsBanned { get; set; }
+    public DateTime? BannedUntil { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
 }

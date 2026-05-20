@@ -51,8 +51,8 @@ public class UsersController : ControllerBase
             Roles = user.Roles.Select(r => r.ToString()),
             user.CreatedAt,
             user.LastLoginAt,
-            user.IsBanned,
-            user.BannedUntil
+            IsBanned = user.IsBanActive(),
+            BannedUntil = user.IsBanActive() ? user.BannedUntil : null
         });
     }
 
@@ -75,7 +75,7 @@ public class UsersController : ControllerBase
             user.Id,
             user.Username,
             user.CreatedAt,
-            user.IsBanned
+            IsBanned = user.IsBanActive()
         });
     }
 
@@ -268,8 +268,8 @@ public class UsersController : ControllerBase
                 Roles = u.Roles.Select(r => r.ToString()),
                 u.CreatedAt,
                 u.LastLoginAt,
-                u.IsBanned,
-                u.BannedUntil
+                IsBanned = u.IsBanActive(),
+                BannedUntil = u.IsBanActive() ? u.BannedUntil : null
             });
 
         return Ok(new

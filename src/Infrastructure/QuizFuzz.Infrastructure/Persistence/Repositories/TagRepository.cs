@@ -12,8 +12,9 @@ public class TagRepository : BaseRepository<Tag>, ITagRepository
 
     public async Task<Tag?> GetByNameAsync(string name, CancellationToken cancellationToken = default)
     {
+        var normalized = name.Trim().ToLower();
         return await _dbSet
-            .FirstOrDefaultAsync(t => t.Name == name, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Name.ToLower() == normalized, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Tag>> GetActiveAsync(CancellationToken cancellationToken = default)
@@ -26,7 +27,8 @@ public class TagRepository : BaseRepository<Tag>, ITagRepository
 
     public async Task<bool> IsNameTakenAsync(string name, CancellationToken cancellationToken = default)
     {
+        var normalized = name.Trim().ToLower();
         return await _dbSet
-            .AnyAsync(t => t.Name == name, cancellationToken);
+            .AnyAsync(t => t.Name.ToLower() == normalized, cancellationToken);
     }
 }

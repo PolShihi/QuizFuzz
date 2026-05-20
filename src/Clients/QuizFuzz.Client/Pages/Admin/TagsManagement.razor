@@ -1,25 +1,36 @@
-﻿@page "/admin/tags"
+@page "/admin/tags"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
 @using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "Admin")]
+@using MudBlazor
+@attribute [Authorize(Roles = "Moderator,Admin")]
 @inject IAdminApiClient AdminClient
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Tags Management - QuizFuzz</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
     <MudPaper Elevation="3" Class="pa-4 mb-4">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.Label" Class="mr-2" />
                 Tags Management
             </MudText>
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="@OpenCreateDialog">
-                Create Tag
-            </MudButton>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Refresh"
+                           OnClick="@LoadTags">
+                    Refresh
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@OpenCreateDialog">
+                    Create Tag
+                </MudButton>
+            </MudStack>
         </MudStack>
     </MudPaper>
 
@@ -29,80 +40,71 @@
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     }
-    else if (!tags.Any())
-    {
-        <MudPaper Elevation="2" Class="pa-8">
-            <MudText Align="Align.Center" Color="Color.Secondary">No tags found</MudText>
-        </MudPaper>
-    }
     else
     {
-        <MudGrid>
-            @foreach (var tag in tags)
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudCard>
-                        <MudCardContent>
-                            <MudStack Spacing="2">
-                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                    <MudText Typo="Typo.h6">@tag.Name</MudText>
-                                    <MudChip T="string" Size="Size.Small" Color="@(tag.IsActive ? Color.Success : Color.Default)">
-                                        @(tag.IsActive ? "Active" : "Inactive")
-                                    </MudChip>
-                                </MudStack>
-                                @if (!string.IsNullOrEmpty(tag.Description))
-                                {
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@tag.Description</MudText>
-                                }
-                            </MudStack>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                           Color="Color.Error"
+        <MudTable Items="@tags" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm" Filter="new Func<TagDto, bool>(FilterFunc)">
+            <ToolBarContent>
+                <MudTextField @bind-Value="searchString"
+                              Placeholder="Search by tag name, description or status..."
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              IconSize="Size.Medium"
+                              Immediate="true"
+                              Class="mt-0" />
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Description</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Actions</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">
+                    <MudText Typo="Typo.body2"><b>@context.Name</b></MudText>
+                </MudTd>
+                <MudTd DataLabel="Description">
+                    <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Description) ? "—" : context.Description)</MudText>
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Warning)">
+                        @(context.IsActive ? "Active" : "Suggested / Inactive")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Actions">
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit"
+                                       Title="Edit description"
+                                       Size="Size.Small"
+                                       Color="Color.Primary"
+                                       OnClick="@(() => OpenEditDialog(context))" />
+                        @if (!context.IsActive)
+                        {
+                            <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                           Title="Approve / activate tag"
                                            Size="Size.Small"
-                                           OnClick="@(() => DeleteTag(tag))" />
-                        </MudCardActions>
-                    </MudCard>
-                </MudItem>
-            }
-        </MudGrid>
+                                           Color="Color.Success"
+                                           OnClick="@(() => ActivateTag(context))" />
+                        }
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                       Title="Delete / deactivate tag"
+                                       Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteTag(context))" />
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="pa-4">No tags found.</MudText>
+            </NoRecordsContent>
+        </MudTable>
     }
 </MudContainer>
-
-<!-- Create Tag Dialog -->
-<MudDialog @bind-IsVisible="@showCreateDialog">
-    <TitleContent>
-        <MudText Typo="Typo.h6">Create Tag</MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudStack Spacing="3">
-            <MudTextField Label="Name"
-                          @bind-Value="newTagName"
-                          Variant="Variant.Outlined"
-                          Required="true" />
-            <MudTextField Label="Description"
-                          @bind-Value="newTagDescription"
-                          Lines="2"
-                          Variant="Variant.Outlined" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => showCreateDialog = false)">Cancel</MudButton>
-        <MudButton Color="Color.Primary"
-                   Variant="Variant.Filled"
-                   OnClick="@CreateTag"
-                   Disabled="@string.IsNullOrWhiteSpace(newTagName)">
-            Create
-        </MudButton>
-    </DialogActions>
-</MudDialog>
 
 @code {
     private List<TagDto> tags = new();
     private bool isLoading = true;
-    private bool showCreateDialog = false;
-    private string newTagName = "";
-    private string newTagDescription = "";
+    private bool isSaving;
+    private string searchString = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -111,35 +113,178 @@
 
     private async Task LoadTags()
     {
-        isLoading = true;
-        tags = await AdminClient.GetTagsAsync();
-        isLoading = false;
-    }
-
-    private void OpenCreateDialog()
-    {
-        newTagName = "";
-        newTagDescription = "";
-        showCreateDialog = true;
-    }
-
-    private async Task CreateTag()
-    {
-        var tag = await AdminClient.CreateTagAsync(newTagName, newTagDescription);
-        if (tag != null)
+        try
         {
-            showCreateDialog = false;
+            isLoading = true;
+            tags = await AdminClient.GetTagsAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load tags: {ex.Message}", Severity.Error);
+            tags = new List<TagDto>();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<TagCreateDialog>("Create Tag", options);
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not TagEditModel model)
+            return;
+
+        await CreateTag(model);
+    }
+
+    private async Task OpenEditDialog(TagDto tag)
+    {
+        var parameters = new DialogParameters<TagEditDialog>
+        {
+            { x => x.Tag, tag }
+        };
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            BackdropClick = false
+        };
+
+        var dialog = await DialogService.ShowAsync<TagEditDialog>($"Edit Tag - {tag.Name}", parameters, options);
+        var result = await dialog.Result;
+
+        if (result.Canceled || result.Data is not string description)
+            return;
+
+        await UpdateDescription(tag, description);
+    }
+
+    private async Task CreateTag(TagEditModel model)
+    {
+        if (isSaving)
+            return;
+
+        try
+        {
+            isSaving = true;
+            var created = await AdminClient.CreateTagAsync(model.Name, model.Description);
+            if (created == null)
+            {
+                Snackbar.Add("Failed to create tag. Check if a tag with this name already exists.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Tag '{created.Name}' created.", Severity.Success);
             await LoadTags();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task UpdateDescription(TagDto tag, string? description)
+    {
+        if (isSaving)
+            return;
+
+        try
+        {
+            isSaving = true;
+            var updated = await AdminClient.UpdateTagDescriptionAsync(tag.Id, description);
+            if (updated == null)
+            {
+                Snackbar.Add("Failed to update tag description.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Description for '{updated.Name}' updated.", Severity.Success);
+            await LoadTags();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ActivateTag(TagDto tag)
+    {
+        if (isSaving)
+            return;
+
+        try
+        {
+            isSaving = true;
+            var success = await AdminClient.ActivateTagAsync(tag.Id);
+            if (!success)
+            {
+                Snackbar.Add("Failed to activate tag.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Tag '{tag.Name}' activated.", Severity.Success);
+            await LoadTags();
+        }
+        finally
+        {
+            isSaving = false;
         }
     }
 
     private async Task DeleteTag(TagDto tag)
     {
-        var success = await AdminClient.DeleteTagAsync(tag.Id);
-        if (success)
+        if (isSaving)
+            return;
+
+        var confirm = await DialogService.ShowMessageBox(
+            "Delete tag",
+            $"Delete/deactivate tag '{tag.Name}'? Existing questions keep their links, but the tag will disappear from normal user tag lists.",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (confirm != true)
+            return;
+
+        try
         {
+            isSaving = true;
+            var success = await AdminClient.DeleteTagAsync(tag.Id);
+            if (!success)
+            {
+                Snackbar.Add("Failed to delete tag.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Tag '{tag.Name}' deactivated.", Severity.Success);
             await LoadTags();
         }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private bool FilterFunc(TagDto tag)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+
+        var value = searchString.Trim();
+        return tag.Name.Contains(value, StringComparison.OrdinalIgnoreCase)
+            || (tag.Description?.Contains(value, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (tag.IsActive ? "active" : "suggested inactive pending").Contains(value, StringComparison.OrdinalIgnoreCase);
     }
 }
-

@@ -75,7 +75,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
             }
 
             // Проверяем, не забанен ли пользователь
-            if (user.IsBanned)
+            if (user.IsBanActive())
             {
                 _logger.LogWarning(
                     "Banned user attempted to submit question. UserId: {UserId}, BannedUntil: {BannedUntil}",

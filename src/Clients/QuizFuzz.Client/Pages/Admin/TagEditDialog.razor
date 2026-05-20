@@ -1,0 +1,47 @@
+@using QuizFuzz.Shared.Dtos.Questions
+@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Edit Tag Description</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (Tag == null)
+        {
+            <MudAlert Severity="Severity.Error">Tag was not provided.</MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudTextField Label="Name"
+                              Value="@Tag.Name"
+                              Variant="Variant.Outlined"
+                              Disabled="true"
+                              HelperText="Tag name cannot be changed after creation." />
+                <MudTextField Label="Description"
+                              @bind-Value="description"
+                              Lines="4"
+                              Variant="Variant.Outlined" />
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(Tag == null)" OnClick="@Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public TagDto? Tag { get; set; }
+
+    private string description = string.Empty;
+
+    protected override void OnParametersSet()
+    {
+        description = Tag?.Description ?? string.Empty;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+    private void Submit() => MudDialog.Close(DialogResult.Ok(description.Trim()));
+}

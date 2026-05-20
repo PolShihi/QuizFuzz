@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
+using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 using QuizFuzz.Shared.Dtos.Admin;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -25,6 +28,32 @@ public class AdminController : ControllerBase
         _logger = logger;
     }
 
+    private static UserManagementDto MapUser(User user)
+    {
+        var isBanActive = user.IsBanActive();
+
+        return new UserManagementDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email.Value,
+            Roles = user.Roles.Select(r => r.ToString()).ToList(),
+            IsBanned = isBanActive,
+            BannedUntil = isBanActive ? user.BannedUntil : null,
+            CreatedAt = user.CreatedAt,
+            LastLoginAt = user.LastLoginAt
+        };
+    }
+
+    private Guid? GetCurrentAdminUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue("sub");
+
+        return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
+    }
+
     /// <summary>
     /// Получить список пользователей (для админки клиента)
     /// </summary>
@@ -36,16 +65,7 @@ public class AdminController : ControllerBase
 
         var items = users
             .OrderByDescending(u => u.CreatedAt)
-            .Select(u => new UserManagementDto
-            {
-                Id = u.Id,
-                Username = u.Username,
-                Email = u.Email.Value,
-                Roles = u.Roles.Select(r => r.ToString()).ToList(),
-                IsBanned = u.IsBanned,
-                CreatedAt = u.CreatedAt,
-                LastLoginAt = u.LastLoginAt
-            })
+            .Select(MapUser)
             .ToList();
 
         return Ok(items);
@@ -65,16 +85,7 @@ public class AdminController : ControllerBase
             return NotFound($"User with ID {id} not found");
         }
 
-        return Ok(new UserManagementDto
-        {
-            Id = user.Id,
-            Username = user.Username,
-            Email = user.Email.Value,
-            Roles = user.Roles.Select(r => r.ToString()).ToList(),
-            IsBanned = user.IsBanned,
-            CreatedAt = user.CreatedAt,
-            LastLoginAt = user.LastLoginAt
-        });
+        return Ok(MapUser(user));
     }
 
     /// <summary>
@@ -95,6 +106,8 @@ public class AdminController : ControllerBase
             return NotFound($"User with ID {id} not found");
         }
 
+        var currentAdminId = GetCurrentAdminUserId();
+
         // Нормализуем желаемые роли, всегда оставляем базовую роль User.
         var desiredRoleStrings = (request.Roles ?? new List<string>())
             .Where(r => !string.IsNullOrWhiteSpace(r))
@@ -114,56 +127,62 @@ public class AdminController : ControllerBase
 
         desiredRoles.Add(UserRole.User);
 
-        // Удаляем роли, которых не должно быть.
-        foreach (var existing in user.Roles.ToList())
+        if (currentAdminId == id && user.HasRole(UserRole.Admin) && !desiredRoles.Contains(UserRole.Admin))
         {
-            if (!desiredRoles.Contains(existing))
-            {
-                user.RemoveRole(existing);
-            }
+            return BadRequest("You cannot remove the Admin role from your own account");
         }
 
-        // Добавляем недостающие роли.
-        foreach (var role in desiredRoles)
-        {
-            user.AddRole(role);
-        }
+        user.SetRoles(desiredRoles.OrderBy(role => role == UserRole.User ? 0 : role == UserRole.Moderator ? 1 : 2));
 
+        // Roles are persisted through a converted collection property. Marking the
+        // aggregate as updated keeps the endpoint reliable even if the entity was
+        // loaded without change-tracking snapshots for the converted collection.
+        _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Ok(new
-        {
-            message = "Roles updated successfully",
-            roles = user.Roles.Select(r => r.ToString()).ToList()
-        });
+        _logger.LogInformation(
+            "Roles for user {UserId} ({Username}) changed to {Roles}",
+            id,
+            user.Username,
+            string.Join(",", user.Roles.Select(role => role.ToString())));
+
+        return Ok(MapUser(user));
     }
 
     /// <summary>
     /// Заблокировать пользователя
     /// </summary>
-    [HttpPost("users/{id}/ban")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [HttpPost("users/{id:guid}/ban")]
+    [ProducesResponseType(typeof(UserManagementDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> BanUser(Guid id, [FromBody] BanUserRequest request)
+    public async Task<IActionResult> BanUser(Guid id, [FromBody] BanUserRequest request, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(id);
+        var user = await _unitOfWork.Users.GetByIdAsync(id, cancellationToken);
         if (user == null)
             return NotFound($"User with ID {id} not found");
+
+        var currentAdminId = GetCurrentAdminUserId();
+        if (currentAdminId == id)
+        {
+            return BadRequest("You cannot ban your own account");
+        }
+
+        if (request.BannedUntil.HasValue && request.BannedUntil.Value <= DateTime.UtcNow)
+        {
+            return BadRequest("Ban expiration date must be in the future");
+        }
 
         try
         {
             user.Ban(request.BannedUntil);
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogWarning("User {UserId} ({Username}) banned until {BanUntil}", 
-                id, user.Username, request.BannedUntil);
+            _logger.LogWarning(
+                "User {UserId} ({Username}) banned until {BanUntil}. Reason: {Reason}",
+                id, user.Username, request.BannedUntil, request.Reason);
 
-            return Ok(new 
-            { 
-                message = "User banned successfully",
-                bannedUntil = request.BannedUntil,
-                reason = request.Reason
-            });
+            return Ok(MapUser(user));
         }
         catch (Exception ex)
         {
@@ -175,23 +194,23 @@ public class AdminController : ControllerBase
     /// <summary>
     /// Разблокировать пользователя
     /// </summary>
-    [HttpPost("users/{id}/unban")]
+    [HttpPost("users/{id:guid}/unban")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UnbanUser(Guid id)
+    public async Task<IActionResult> UnbanUser(Guid id, CancellationToken cancellationToken)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(id);
+        var user = await _unitOfWork.Users.GetByIdAsync(id, cancellationToken);
         if (user == null)
             return NotFound($"User with ID {id} not found");
 
         try
         {
             user.Unban();
-            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("User {UserId} ({Username}) unbanned", id, user.Username);
 
-            return Ok(new { message = "User unbanned successfully" });
+            return Ok(MapUser(user));
         }
         catch (Exception ex)
         {
@@ -218,6 +237,7 @@ public class AdminController : ControllerBase
                 return BadRequest($"Invalid role: {request.Role}");
 
             user.AddRole(role);
+            _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Role {Role} added to user {UserId} ({Username})", 
@@ -254,6 +274,7 @@ public class AdminController : ControllerBase
                 return BadRequest($"Invalid role: {role}");
 
             user.RemoveRole(userRole);
+            _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogInformation("Role {Role} removed from user {UserId} ({Username})", 
@@ -290,8 +311,8 @@ public class AdminController : ControllerBase
             users = new
             {
                 total = users.Count,
-                active = users.Count(u => !u.IsBanned),
-                banned = users.Count(u => u.IsBanned),
+                active = users.Count(u => !u.IsBanActive()),
+                banned = users.Count(u => u.IsBanActive()),
                 admins = users.Count(u => u.Roles.Contains(UserRole.Admin)),
                 moderators = users.Count(u => u.Roles.Contains(UserRole.Moderator))
             },

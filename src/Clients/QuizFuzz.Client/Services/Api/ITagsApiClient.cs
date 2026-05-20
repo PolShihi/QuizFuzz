@@ -10,4 +10,5 @@ public interface ITagsApiClient
     Task<List<TagDto>> GetActiveTagsAsync();
     Task<TagDto?> GetTagByIdAsync(Guid id);
     Task<List<TagDto>> GetAllTagsAsync();
+    Task<TagDto?> SuggestTagAsync(string name, string? description);
 }

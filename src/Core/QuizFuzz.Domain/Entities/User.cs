@@ -48,8 +48,20 @@ public class User : BaseEntity, IAggregateRoot
 
     public void Ban(DateTime? until = null)
     {
+        if (until.HasValue && until.Value <= DateTime.UtcNow)
+            throw new ArgumentException("Ban expiration date must be in the future", nameof(until));
+
         IsBanned = true;
         BannedUntil = until;
+    }
+
+    public bool IsBanActive(DateTime? utcNow = null)
+    {
+        if (!IsBanned)
+            return false;
+
+        var now = utcNow ?? DateTime.UtcNow;
+        return !BannedUntil.HasValue || BannedUntil.Value > now;
     }
 
     public void Unban()
@@ -72,6 +84,22 @@ public class User : BaseEntity, IAggregateRoot
             throw new InvalidOperationException("Cannot remove the last User role");
 
         _roles.Remove(role);
+    }
+
+    public void SetRoles(IEnumerable<UserRole> roles)
+    {
+        if (roles == null)
+            throw new ArgumentNullException(nameof(roles));
+
+        var normalizedRoles = roles
+            .Distinct()
+            .ToList();
+
+        if (!normalizedRoles.Contains(UserRole.User))
+            normalizedRoles.Insert(0, UserRole.User);
+
+        _roles.Clear();
+        _roles.AddRange(normalizedRoles);
     }
 
     public bool HasRole(UserRole role) => _roles.Contains(role);

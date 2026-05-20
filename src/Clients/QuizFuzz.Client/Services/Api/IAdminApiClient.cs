@@ -13,5 +13,7 @@ public interface IAdminApiClient
     
     Task<List<TagDto>> GetTagsAsync();
     Task<TagDto?> CreateTagAsync(string name, string? description);
+    Task<TagDto?> UpdateTagDescriptionAsync(Guid tagId, string? description);
+    Task<bool> ActivateTagAsync(Guid tagId);
     Task<bool> DeleteTagAsync(Guid tagId);
 }
