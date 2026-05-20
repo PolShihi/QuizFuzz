@@ -9,6 +9,7 @@
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Lobby - QuizFuzz</PageTitle>
 
@@ -108,9 +109,9 @@
                                        FullWidth="true"
                                        Class="qf-choice-button mt-5"
                                        StartIcon="@Icons.Material.Filled.Login"
-                                       OnClick="@(() => JoinRoom(room.Id))"
+                                       OnClick="@(() => JoinRoom(room))"
                                        Disabled="@(room.Status != "Lobby" || room.CurrentPlayers >= room.MaxPlayers)">
-                                Join Room
+                                @(room.IsPrivate ? "Enter Code" : "Join Room")
                             </MudButton>
                         </MudCardContent>
                     </MudCard>
@@ -141,16 +142,45 @@
 
     private void OpenCreateRoomDialog() => Navigation.NavigateTo("/create-room");
 
-    private async Task JoinRoom(Guid roomId)
+    private async Task JoinRoom(RoomListItemDto room)
     {
-        var success = await RoomsClient.JoinRoomAsync(roomId);
+        string? accessCode = null;
+
+        if (room.IsPrivate)
+        {
+            var parameters = new DialogParameters<JoinPrivateRoomDialog>
+            {
+                { x => x.RoomName, room.Name }
+            };
+
+            var options = new DialogOptions
+            {
+                CloseButton = true,
+                MaxWidth = MaxWidth.ExtraSmall,
+                FullWidth = true,
+                BackdropClick = false
+            };
+
+            var dialog = await DialogService.ShowAsync<JoinPrivateRoomDialog>("Private Room", parameters, options);
+            var result = await dialog.Result;
+
+            if (result.Canceled || result.Data is not string code)
+                return;
+
+            accessCode = code;
+        }
+
+        var success = await RoomsClient.JoinRoomAsync(room.Id, accessCode);
         if (success)
         {
-            Navigation.NavigateTo($"/room/{roomId}");
+            Navigation.NavigateTo($"/room/{room.Id}");
         }
         else
         {
-            Snackbar.Add("Could not join the room. It may be full or already started.", Severity.Error);
+            Snackbar.Add(room.IsPrivate
+                ? "Could not join the private room. Check the access code and try again."
+                : "Could not join the room. It may be full or already started.",
+                Severity.Error);
         }
     }
 

@@ -1,0 +1,88 @@
+@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" />
+            <MudText Typo="Typo.h6">Private Room</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2" Class="qf-muted">
+                Enter the access code to join @(string.IsNullOrWhiteSpace(RoomName) ? "this room" : RoomName).
+            </MudText>
+
+            <MudTextField Label="Access code"
+                          @bind-Value="accessCode"
+                          Variant="Variant.Outlined"
+                          InputType="InputType.Password"
+                          Immediate="true"
+                          AutoFocus="true"
+                          MaxLength="32"
+                          Counter="32"
+                          Required="true"
+                          RequiredError="Access code is required."
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Key"
+                          OnKeyDown="@HandleKeyDown" />
+
+            @if (!string.IsNullOrWhiteSpace(validationError))
+            {
+                <MudAlert Severity="Severity.Error" Dense="true">@validationError</MudAlert>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   OnClick="@Submit">
+            Join
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public string? RoomName { get; set; }
+
+    private string accessCode = string.Empty;
+    private string? validationError;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        validationError = null;
+        var code = accessCode.Trim();
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            validationError = "Access code is required.";
+            return;
+        }
+
+        if (code.Length < 4)
+        {
+            validationError = "Access code must be at least 4 characters.";
+            return;
+        }
+
+        if (code.Length > 32)
+        {
+            validationError = "Access code cannot exceed 32 characters.";
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(code));
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+            Submit();
+    }
+}

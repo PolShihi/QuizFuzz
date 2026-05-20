@@ -9,6 +9,7 @@ namespace QuizFuzz.Application.Common.Interfaces.Persistence;
 public interface IRoomRepository : IRepository<Room>
 {
     Task<IReadOnlyList<Room>> GetPublicRoomsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Room>> GetLobbyRoomsAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Room>> GetByStatusAsync(RoomStatus status, CancellationToken cancellationToken = default);
     Task<Room?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Room?> GetByInvitationCodeAsync(string code, CancellationToken cancellationToken = default);

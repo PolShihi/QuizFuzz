@@ -62,6 +62,23 @@
                             </MudSelect>
                         </MudItem>
                     </MudGrid>
+
+                    @if (IsPrivateRoom)
+                    {
+                        <MudTextField @bind-Value="request.AccessCode"
+                                      Label="Access code"
+                                      Variant="Variant.Outlined"
+                                      InputType="InputType.Password"
+                                      Immediate="true"
+                                      MaxLength="32"
+                                      Counter="32"
+                                      Required="true"
+                                      RequiredError="Access code is required for private rooms."
+                                      HelperText="Players will need this code to join the private room. Use 4-32 characters."
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Key"
+                                      Class="mt-4" />
+                    }
                 </MudPaper>
 
                 <MudPaper Elevation="0" Class="qf-form-section">
@@ -170,7 +187,7 @@
                                Variant="Variant.Filled"
                                Color="Color.Primary"
                                Disabled="@isLoading"
-                               StartIcon=".Material.Filled.Add">
+                               StartIcon="@Icons.Material.Filled.Add">
                         @(isLoading ? "Creating..." : "Create Room")
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
@@ -193,6 +210,8 @@
     private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private IEnumerable<string> selectedDifficulties = new List<string>();
     private string selectedVictoryMode = "Points";
+
+    private bool IsPrivateRoom => string.Equals(request.Visibility, "Private", StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,6 +275,18 @@
         if (request.MaxPlayers is < 2 or > 50)
             errors.Add("Max players must be between 2 and 50.");
 
+        if (IsPrivateRoom)
+        {
+            var accessCode = request.AccessCode?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(accessCode))
+                errors.Add("Access code is required for private rooms.");
+            else
+            {
+                if (accessCode.Length < 4) errors.Add("Access code must be at least 4 characters.");
+                if (accessCode.Length > 32) errors.Add("Access code cannot exceed 32 characters.");
+            }
+        }
+
         if (selectedVictoryMode == "Points")
         {
             if (request.VictoryValue is < 50 or > 10000)
@@ -294,6 +325,7 @@
         {
             request.Name = request.Name.Trim();
             request.Visibility = request.Visibility.Trim();
+            request.AccessCode = IsPrivateRoom ? request.AccessCode?.Trim() : null;
             request.VictoryConditionType = selectedVictoryMode.ToUpperInvariant();
 
             request.TagSelections = selectedTagIds

@@ -20,6 +20,15 @@ public class RoomRepository : BaseRepository<Room>, IRoomRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Room>> GetLobbyRoomsAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(r => r.Owner)
+            .Where(r => r.Status == RoomStatus.Lobby)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Room>> GetByStatusAsync(
         RoomStatus status,
         CancellationToken cancellationToken = default)

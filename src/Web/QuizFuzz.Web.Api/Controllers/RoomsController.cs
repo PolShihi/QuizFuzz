@@ -45,9 +45,9 @@ public class RoomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRooms()
     {
-        _logger.LogInformation("📋 [GetRooms] Loading public rooms list");
+        _logger.LogInformation("📋 [GetRooms] Loading lobby rooms list");
         
-        var rooms = await _unitOfWork.Rooms.GetPublicRoomsAsync();
+        var rooms = await _unitOfWork.Rooms.GetLobbyRoomsAsync();
         
         _logger.LogInformation("📋 [GetRooms] Found {Count} rooms", rooms.Count());
 
@@ -213,9 +213,16 @@ public class RoomsController : ControllerBase
                 tagMode = TagSelectionMode.Any;
 
             string? accessCodeHash = null;
-            if (visibility == RoomVisibility.Private && !string.IsNullOrWhiteSpace(request.AccessCode))
+            if (visibility == RoomVisibility.Private)
             {
-                accessCodeHash = _passwordHasher.HashPassword(request.AccessCode);
+                var accessCode = request.AccessCode?.Trim();
+                if (string.IsNullOrWhiteSpace(accessCode))
+                    return BadRequest("Access code is required for private rooms");
+
+                if (accessCode.Length < 4 || accessCode.Length > 32)
+                    return BadRequest("Access code must be between 4 and 32 characters");
+
+                accessCodeHash = _passwordHasher.HashPassword(accessCode);
             }
             
             // Сериализуем фильтры сложности в JSON
@@ -332,12 +339,16 @@ public class RoomsController : ControllerBase
             return BadRequest("Can only join rooms in lobby status");
 
         // Проверка access code для приватных комнат
-        if (room.Visibility == RoomVisibility.Private && !string.IsNullOrWhiteSpace(room.AccessCodeHash))
+        if (room.Visibility == RoomVisibility.Private)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.AccessCode))
+            if (string.IsNullOrWhiteSpace(room.AccessCodeHash))
+                return BadRequest("Private room is missing an access code. Please recreate the room.");
+
+            var accessCode = request?.AccessCode?.Trim();
+            if (string.IsNullOrWhiteSpace(accessCode))
                 return BadRequest("Access code is required for private rooms");
 
-            if (!_passwordHasher.VerifyPassword(request.AccessCode, room.AccessCodeHash))
+            if (!_passwordHasher.VerifyPassword(accessCode, room.AccessCodeHash))
                 return BadRequest("Invalid access code");
         }
 

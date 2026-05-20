@@ -101,12 +101,20 @@ public class RoomsApiClient : IRoomsApiClient
         }
     }
 
-    public async Task<bool> JoinRoomAsync(Guid roomId)
+    public async Task<bool> JoinRoomAsync(Guid roomId, string? accessCode = null)
     {
         try
         {
             Console.WriteLine($"📤 [RoomsApiClient] Sending JOIN request to: api/rooms/{roomId}/join");
-            var response = await _httpClient.PostAsync($"api/rooms/{roomId}/join", null);
+            HttpResponseMessage response;
+            if (string.IsNullOrWhiteSpace(accessCode))
+            {
+                response = await _httpClient.PostAsync($"api/rooms/{roomId}/join", null);
+            }
+            else
+            {
+                response = await _httpClient.PostAsJsonAsync($"api/rooms/{roomId}/join", new { AccessCode = accessCode.Trim() });
+            }
             
             Console.WriteLine($"📥 [RoomsApiClient] JOIN response: {response.StatusCode}");
             

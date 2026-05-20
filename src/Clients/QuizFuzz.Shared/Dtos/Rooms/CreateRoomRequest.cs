@@ -11,6 +11,7 @@ public class CreateRoomRequest
 
     public string Visibility { get; set; } = "Public"; // Public или Private
 
+    [MaxLength(32, ErrorMessage = "Access code cannot exceed 32 characters")]
     public string? AccessCode { get; set; }
 
     [Range(2, 50, ErrorMessage = "Max players must be between 2 and 50")]
