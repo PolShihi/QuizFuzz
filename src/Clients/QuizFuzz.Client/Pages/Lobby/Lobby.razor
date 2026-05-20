@@ -1,4 +1,4 @@
-﻿@page "/lobby"
+@page "/lobby"
 @page "/"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Client.Services.Auth
@@ -8,27 +8,36 @@
 @inject IRoomsApiClient RoomsClient
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
 <PageTitle>Lobby - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-4">
-    <MudPaper Elevation="3" Class="pa-4 mb-4">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-            <MudStack>
-                <MudText Typo="Typo.h4">Game Lobby</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Welcome back, @currentUsername!
+<MudContainer MaxWidth="MaxWidth.Large" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-6">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-4">
+            <MudStack Spacing="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudAvatar Class="qf-page-header-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.Groups" />
+                    </MudAvatar>
+                    <MudText Typo="Typo.h4" Class="qf-section-title">Game Lobby</MudText>
+                </MudStack>
+                <MudText Typo="Typo.body1" Class="qf-muted">
+                    Welcome back, @currentUsername. Find an open room or create your own challenge.
                 </MudText>
             </MudStack>
-            <MudStack Row="true" Spacing="2">
-                <MudButton Variant="Variant.Filled" 
-                           Color="Color.Primary" 
+            <MudStack Row="true" Spacing="2" Class="qf-action-row">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
+                           Class="qf-choice-button"
                            OnClick="@OpenCreateRoomDialog">
                     Create Room
                 </MudButton>
-                <MudButton Variant="Variant.Outlined" 
-                           Color="Color.Error"
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.Logout"
+                           Class="qf-choice-button"
                            OnClick="@HandleLogout">
                     Logout
                 </MudButton>
@@ -38,73 +47,72 @@
 
     @if (isLoading)
     {
-        <MudPaper Elevation="2" Class="pa-8 d-flex justify-center">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+            <MudText Typo="Typo.body1" Class="qf-muted">Loading rooms...</MudText>
         </MudPaper>
     }
     else if (rooms.Count == 0)
     {
-        <MudPaper Elevation="2" Class="pa-8">
-            <MudStack AlignItems="AlignItems.Center" Spacing="4">
-                <MudIcon Icon="@Icons.Material.Filled.SportsCricket" Size="Size.Large" Color="Color.Secondary" />
-                <MudText Typo="Typo.h6" Align="Align.Center">
-                    No rooms available
-                </MudText>
-                <MudText Typo="Typo.body1" Align="Align.Center" Color="Color.Secondary">
-                    Be the first to create a room and start playing!
-                </MudText>
-                <MudButton Variant="Variant.Filled" 
-                           Color="Color.Primary"
-                           OnClick="@OpenCreateRoomDialog">
-                    Create First Room
-                </MudButton>
-            </MudStack>
+        <MudPaper Elevation="0" Class="qf-empty-state">
+            <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.h5">No rooms available</MudText>
+            <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted">
+                Be the first host and start a new real-time quiz room.
+            </MudText>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@OpenCreateRoomDialog">
+                Create First Room
+            </MudButton>
         </MudPaper>
     }
     else
     {
-        <MudGrid>
+        <MudGrid Spacing="3">
             @foreach (var room in rooms)
             {
                 <MudItem xs="12" sm="6" md="4">
-                    <MudCard Elevation="2">
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">@room.Name</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    Host: @room.OwnerUsername
-                                </MudText>
-                            </CardHeaderContent>
-                            <CardHeaderActions>
+                    <MudCard Elevation="0" Class="qf-room-card qf-card-hover">
+                        <MudCardContent Class="pa-5 d-flex flex-column" Style="height: 100%;">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="mb-4">
+                                <MudStack Spacing="1">
+                                    <MudText Typo="Typo.h6">@room.Name</MudText>
+                                    <MudText Typo="Typo.caption" Class="qf-muted">Host: @room.OwnerUsername</MudText>
+                                </MudStack>
                                 @if (room.IsPrivate)
                                 {
-                                    <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" />
+                                    <MudTooltip Text="Private room">
+                                        <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Warning" />
+                                    </MudTooltip>
                                 }
-                            </CardHeaderActions>
-                        </MudCardHeader>
-                        <MudCardContent>
-                            <MudStack Spacing="2">
-                                <MudChip T="string" Size="Size.Small" Color="GetStatusColor(room.Status)">
+                            </MudStack>
+
+                            <MudStack Spacing="3" Class="flex-grow-1">
+                                <MudChip T="string" Size="Size.Small" Color="GetStatusColor(room.Status)" Class="qf-status-chip" Icon="@GetStatusIcon(room.Status)">
                                     @room.Status
                                 </MudChip>
-                                <MudText Typo="Typo.body2">
-                                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" />
-                                    @room.CurrentPlayers / @room.MaxPlayers players
-                                </MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Created @GetRelativeTime(room.CreatedAt)
-                                </MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Secondary" />
+                                    <MudText Typo="Typo.body2">@room.CurrentPlayers / @room.MaxPlayers players</MudText>
+                                </MudStack>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Color="Color.Secondary" />
+                                    <MudText Typo="Typo.caption" Class="qf-muted">Created @GetRelativeTime(room.CreatedAt)</MudText>
+                                </MudStack>
                             </MudStack>
-                        </MudCardContent>
-                        <MudCardActions>
-                            <MudButton Variant="Variant.Text" 
+
+                            <MudButton Variant="Variant.Filled"
                                        Color="Color.Primary"
                                        FullWidth="true"
+                                       Class="qf-choice-button mt-5"
+                                       StartIcon="@Icons.Material.Filled.Login"
                                        OnClick="@(() => JoinRoom(room.Id))"
                                        Disabled="@(room.Status != "Lobby" || room.CurrentPlayers >= room.MaxPlayers)">
                                 Join Room
                             </MudButton>
-                        </MudCardActions>
+                        </MudCardContent>
                     </MudCard>
                 </MudItem>
             }
@@ -121,7 +129,6 @@
     {
         var user = await AuthService.GetCurrentUserAsync();
         currentUsername = user?.Username ?? "Guest";
-
         await LoadRooms();
     }
 
@@ -132,35 +139,19 @@
         isLoading = false;
     }
 
-    private void OpenCreateRoomDialog()
-    {
-        Navigation.NavigateTo("/create-room");
-    }
+    private void OpenCreateRoomDialog() => Navigation.NavigateTo("/create-room");
 
     private async Task JoinRoom(Guid roomId)
     {
-        Console.WriteLine($"🚪 [Lobby] ========== JOIN ROOM START ==========");
-        Console.WriteLine($"🚪 [Lobby] Room ID: {roomId}");
-        Console.WriteLine($"🚪 [Lobby] Calling RoomsClient.JoinRoomAsync...");
-        
         var success = await RoomsClient.JoinRoomAsync(roomId);
-        
-        Console.WriteLine($"🚪 [Lobby] ========== JOIN RESULT ==========");
-        Console.WriteLine($"🚪 [Lobby] Success: {success}");
-        
         if (success)
         {
-            Console.WriteLine($"✅ [Lobby] JOIN SUCCESS! Navigating to /room/{roomId}");
             Navigation.NavigateTo($"/room/{roomId}");
         }
         else
         {
-            Console.WriteLine($"❌ [Lobby] JOIN FAILED!");
-            Console.WriteLine($"❌ [Lobby] Check Backend logs for reason!");
-            // TODO: Show error message to user
+            Snackbar.Add("Could not join the room. It may be full or already started.", Severity.Error);
         }
-        
-        Console.WriteLine($"🚪 [Lobby] ========== JOIN ROOM END ==========");
     }
 
     private async Task HandleLogout()
@@ -180,18 +171,23 @@
         };
     }
 
+    private string GetStatusIcon(string status)
+    {
+        return status switch
+        {
+            "Lobby" => Icons.Material.Filled.RadioButtonChecked,
+            "InProgress" => Icons.Material.Filled.PlayCircle,
+            "Finished" => Icons.Material.Filled.Flag,
+            _ => Icons.Material.Filled.Circle
+        };
+    }
+
     private string GetRelativeTime(DateTime createdAt)
     {
         var timeSpan = DateTime.UtcNow - createdAt;
-        
-        if (timeSpan.TotalMinutes < 1)
-            return "just now";
-        if (timeSpan.TotalMinutes < 60)
-            return $"{(int)timeSpan.TotalMinutes} minutes ago";
-        if (timeSpan.TotalHours < 24)
-            return $"{(int)timeSpan.TotalHours} hours ago";
-        
+        if (timeSpan.TotalMinutes < 1) return "just now";
+        if (timeSpan.TotalMinutes < 60) return $"{(int)timeSpan.TotalMinutes} minutes ago";
+        if (timeSpan.TotalHours < 24) return $"{(int)timeSpan.TotalHours} hours ago";
         return $"{(int)timeSpan.TotalDays} days ago";
     }
 }
-

@@ -9,8 +9,8 @@
 
 <PageTitle>Users Management - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudPaper Elevation="3" Class="pa-4 mb-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap gap-2">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
@@ -27,13 +27,13 @@
 
     @if (isLoading)
     {
-        <MudPaper Class="pa-8 d-flex justify-center">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     }
     else
     {
-        <MudTable Items="@users" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm" Filter="new Func<UserManagementDto, bool>(FilterFunc)">
+        <MudPaper Elevation="0" Class="qf-table-panel"><MudTable Items="@users" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm" Filter="new Func<UserManagementDto, bool>(FilterFunc)">
             <ToolBarContent>
                 <MudTextField @bind-Value="searchString"
                               Placeholder="Search by username, email, role or status..."
@@ -113,7 +113,7 @@
             <NoRecordsContent>
                 <MudText Class="pa-4">No users found.</MudText>
             </NoRecordsContent>
-        </MudTable>
+        </MudTable></MudPaper>
     }
 </MudContainer>
 

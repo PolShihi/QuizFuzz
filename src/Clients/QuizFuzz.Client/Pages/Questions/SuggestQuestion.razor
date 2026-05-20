@@ -15,16 +15,20 @@
 
 <PageTitle>Suggest a Question - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
-    <MudPaper Elevation="3" Class="pa-6">
-        <MudText Typo="Typo.h4" Class="mb-4">
-            <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Class="mr-2" />
-            Suggest a Question
-        </MudText>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-5">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Class="qf-page-header-icon">
+                <MudIcon Icon="@Icons.Material.Filled.Lightbulb" />
+            </MudAvatar>
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h4" Class="qf-section-title">Suggest a Question</MudText>
+                <MudText Typo="Typo.body2" Class="qf-muted">Submit content for moderation. Once approved, it becomes available in games.</MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
 
-        <MudText Color="Color.Info" Class="mb-6">
-            Submit your question for moderation. Once approved, it will be available in the game!
-        </MudText>
+    <MudPaper Elevation="0" Class="qf-panel pa-6">
 
         @if (isSubmitting)
         {
@@ -101,7 +105,7 @@
                 @if (RequiresMedia)
                 {
                     <MudItem xs="12">
-                        <MudPaper Class="pa-4" Outlined="true">
+                        <MudPaper Elevation="0" Class="qf-form-section">
                             <MudStack Spacing="2">
                                 <MudText Typo="Typo.h6">
                                     <MudIcon Icon="@MediaIcon" Class="mr-2" />
@@ -181,8 +185,8 @@
                             </MudStack>
                             
                             <!-- Fuzzy Matching Settings -->
-                            <MudPaper Class="pa-3 mt-2" Outlined="true">
-                                <MudText Typo="Typo.subtitle2" Class="mb-2">⚙️ Fuzzy Matching Settings</MudText>
+                            <MudPaper Elevation="0" Class="qf-form-section mt-2">
+                                <MudText Typo="Typo.subtitle2" Class="mb-2"><MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-1" />Fuzzy Matching Settings</MudText>
                                 <MudStack Spacing="2">
                                     <MudSwitch T="bool"
                                                @bind-Value="answer.AllowFuzzyMatch"
@@ -240,7 +244,7 @@
 
                 <!-- Suggest Tag -->
                 <MudItem xs="12">
-                    <MudPaper Class="pa-3" Outlined="true">
+                    <MudPaper Elevation="0" Class="qf-form-section">
                         <MudStack Spacing="2">
                             <MudText Typo="Typo.subtitle2">
                                 <MudIcon Icon="@Icons.Material.Filled.NewLabel" Class="mr-1" />
@@ -290,6 +294,7 @@
                 <MudItem xs="12">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
                         <MudButton Variant="Variant.Outlined"
+                                   StartIcon="@Icons.Material.Filled.ArrowBack"
                                    OnClick="@(() => Navigation.NavigateTo("/lobby"))">
                             Cancel
                         </MudButton>
@@ -358,7 +363,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Logger.LogInformation("💡 [SuggestQuestion] Page initialized");
+        Logger.LogInformation("[SuggestQuestion] Page initialized");
         await LoadTags();
     }
 
@@ -366,13 +371,13 @@
     {
         try
         {
-            Logger.LogInformation("🏷️ [SuggestQuestion] Loading tags...");
+            Logger.LogInformation("[SuggestQuestion] Loading tags...");
             availableTags = await TagsClient.GetAllTagsAsync();
-            Logger.LogInformation("✅ [SuggestQuestion] Loaded {Count} tags", availableTags.Count);
+            Logger.LogInformation("[SuggestQuestion] Loaded {Count} tags", availableTags.Count);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "❌ [SuggestQuestion] Error loading tags");
+            Logger.LogError(ex, "[SuggestQuestion] Error loading tags");
             Snackbar.Add($"Error loading tags: {ex.Message}", Severity.Error);
         }
     }
@@ -428,7 +433,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "❌ [SuggestQuestion] Error uploading media");
+            Logger.LogError(ex, "[SuggestQuestion] Error uploading media");
             mediaUploadError = $"Media upload failed: {ex.Message}";
             Snackbar.Add(mediaUploadError, Severity.Error);
         }
@@ -527,7 +532,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "❌ [SuggestQuestion] Error suggesting tag");
+            Logger.LogError(ex, "[SuggestQuestion] Error suggesting tag");
             Snackbar.Add($"Error suggesting tag: {ex.Message}", Severity.Error);
         }
         finally
@@ -626,14 +631,14 @@
 
     private async Task SubmitQuestion()
     {
-        Logger.LogInformation("📤 [SuggestQuestion] Starting question submission");
+        Logger.LogInformation("[SuggestQuestion] Starting question submission");
         
         await form.Validate();
         validationErrors = ValidateQuestionSuggestion();
 
         if (!isValid || validationErrors.Count > 0)
         {
-            Logger.LogWarning("⚠️ [SuggestQuestion] Form validation failed: {Errors}", string.Join("; ", validationErrors));
+            Logger.LogWarning("[SuggestQuestion] Form validation failed: {Errors}", string.Join("; ", validationErrors));
             Snackbar.Add("Please fix the validation errors before submitting.", Severity.Warning);
             StateHasChanged();
             return;
@@ -643,7 +648,7 @@
 
         try
         {
-            Logger.LogInformation("🔧 [SuggestQuestion] Building request - Type: {Type}, Difficulty: {Difficulty}, Answers: {Count}", 
+            Logger.LogInformation("[SuggestQuestion] Building request - Type: {Type}, Difficulty: {Difficulty}, Answers: {Count}", 
                 questionType, difficulty, correctAnswers.Count);
 
             var request = new SuggestQuestionRequest
@@ -669,30 +674,30 @@
                 Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation.Trim()
             };
 
-            Logger.LogInformation("📡 [SuggestQuestion] Sending request to API...");
+            Logger.LogInformation("[SuggestQuestion] Sending request to API...");
             var success = await QuestionsClient.SuggestQuestionAsync(request);
 
             if (success)
             {
-                Logger.LogInformation("✅ [SuggestQuestion] Question submitted successfully!");
+                Logger.LogInformation("[SuggestQuestion] Question submitted successfully.");
                 Snackbar.Add("Question submitted successfully! It will be reviewed by moderators.", Severity.Success);
                 Navigation.NavigateTo("/lobby");
             }
             else
             {
-                Logger.LogError("❌ [SuggestQuestion] API returned failure");
+                Logger.LogError("[SuggestQuestion] API returned failure");
                 Snackbar.Add("Failed to submit question. Please try again.", Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "💥 [SuggestQuestion] Exception during submission");
+            Logger.LogError(ex, "[SuggestQuestion] Exception during submission");
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
         finally
         {
             isSubmitting = false;
-            Logger.LogInformation("🏁 [SuggestQuestion] Submission process completed");
+            Logger.LogInformation("[SuggestQuestion] Submission process completed");
         }
     }
 }

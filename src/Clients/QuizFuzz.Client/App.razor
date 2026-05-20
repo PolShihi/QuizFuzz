@@ -3,12 +3,13 @@
 @inject AppThemeService ThemeService
 
 <CascadingAuthenticationState>
-    <MudThemeProvider Theme="@_theme" IsDarkMode="@ThemeService.IsDarkMode" />
-    <MudPopoverProvider />
-    <MudDialogProvider />
-    <MudSnackbarProvider />
+    <div class="@ThemeRootClass">
+        <MudThemeProvider Theme="@_theme" IsDarkMode="@ThemeService.IsDarkMode" />
+        <MudPopoverProvider />
+        <MudDialogProvider />
+        <MudSnackbarProvider />
 
-    <Router AppAssembly="@typeof(App).Assembly">
+        <Router AppAssembly="@typeof(App).Assembly">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
                 <NotAuthorized Context="authContext">
@@ -41,10 +42,15 @@
                 </MudContainer>
             </LayoutView>
         </NotFound>
-    </Router>
+        </Router>
+    </div>
 </CascadingAuthenticationState>
 
 @code {
+    private string ThemeRootClass => ThemeService.IsDarkMode
+        ? "qf-theme-root qf-theme-dark"
+        : "qf-theme-root qf-theme-light";
+
     private readonly MudTheme _theme = new()
     {
         PaletteLight = new PaletteLight

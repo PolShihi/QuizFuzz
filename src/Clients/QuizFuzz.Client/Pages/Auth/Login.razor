@@ -8,61 +8,69 @@
 
 <PageTitle>Login - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
-    <MudPaper Elevation="3" Class="pa-8">
-        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
-            Welcome to QuizFuzz
+<MudContainer MaxWidth="MaxWidth.False" Class="qf-auth-shell">
+    <MudPaper Elevation="0" Class="qf-auth-card pa-8">
+        <MudAvatar Class="qf-auth-mark">
+            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Large" />
+        </MudAvatar>
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="qf-section-title" GutterBottom="true">
+            Welcome back
         </MudText>
-        <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
-            Login to start playing
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted mb-6">
+            Sign in to create rooms, compete in real time and manage your quiz content.
         </MudText>
 
         <EditForm Model="@loginRequest" OnValidSubmit="@HandleLogin">
             <DataAnnotationsValidator />
 
-            <MudTextField @bind-Value="loginRequest.EmailOrUsername" 
-                          Label="Email or Username" 
+            <MudTextField @bind-Value="loginRequest.EmailOrUsername"
+                          Label="Email or username"
                           Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.AlternateEmail"
                           Class="mb-4"
                           For="@(() => loginRequest.EmailOrUsername)" />
 
-            <MudTextField @bind-Value="loginRequest.Password" 
-                          Label="Password" 
-                          Variant="Variant.Outlined" 
+            <MudTextField @bind-Value="loginRequest.Password"
+                          Label="Password"
+                          Variant="Variant.Outlined"
                           InputType="InputType.Password"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Lock"
                           Class="mb-4"
                           For="@(() => loginRequest.Password)" />
 
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <MudAlert Severity="Severity.Error" Class="mb-4">
+                <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
                     @errorMessage
                 </MudAlert>
             }
 
-            <MudButton ButtonType="ButtonType.Submit" 
-                       Variant="Variant.Filled" 
-                       Color="Color.Primary" 
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
                        FullWidth="true"
                        Disabled="@isLoading"
-                       Class="mb-4">
+                       StartIcon=".Material.Filled.Login"
+                       Class="qf-submit-button mb-4">
                 @if (isLoading)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                    <MudText Class="ml-2">Logging in...</MudText>
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <MudText>Signing in...</MudText>
                 }
                 else
                 {
-                    <MudText>Login</MudText>
+                    <MudText>Sign in</MudText>
                 }
             </MudButton>
         </EditForm>
 
-        <MudDivider Class="my-4" />
+        <MudDivider Class="my-4 qf-soft-divider" />
 
-        <MudText Align="Align.Center">
-            Don't have an account?
-            <MudLink Href="/register" Color="Color.Primary">Register here</MudLink>
+        <MudText Align="Align.Center" Class="qf-muted">
+            New to QuizFuzz?
+            <MudLink Href="/register" Color="Color.Primary">Create an account</MudLink>
         </MudText>
     </MudPaper>
 </MudContainer>
@@ -83,7 +91,6 @@
 
             if (result != null)
             {
-                // Уведомляем систему об изменении состояния авторизации
                 if (AuthStateProvider is CustomAuthStateProvider customProvider)
                 {
                     customProvider.NotifyAuthStateChanged();
@@ -93,10 +100,10 @@
             }
             else
             {
-                errorMessage = "Invalid email or password";
+                errorMessage = "Invalid email or password.";
             }
         }
-        catch (Exception ex)
+        catch
         {
             errorMessage = "An error occurred during login. Please try again.";
         }

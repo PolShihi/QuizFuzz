@@ -1,57 +1,42 @@
-﻿@using QuizFuzz.Shared.Dtos.Game
+@using QuizFuzz.Shared.Dtos.Game
 
-<MudPaper Elevation="2" Class="pa-4">
-    <MudText Typo="Typo.h6" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mr-2" />
-        Scoreboard
-    </MudText>
+<MudPaper Elevation="0" Class="qf-panel pa-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Warning" />
+        <MudText Typo="Typo.h6">Scoreboard</MudText>
+    </MudStack>
 
     @if (Scoreboard == null || !Scoreboard.Players.Any())
     {
-        <MudText Typo="Typo.body2" Color="Color.Secondary">
-            No scores yet...
-        </MudText>
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-4">
+            <MudIcon Icon="@Icons.Material.Filled.Leaderboard" Color="Color.Secondary" />
+            <MudText Typo="Typo.body2" Class="qf-muted">No scores yet</MudText>
+        </MudStack>
     }
     else
     {
-        <MudSimpleTable>
-            @foreach (var (player, index) in Scoreboard.Players.OrderByDescending(p => p.TotalScore).Select((p, i) => (p, i)))
+        <MudStack Spacing="2">
+            @foreach (var item in Scoreboard.Players.OrderByDescending(p => p.TotalScore).Select((player, index) => new { player, index }))
             {
-                <tr>
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                <MudPaper Elevation="0" Class="qf-standing-row">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudChip T="string" Size="Size.Small" Color="@GetRankColor(index)">
-                                #@(index + 1)
-                            </MudChip>
-                            <MudText>@player.Username</MudText>
+                            <span class="qf-rank-badge @(item.index == 0 ? "qf-rank-top" : string.Empty)">#@(item.index + 1)</span>
+                            <MudText>@item.player.Username</MudText>
                         </MudStack>
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                            <MudChip T="string" Size="Size.Small" Color="Color.Primary">
-                                @player.TotalScore pts
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="qf-status-chip">
+                                @item.player.TotalScore pts
                             </MudChip>
-                            <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                @player.CorrectAnswers correct
-                            </MudText>
+                            <MudText Typo="Typo.caption" Class="qf-muted">@item.player.CorrectAnswers correct</MudText>
                         </MudStack>
                     </MudStack>
-                </tr>
+                </MudPaper>
             }
-        </MudSimpleTable>
+        </MudStack>
     }
 </MudPaper>
 
 @code {
     [Parameter] public ScoreboardDto? Scoreboard { get; set; }
-
-    private Color GetRankColor(int index)
-    {
-        return index switch
-        {
-            0 => Color.Warning,  // Gold
-            1 => Color.Default,  // Silver
-            2 => Color.Tertiary, // Bronze
-            _ => Color.Default
-        };
-    }
 }
-

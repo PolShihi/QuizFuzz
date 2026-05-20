@@ -8,75 +8,87 @@
 
 <PageTitle>Register - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
-    <MudPaper Elevation="3" Class="pa-8">
-        <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
-            Create Account
+<MudContainer MaxWidth="MaxWidth.False" Class="qf-auth-shell">
+    <MudPaper Elevation="0" Class="qf-auth-card pa-8">
+        <MudAvatar Class="qf-auth-mark">
+            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Size="Size.Large" />
+        </MudAvatar>
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="qf-section-title" GutterBottom="true">
+            Create your account
         </MudText>
-        <MudText Typo="Typo.body1" Align="Align.Center" Class="mb-4">
-            Join QuizFuzz and start playing
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted mb-6">
+            Join rooms, submit answers and build your own fuzzy quiz content.
         </MudText>
 
         <EditForm Model="@registerRequest" OnValidSubmit="@HandleRegister">
             <DataAnnotationsValidator />
 
-            <MudTextField @bind-Value="registerRequest.Username" 
-                          Label="Username" 
+            <MudTextField @bind-Value="registerRequest.Username"
+                          Label="Username"
                           Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Person"
                           Class="mb-4"
                           For="@(() => registerRequest.Username)" />
 
-            <MudTextField @bind-Value="registerRequest.Email" 
-                          Label="Email" 
-                          Variant="Variant.Outlined" 
+            <MudTextField @bind-Value="registerRequest.Email"
+                          Label="Email"
+                          Variant="Variant.Outlined"
                           InputType="InputType.Email"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Email"
                           Class="mb-4"
                           For="@(() => registerRequest.Email)" />
 
-            <MudTextField @bind-Value="registerRequest.Password" 
-                          Label="Password" 
-                          Variant="Variant.Outlined" 
+            <MudTextField @bind-Value="registerRequest.Password"
+                          Label="Password"
+                          Variant="Variant.Outlined"
                           InputType="InputType.Password"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Lock"
                           Class="mb-4"
                           For="@(() => registerRequest.Password)" />
 
-            <MudTextField @bind-Value="registerRequest.ConfirmPassword" 
-                          Label="Confirm Password" 
-                          Variant="Variant.Outlined" 
+            <MudTextField @bind-Value="registerRequest.ConfirmPassword"
+                          Label="Confirm password"
+                          Variant="Variant.Outlined"
                           InputType="InputType.Password"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.VerifiedUser"
                           Class="mb-4"
                           For="@(() => registerRequest.ConfirmPassword)" />
 
             @if (!string.IsNullOrEmpty(errorMessage))
             {
-                <MudAlert Severity="Severity.Error" Class="mb-4">
+                <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
                     @errorMessage
                 </MudAlert>
             }
 
-            <MudButton ButtonType="ButtonType.Submit" 
-                       Variant="Variant.Filled" 
-                       Color="Color.Primary" 
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
                        FullWidth="true"
                        Disabled="@isLoading"
-                       Class="mb-4">
+                       StartIcon=".Material.Filled.PersonAdd"
+                       Class="qf-submit-button mb-4">
                 @if (isLoading)
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                    <MudText Class="ml-2">Creating account...</MudText>
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    <MudText>Creating account...</MudText>
                 }
                 else
                 {
-                    <MudText>Register</MudText>
+                    <MudText>Create account</MudText>
                 }
             </MudButton>
         </EditForm>
 
-        <MudDivider Class="my-4" />
+        <MudDivider Class="my-4 qf-soft-divider" />
 
-        <MudText Align="Align.Center">
+        <MudText Align="Align.Center" Class="qf-muted">
             Already have an account?
-            <MudLink Href="/login" Color="Color.Primary">Login here</MudLink>
+            <MudLink Href="/login" Color="Color.Primary">Sign in</MudLink>
         </MudText>
     </MudPaper>
 </MudContainer>
@@ -97,7 +109,6 @@
 
             if (result != null)
             {
-                // Уведомляем систему об изменении состояния авторизации
                 if (AuthStateProvider is CustomAuthStateProvider customProvider)
                 {
                     customProvider.NotifyAuthStateChanged();
@@ -110,7 +121,7 @@
                 errorMessage = "Registration failed. Email or username may already exist.";
             }
         }
-        catch (Exception ex)
+        catch
         {
             errorMessage = "An error occurred during registration. Please try again.";
         }

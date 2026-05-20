@@ -10,8 +10,8 @@
 
 <PageTitle>Questions Management - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudPaper Elevation="3" Class="pa-4 mb-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-5">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.Quiz" Class="mr-2" />
@@ -26,7 +26,7 @@
         </MudStack>
     </MudPaper>
 
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudPaper Elevation="0" Class="qf-toolbar pa-4 mb-5">
         <MudStack Row="true" Spacing="2">
             <MudSelect T="string" Label="Status" @bind-Value="filterStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@(null)">All</MudSelectItem>
@@ -58,19 +58,19 @@
 
     @if (isLoading)
     {
-        <MudPaper Class="pa-8 d-flex justify-center">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     }
     else if (!questions.Any())
     {
-        <MudPaper Elevation="2" Class="pa-8">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudText Align="Align.Center" Color="Color.Secondary">No questions found</MudText>
         </MudPaper>
     }
     else
     {
-        <MudTable Items="@questions" Hover="true" Breakpoint="Breakpoint.Sm" Striped="true">
+        <MudPaper Elevation="0" Class="qf-table-panel"><MudTable Items="@questions" Hover="true" Breakpoint="Breakpoint.Sm" Striped="true">
             <HeaderContent>
                 <MudTh>Title</MudTh>
                 <MudTh>Type</MudTh>
@@ -125,7 +125,7 @@
                     </MudStack>
                 </MudTd>
             </RowTemplate>
-        </MudTable>
+        </MudTable></MudPaper>
     }
 </MudContainer>
 

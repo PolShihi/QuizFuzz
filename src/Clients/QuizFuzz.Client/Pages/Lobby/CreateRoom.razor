@@ -6,154 +6,179 @@
 @inject IRoomsApiClient RoomsClient
 @inject ITagsApiClient TagsClient
 @inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
 
 <PageTitle>Create Room - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
-    <MudPaper Elevation="3" Class="pa-8">
-        <MudText Typo="Typo.h4" GutterBottom="true">Create New Room</MudText>
-        
+<MudContainer MaxWidth="MaxWidth.Medium" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-5">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Class="qf-page-header-icon">
+                <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" />
+            </MudAvatar>
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h4" Class="qf-section-title">Create Room</MudText>
+                <MudText Typo="Typo.body2" Class="qf-muted">Tune the rules, choose content filters and invite players.</MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Elevation="0" Class="qf-panel pa-6">
         <EditForm Model="@request" OnValidSubmit="@HandleCreateRoom" OnInvalidSubmit="@HandleInvalidSubmit">
             <DataAnnotationsValidator />
-            <ValidationSummary />
-            
-            <MudTextField @bind-Value="request.Name" 
-                          Label="Room Name" 
-                          Variant="Variant.Outlined"
-                          Class="mb-4"
-                          For="@(() => request.Name)" />
 
-            <MudNumericField @bind-Value="request.MaxPlayers" 
-                             Label="Max Players" 
-                             Variant="Variant.Outlined"
-                             Min="2" Max="50"
-                             Class="mb-4" />
+            <MudStack Spacing="4">
+                <MudPaper Elevation="0" Class="qf-form-section">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" />
+                        Room setup
+                    </MudText>
 
-            <MudSelect @bind-Value="request.Visibility" 
-                       Label="Visibility"
-                       Variant="Variant.Outlined"
-                       Class="mb-4">
-                <MudSelectItem Value="@("Public")">Public - Anyone can join</MudSelectItem>
-                <MudSelectItem Value="@("Private")">Private - Requires access code</MudSelectItem>
-            </MudSelect>
-            
-            <MudDivider Class="my-4" />
-            
-            <MudText Typo="Typo.h6" Class="mb-3">Victory Condition</MudText>
-            
-            <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Class="mb-3">
-                <MudButton OnClick="@(() => SelectVictoryMode("Points"))" 
-                           Variant="@(selectedVictoryMode == "Points" ? Variant.Filled : Variant.Outlined)"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.EmojiEvents">
-                    Points Mode
-                </MudButton>
-                <MudButton OnClick="@(() => SelectVictoryMode("Questions"))" 
-                           Variant="@(selectedVictoryMode == "Questions" ? Variant.Filled : Variant.Outlined)"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Quiz">
-                    Questions Mode
-                </MudButton>
-            </MudButtonGroup>
-            
-            <MudAlert Severity="Severity.Info" Class="mb-3">
-                <strong>Selected Mode:</strong> @selectedVictoryMode<br/>
-                <strong>Debug Info:</strong> Will show @(selectedVictoryMode == "Points" ? "Points field" : "Questions field")
-            </MudAlert>
-            
-            @if (selectedVictoryMode == "Points")
-            {
-                <MudNumericField @bind-Value="request.VictoryValue" 
-                                 Label="Target Points to Win" 
-                                 Min="50" 
-                                 Max="10000"
-                                 Step="50"
-                                 Variant="Variant.Outlined"
-                                 HelperText="First player to reach this score wins the game"
-                                 Adornment="Adornment.Start"
-                                 AdornmentIcon="@Icons.Material.Filled.Flag"
-                                 Class="mb-4" />
-            }
-            else if (selectedVictoryMode == "Questions")
-            {
-                <MudNumericField @bind-Value="request.NumberOfRounds" 
-                                 Label="Number of Questions" 
-                                 Min="3" 
-                                 Max="20"
-                                 Variant="Variant.Outlined"
-                                 HelperText="Total questions in the game. Player with highest score wins."
-                                 Adornment="Adornment.Start"
-                                 AdornmentIcon="@Icons.Material.Filled.QuestionAnswer"
-                                 Class="mb-4" />
-            }
-            else
-            {
-                <MudAlert Severity="Severity.Error">
-                    Unknown mode: "@selectedVictoryMode" - Please refresh the page!
-                </MudAlert>
-            }
-            
-            <MudDivider Class="my-4" />
+                    <MudTextField @bind-Value="request.Name"
+                                  Label="Room name"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.MeetingRoom"
+                                  Class="mb-4"
+                                  For="@(() => request.Name)" />
 
-            <MudSelect T="string" 
-                       Label="Select Tags (optional)" 
-                       MultiSelection="true" 
-                       @bind-SelectedValues="selectedTagIds"
-                       Variant="Variant.Outlined"
-                       Class="mb-4"
-                       ToStringFunc="@GetTagName"
-                       MultiSelectionTextFunc="@GetSelectedTagsText"
-                       HelperText="Select categories for questions (leave empty for all categories)">
-                @foreach (var tag in availableTags)
-                {
-                    <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
-                }
-            </MudSelect>
-            
-            <MudSelect T="string" 
-                       Label="Select Difficulty (optional)" 
-                       MultiSelection="true" 
-                       @bind-SelectedValues="selectedDifficulties"
-                       Variant="Variant.Outlined"
-                       Class="mb-4"
-                       HelperText="Select difficulty levels (leave empty for all difficulties)">
-                <MudSelectItem T="string" Value="@("Easy")">Easy</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Medium")">Medium</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Hard")">Hard</MudSelectItem>
-            </MudSelect>
+                    <MudGrid>
+                        <MudItem xs="12" sm="6">
+                            <MudNumericField @bind-Value="request.MaxPlayers"
+                                             Label="Max players"
+                                             Variant="Variant.Outlined"
+                                             Min="2" Max="50"
+                                             Adornment="Adornment.Start"
+                                             AdornmentIcon="@Icons.Material.Filled.People" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudSelect @bind-Value="request.Visibility"
+                                       Label="Visibility"
+                                       Variant="Variant.Outlined"
+                                       Adornment="Adornment.Start"
+                                       AdornmentIcon="@Icons.Material.Filled.Visibility">
+                                <MudSelectItem Value="@("Public")">Public - anyone can join</MudSelectItem>
+                                <MudSelectItem Value="@("Private")">Private - requires access code</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
 
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <MudAlert Severity="Severity.Error" Class="mb-4">
-                    @errorMessage
-                </MudAlert>
-            }
+                <MudPaper Elevation="0" Class="qf-form-section">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mr-2" />
+                        Victory condition
+                    </MudText>
 
-            @if (validationErrors.Count > 0)
-            {
-                <MudAlert Severity="Severity.Warning" Class="mb-4">
-                    <MudText Typo="Typo.subtitle2" Class="mb-2">Please fix the following issues:</MudText>
-                    <ul class="mb-0">
-                        @foreach (var error in validationErrors)
+                    <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4">
+                        <MudButton OnClick="@(() => SelectVictoryMode("Points"))"
+                                   Variant="@(selectedVictoryMode == "Points" ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.EmojiEvents"
+                                   Class="qf-choice-button">
+                            Points Mode
+                        </MudButton>
+                        <MudButton OnClick="@(() => SelectVictoryMode("Questions"))"
+                                   Variant="@(selectedVictoryMode == "Questions" ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Quiz"
+                                   Class="qf-choice-button">
+                            Questions Mode
+                        </MudButton>
+                    </MudButtonGroup>
+
+                    @if (selectedVictoryMode == "Points")
+                    {
+                        <MudNumericField @bind-Value="request.VictoryValue"
+                                         Label="Target points to win"
+                                         Min="50"
+                                         Max="10000"
+                                         Step="50"
+                                         Variant="Variant.Outlined"
+                                         HelperText="First player to reach this score wins the game."
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.Flag" />
+                    }
+                    else
+                    {
+                        <MudNumericField @bind-Value="request.NumberOfRounds"
+                                         Label="Number of questions"
+                                         Min="3"
+                                         Max="20"
+                                         Variant="Variant.Outlined"
+                                         HelperText="After the final question, the highest score wins."
+                                         Adornment="Adornment.Start"
+                                         AdornmentIcon="@Icons.Material.Filled.QuestionAnswer" />
+                    }
+                </MudPaper>
+
+                <MudPaper Elevation="0" Class="qf-form-section">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Class="mr-2" />
+                        Question filters
+                    </MudText>
+
+                    <MudSelect T="string"
+                               Label="Select tags"
+                               MultiSelection="true"
+                               @bind-SelectedValues="selectedTagIds"
+                               Variant="Variant.Outlined"
+                               ToStringFunc="@GetTagName"
+                               MultiSelectionTextFunc="@GetSelectedTagsText"
+                               HelperText="Leave empty to include all tags."
+                               Class="mb-4">
+                        @foreach (var tag in availableTags)
                         {
-                            <li>@error</li>
+                            <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
                         }
-                    </ul>
-                </MudAlert>
-            }
+                    </MudSelect>
 
-            <MudStack Row="true" Spacing="2">
-                <MudButton ButtonType="ButtonType.Submit" 
-                           Variant="Variant.Filled" 
-                           Color="Color.Primary"
-                           Disabled="@isLoading">
-                    @(isLoading ? "Creating..." : "Create Room")
-                </MudButton>
-                <MudButton Variant="Variant.Outlined" 
-                           OnClick="@(() => Navigation.NavigateTo("/lobby"))">
-                    Cancel
-                </MudButton>
+                    <MudSelect T="string"
+                               Label="Select difficulty"
+                               MultiSelection="true"
+                               @bind-SelectedValues="selectedDifficulties"
+                               Variant="Variant.Outlined"
+                               HelperText="Leave empty to include all difficulty levels.">
+                        <MudSelectItem T="string" Value="@("Easy")">Easy</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Medium")">Medium</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Hard")">Hard</MudSelectItem>
+                    </MudSelect>
+                </MudPaper>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Filled">
+                        @errorMessage
+                    </MudAlert>
+                }
+
+                @if (validationErrors.Count > 0)
+                {
+                    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Please fix the following issues:</MudText>
+                        <ul class="mb-0">
+                            @foreach (var error in validationErrors)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </MudAlert>
+                }
+
+                <MudStack Row="true" Spacing="2" Class="qf-action-row">
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Disabled="@isLoading"
+                               StartIcon=".Material.Filled.Add">
+                        @(isLoading ? "Creating..." : "Create Room")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="@(() => Navigation.NavigateTo("/lobby"))">
+                        Cancel
+                    </MudButton>
+                </MudStack>
             </MudStack>
         </EditForm>
     </MudPaper>
@@ -162,76 +187,33 @@
 @code {
     private CreateRoomRequest request = new();
     private string errorMessage = string.Empty;
-    private bool isLoading = false;
+    private bool isLoading;
     private List<string> validationErrors = new();
     private List<TagDto> availableTags = new();
     private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private IEnumerable<string> selectedDifficulties = new List<string>();
-    private string selectedVictoryMode = "Points"; // �� ��������� ����� �����
+    private string selectedVictoryMode = "Points";
 
     protected override async Task OnInitializedAsync()
     {
-        await LogToConsole("?? [CreateRoom] Page initialized");
-        await LogToConsole($"   Selected Victory Mode (initial): {selectedVictoryMode}");
         await LoadTags();
     }
-    
-    protected override void OnAfterRender(bool firstRender)
-    {
-        if (firstRender)
-        {
-            _ = LogToConsole("?? [CreateRoom] First render complete");
-            _ = LogToConsole($"   Victory Mode showing: {selectedVictoryMode}");
-        }
-    }
-    
-    private async Task LogToConsole(string message)
-    {
-        try
-        {
-            await JSRuntime.InvokeVoidAsync("console.log", message);
-        }
-        catch
-        {
-            // ���������� ������ �����������
-        }
-    }
 
-    private async Task SelectVictoryMode(string newMode)
+    private void SelectVictoryMode(string newMode)
     {
-        await LogToConsole($"?? [CreateRoom] ========== MODE CHANGE ==========");
-        await LogToConsole($"   Old value: '{selectedVictoryMode}'");
-        await LogToConsole($"   New value: '{newMode}'");
-        
         selectedVictoryMode = newMode;
-        
-        await LogToConsole($"   After assignment: '{selectedVictoryMode}'");
-        await LogToConsole($"   selectedVictoryMode == 'Points': {selectedVictoryMode == "Points"}");
-        await LogToConsole($"   selectedVictoryMode == 'Questions': {selectedVictoryMode == "Questions"}");
-        await LogToConsole($"   UI will show: {(selectedVictoryMode == "Points" ? "POINTS FIELD" : selectedVictoryMode == "Questions" ? "QUESTIONS FIELD" : "UNKNOWN!")}");
-        
-        StateHasChanged();
-        await LogToConsole($"? [CreateRoom] ========== MODE CHANGE COMPLETE ==========");
     }
 
-    
     private async Task LoadTags()
     {
         try
         {
-            await LogToConsole("??? [CreateRoom] Calling TagsClient.GetActiveTagsAsync()...");
             availableTags = await TagsClient.GetActiveTagsAsync();
-            await LogToConsole($"? [CreateRoom] Loaded {availableTags.Count} tags");
-            
-            foreach (var tag in availableTags)
-            {
-                await LogToConsole($"   ?? Tag: {tag.Name} (ID: {tag.Id})");
-            }
         }
         catch (Exception ex)
         {
-            await LogToConsole($"? [CreateRoom] Error loading tags: {ex.Message}");
             errorMessage = "Failed to load tags. Please refresh the page.";
+            Snackbar.Add($"Failed to load tags: {ex.Message}", Severity.Error);
         }
     }
 
@@ -257,6 +239,7 @@
         validationErrors = new List<string> { "Please fix the highlighted validation errors before creating the room." };
         errorMessage = string.Empty;
     }
+
     private List<string> ValidateRoomRequest()
     {
         var errors = new List<string>();
@@ -266,10 +249,8 @@
         else
         {
             var nameLength = request.Name.Trim().Length;
-            if (nameLength < 3)
-                errors.Add("Room name must be at least 3 characters.");
-            if (nameLength > 100)
-                errors.Add("Room name cannot exceed 100 characters.");
+            if (nameLength < 3) errors.Add("Room name must be at least 3 characters.");
+            if (nameLength > 100) errors.Add("Room name cannot exceed 100 characters.");
         }
 
         if (request.MaxPlayers is < 2 or > 50)
@@ -290,18 +271,15 @@
             errors.Add("Select a valid victory condition.");
         }
 
-        var invalidTags = selectedTagIds.Where(id => !Guid.TryParse(id, out _)).ToList();
-        if (invalidTags.Count > 0)
+        if (selectedTagIds.Any(id => !Guid.TryParse(id, out _)))
             errors.Add("One or more selected tags are invalid. Please reselect tags.");
 
         var allowedDifficulties = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Easy", "Medium", "Hard" };
-        var invalidDifficulties = selectedDifficulties.Where(d => !allowedDifficulties.Contains(d)).ToList();
-        if (invalidDifficulties.Count > 0)
+        if (selectedDifficulties.Any(d => !allowedDifficulties.Contains(d)))
             errors.Add("One or more selected difficulties are invalid.");
 
         return errors;
     }
-
 
     private async Task HandleCreateRoom()
     {
@@ -314,91 +292,30 @@
 
         try
         {
-            // ������������� ����� ������
             request.Name = request.Name.Trim();
             request.Visibility = request.Visibility.Trim();
             request.VictoryConditionType = selectedVictoryMode.ToUpperInvariant();
-            
-            await LogToConsole($"?? [CreateRoom] Creating room: {request.Name}");
-            await LogToConsole($"   Max Players: {request.MaxPlayers}");
-            await LogToConsole($"   ?? Victory Mode: {selectedVictoryMode}");
-            
-            if (selectedVictoryMode == "Points")
-            {
-                await LogToConsole($"   ?? Target Points: {request.VictoryValue}");
-                await LogToConsole($"   ?? Game ends when player reaches {request.VictoryValue} points");
-            }
-            else
-            {
-                await LogToConsole($"   ?? Total Questions: {request.NumberOfRounds}");
-                await LogToConsole($"   ?? Game ends after {request.NumberOfRounds} questions");
-            }
-            
-            await LogToConsole($"   Selected Tags: {selectedTagIds.Count()}");
-            await LogToConsole($"   Selected Difficulties: {selectedDifficulties.Count()}");
-            
-            // ��������� ��������� ���� � ������
+
             request.TagSelections = selectedTagIds
                 .Select(tagId => Guid.TryParse(tagId, out var parsed) ? parsed : Guid.Empty)
                 .Where(tagId => tagId != Guid.Empty)
-                .Select(tagId => new RoomTagSelectionDto 
-                { 
-                    TagId = tagId, 
-                    Weight = 1 
-                })
+                .Select(tagId => new RoomTagSelectionDto { TagId = tagId, Weight = 1 })
                 .ToList();
-            
-            // ��������� ������� ���������
+
             request.DifficultyFilters = selectedDifficulties.ToList();
-            
-            if (request.TagSelections.Any())
-            {
-                await LogToConsole($"??? [CreateRoom] Tags being sent:");
-                foreach (var tag in request.TagSelections)
-                {
-                    var tagInfo = availableTags.FirstOrDefault(t => t.Id == tag.TagId);
-                    await LogToConsole($"   ?? {tagInfo?.Name ?? "Unknown"} (ID: {tag.TagId})");
-                }
-            }
-            else
-            {
-                await LogToConsole($"??? [CreateRoom] No tags selected - all categories will be used");
-            }
-            
-            if (request.DifficultyFilters.Any())
-            {
-                await LogToConsole($"?? [CreateRoom] Difficulties being sent:");
-                foreach (var diff in request.DifficultyFilters)
-                {
-                    await LogToConsole($"   ?? {diff}");
-                }
-            }
-            else
-            {
-                await LogToConsole($"?? [CreateRoom] No difficulties selected - all levels will be used");
-            }
-            
+
             var room = await RoomsClient.CreateRoomAsync(request);
-            
             if (room != null)
             {
-                await LogToConsole($"? [CreateRoom] Room created successfully!");
-                await LogToConsole($"   Room ID: {room.Id}");
-                await LogToConsole($"   Current Players: {room.CurrentPlayers}/{room.MaxPlayers}");
-                await LogToConsole($"?? [CreateRoom] Navigating to room...");
-                
                 Navigation.NavigateTo($"/room/{room.Id}");
             }
             else
             {
-                await LogToConsole($"? [CreateRoom] Failed to create room!");
-                errorMessage = "Failed to create room. Check console for details.";
+                errorMessage = "Failed to create room. Please try again.";
             }
         }
         catch (Exception ex)
         {
-            await LogToConsole($"? [CreateRoom] Exception: {ex.Message}");
-            await LogToConsole($"   Stack trace: {ex.StackTrace}");
             errorMessage = $"An error occurred: {ex.Message}";
         }
         finally
@@ -407,4 +324,3 @@
         }
     }
 }
-

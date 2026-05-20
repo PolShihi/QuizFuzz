@@ -1,4 +1,4 @@
-﻿@page "/game/{SessionId:guid}/results"
+@page "/game/{SessionId:guid}/results"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Game
 @attribute [Authorize]
@@ -7,79 +7,73 @@
 
 <PageTitle>Game Results - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-8">
-    <MudPaper Elevation="3" Class="pa-8">
-        <MudStack AlignItems="AlignItems.Center" Spacing="4">
-            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" 
-                     Size="Size.Large" 
-                     Color="Color.Warning" 
-                     Style="font-size: 80px;" />
-            
-            <MudText Typo="Typo.h3">Game Finished!</MudText>
-
-            @if (scoreboard != null && scoreboard.Players.Any())
-            {
-                var winner = scoreboard.Players.OrderByDescending(p => p.TotalScore).First();
-                
-                <MudText Typo="Typo.h5" Color="Color.Primary">
-                    🏆 Winner: @winner.Username
-                </MudText>
-                
-                <MudDivider Class="my-4" Style="width: 100%;" />
-
-                <MudText Typo="Typo.h6" Class="mb-4">Final Standings</MudText>
-
-                <MudPaper Elevation="2" Class="pa-4" Style="width: 100%;">
-                    <MudList T="string">
-                        @foreach (var (player, index) in scoreboard.Players.OrderByDescending(p => p.TotalScore).Select((p, i) => (p, i)))
-                        {
-                            <MudListItem T="string">
-                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                        <MudText Typo="Typo.h6" Style="min-width: 40px;">
-                                            @(index == 0 ? "🥇" : index == 1 ? "🥈" : index == 2 ? "🥉" : $"#{index + 1}")
-                                        </MudText>
-                                        <MudText Typo="Typo.h6">@player.Username</MudText>
-                                    </MudStack>
-                                    <MudStack AlignItems="AlignItems.End">
-                                        <MudText Typo="Typo.h6" Color="Color.Primary">
-                                            @player.TotalScore points
-                                        </MudText>
-                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                            @player.CorrectAnswers correct answers
-                                        </MudText>
-                                    </MudStack>
-                                </MudStack>
-                            </MudListItem>
-                            @if (index < scoreboard.Players.Count - 1)
-                            {
-                                <MudDivider />
-                            }
-                        }
-                    </MudList>
-                </MudPaper>
-            }
-
-            <MudStack Row="true" Spacing="2" Class="mt-4">
-                <MudButton Variant="Variant.Filled" 
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Home"
-                           OnClick="@(() => Navigation.NavigateTo("/lobby"))">
-                    Back to Lobby
-                </MudButton>
-                <MudButton Variant="Variant.Outlined"
-                           StartIcon="@Icons.Material.Filled.BarChart"
-                           OnClick="@(() => Navigation.NavigateTo("/profile"))">
-                    View Stats
-                </MudButton>
-            </MudStack>
+<MudContainer MaxWidth="MaxWidth.Medium" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-5">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudAvatar Size="Size.Large" Class="qf-page-header-icon">
+                <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" />
+            </MudAvatar>
+            <MudText Typo="Typo.h3" Align="Align.Center" Class="qf-section-title">Game Finished</MudText>
+            <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted">Final scores are ready.</MudText>
         </MudStack>
     </MudPaper>
+
+    @if (scoreboard == null)
+    {
+        <MudPaper Elevation="0" Class="qf-empty-state">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+            <MudText Class="qf-muted">Loading results...</MudText>
+        </MudPaper>
+    }
+    else if (scoreboard.Players.Any())
+    {
+        var winner = scoreboard.Players.OrderByDescending(p => p.TotalScore).First();
+        var ordered = scoreboard.Players.OrderByDescending(p => p.TotalScore).ToList();
+
+        <MudPaper Elevation="0" Class="qf-panel pa-5 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Color="Color.Warning" />
+                <MudText Typo="Typo.h5">Winner: @winner.Username</MudText>
+            </MudStack>
+
+            <MudStack Spacing="2">
+                @for (var i = 0; i < ordered.Count; i++)
+                {
+                    var player = ordered[i];
+                    <MudPaper Elevation="0" Class="qf-standing-row">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                <span class="qf-rank-badge @(i == 0 ? "qf-rank-top" : string.Empty)">#@(i + 1)</span>
+                                <MudText Typo="Typo.h6">@player.Username</MudText>
+                            </MudStack>
+                            <MudStack AlignItems="AlignItems.End" Spacing="0">
+                                <MudText Typo="Typo.h6" Color="Color.Primary">@player.TotalScore points</MudText>
+                                <MudText Typo="Typo.caption" Class="qf-muted">@player.CorrectAnswers correct answers</MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+
+    <MudStack Row="true" Spacing="2" Justify="Justify.Center" Class="qf-action-row">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Home"
+                   OnClick="@(() => Navigation.NavigateTo("/lobby"))">
+            Back to Lobby
+        </MudButton>
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.BarChart"
+                   OnClick="@(() => Navigation.NavigateTo("/profile"))">
+            View Stats
+        </MudButton>
+    </MudStack>
 </MudContainer>
 
 @code {
     [Parameter] public Guid SessionId { get; set; }
-
     private ScoreboardDto? scoreboard;
 
     protected override async Task OnInitializedAsync()
@@ -87,4 +81,3 @@
         scoreboard = await GameClient.GetScoreboardAsync(SessionId);
     }
 }
-

@@ -5,36 +5,47 @@
 
 <PageTitle>Admin Dashboard - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="mt-8">
-    <MudText Typo="Typo.h3" Align="Align.Center" Class="mb-8">Admin Dashboard</MudText>
+<MudContainer MaxWidth="MaxWidth.Large" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Class="qf-page-header-icon">
+                <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" />
+            </MudAvatar>
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h4" Class="qf-section-title">Admin Dashboard</MudText>
+                <MudText Typo="Typo.body2" Class="qf-muted">Manage moderation, content and platform access from one place.</MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
 
-    <MudGrid>
+    <MudGrid Spacing="3">
         <AuthorizeView Roles="Moderator,Admin" Context="modContext">
             <MudItem xs="12" sm="6" md="4">
-                <MudCard Class="cursor-pointer" Style="height: 200px;" @onclick="@(() => Navigation.NavigateTo("/admin/moderation"))">
+                <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/moderation"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Large" Color="Color.Warning" />
                         <MudText Typo="Typo.h5" Class="mt-4">Moderation Queue</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Review submitted questions</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">Review submitted questions</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
 
             <MudItem xs="12" sm="6" md="4">
-                <MudCard Class="cursor-pointer" Style="height: 200px;" @onclick="@(() => Navigation.NavigateTo("/admin/questions"))">
+                <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/questions"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Quiz" Size="Size.Large" Color="Color.Primary" />
                         <MudText Typo="Typo.h5" Class="mt-4">Questions</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage all questions</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">Manage all questions</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
+
             <MudItem xs="12" sm="6" md="4">
-                <MudCard Class="cursor-pointer" Style="height: 200px;" @onclick="@(() => Navigation.NavigateTo("/admin/tags"))">
+                <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/tags"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Label" Size="Size.Large" Color="Color.Success" />
                         <MudText Typo="Typo.h5" Class="mt-4">Tags</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage and approve question tags</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">Manage and approve question tags</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -42,19 +53,24 @@
 
         <AuthorizeView Roles="Admin" Context="adminContext">
             <MudItem xs="12" sm="6" md="4">
-                <MudCard Class="cursor-pointer" Style="height: 200px;" @onclick="@(() => Navigation.NavigateTo("/admin/users"))">
+                <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/users"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Info" />
                         <MudText Typo="Typo.h5" Class="mt-4">Users</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Manage users and roles</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">Manage users, roles and bans</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
         </AuthorizeView>
     </MudGrid>
 
-    <MudPaper Elevation="2" Class="pa-4 mt-8">
-        <MudText Typo="Typo.h6" Class="mb-2">Quick Stats</MudText>
-        <MudText Color="Color.Secondary">Dashboard statistics coming soon...</MudText>
+    <MudPaper Elevation="0" Class="qf-panel pa-5 mt-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Insights" Color="Color.Secondary" />
+            <MudStack Spacing="0">
+                <MudText Typo="Typo.h6">Quick Stats</MudText>
+                <MudText Class="qf-muted">Dashboard statistics coming soon.</MudText>
+            </MudStack>
+        </MudStack>
     </MudPaper>
 </MudContainer>

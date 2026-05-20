@@ -10,8 +10,8 @@
 
 <PageTitle>Moderation Queue - QuizFuzz</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
-    <MudPaper Elevation="3" Class="pa-4 mb-4">
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-page-shell">
+    <MudPaper Elevation="0" Class="qf-hero mb-5">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
@@ -21,7 +21,7 @@
         </MudStack>
     </MudPaper>
 
-    <MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudPaper Elevation="0" Class="qf-toolbar pa-4 mb-5">
         <MudStack Row="true" Spacing="2">
             <MudButton Variant="@(selectedStatus == "UnderReview" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Warning"
@@ -53,13 +53,13 @@
 
     @if (isLoading)
     {
-        <MudPaper Class="pa-8 d-flex justify-center">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
         </MudPaper>
     }
     else if (!queue.Any())
     {
-        <MudPaper Elevation="2" Class="pa-8">
+        <MudPaper Elevation="0" Class="qf-empty-state">
             <MudStack AlignItems="AlignItems.Center" Spacing="3">
                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
                 <MudText Typo="Typo.h6">No items in queue</MudText>
@@ -69,7 +69,7 @@
     }
     else
     {
-        <MudTable Items="@queue" Hover="true" Breakpoint="Breakpoint.Sm">
+        <MudPaper Elevation="0" Class="qf-table-panel"><MudTable Items="@queue" Hover="true" Breakpoint="Breakpoint.Sm">
             <HeaderContent>
                 <MudTh>Question</MudTh>
                 <MudTh>Submitted By</MudTh>
@@ -102,6 +102,7 @@
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Filled"
                                    Color="Color.Info"
+                                   StartIcon="@Icons.Material.Filled.RateReview"
                                    OnClick="@(async () => await ReviewQuestion(context))">
                             Review
                         </MudButton>
@@ -110,12 +111,14 @@
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
                                        Color="Color.Success"
+                                       StartIcon="@Icons.Material.Filled.CheckCircle"
                                        OnClick="@(async () => await QuickApprove(context))">
                                 Approve
                             </MudButton>
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
                                        Color="Color.Error"
+                                       StartIcon="@Icons.Material.Filled.Cancel"
                                        OnClick="@(async () => await QuickReject(context))">
                                 Reject
                             </MudButton>
@@ -123,7 +126,7 @@
                     </MudStack>
                 </MudTd>
             </RowTemplate>
-        </MudTable>
+        </MudTable></MudPaper>
     }
 </MudContainer>
 
