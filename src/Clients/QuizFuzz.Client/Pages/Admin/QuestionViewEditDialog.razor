@@ -156,6 +156,7 @@
                                        MultiSelection="true"
                                        SelectedValues="@selectedTagIds"
                                        SelectedValuesChanged="@OnSelectedTagsChanged"
+                                       MultiSelectionTextFunc="@GetSelectedTagsText"
                                        Variant="Variant.Outlined">
                                 @foreach (var tag in availableTags)
                                 {
@@ -255,6 +256,32 @@
     private void OnSelectedTagsChanged(IEnumerable<string> values)
     {
         selectedTagIds = values?.Where(v => !string.IsNullOrWhiteSpace(v)).ToArray() ?? Array.Empty<string>();
+    }
+
+    private string GetSelectedTagsText(List<string> values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var names = values
+            .Select(GetTagName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+
+        return names.Count == 0 ? string.Empty : string.Join(", ", names);
+    }
+
+    private string GetTagName(string? tagId)
+    {
+        if (string.IsNullOrWhiteSpace(tagId))
+        {
+            return string.Empty;
+        }
+
+        var tag = availableTags.FirstOrDefault(t => t.Id.ToString() == tagId);
+        return tag?.Name ?? tagId;
     }
 
     private void AddAnswer()

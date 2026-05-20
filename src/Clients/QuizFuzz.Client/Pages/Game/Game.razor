@@ -96,6 +96,15 @@
                                 <MudText Typo="Typo.caption">Waiting for round to end...</MudText>
                             </MudAlert>
                         }
+                        else if (isSubmitting || previousAnswers.Any(a => a.IsPending))
+                        {
+                            <MudAlert Severity="Severity.Info" Class="mb-4">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                    <MudText>Checking your answer...</MudText>
+                                </MudStack>
+                            </MudAlert>
+                        }
                         else if (lastAnswerCorrect == false && previousAnswers.Any())
                         {
                             <MudAlert Severity="Severity.Warning" Class="mb-4">
@@ -146,7 +155,12 @@
                             <MudStack Spacing="1">
                                 @foreach (var ans in previousAnswers)
                                 {
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">• @ans</MudText>
+                                    <MudPaper Elevation="0" Class="pa-2 rounded" Style="@GetAttemptStyle(ans)">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Spacing="2">
+                                            <MudText Typo="Typo.body2">@GetAttemptIcon(ans) @ans.Text</MudText>
+                                            <MudText Typo="Typo.caption">@GetAttemptStatusText(ans)</MudText>
+                                        </MudStack>
+                                    </MudPaper>
                                 }
                             </MudStack>
                         </MudPaper>
@@ -164,13 +178,13 @@
     private GameQuestionDto? currentQuestion;
     private ScoreboardDto? scoreboard;
     private string currentAnswer = string.Empty;
-    private List<string> previousAnswers = new();
+    private List<AnswerAttempt> previousAnswers = new();
     private List<HintDto> visibleHints = new();
     private bool isLoading = true;
     private bool hasAnsweredCorrectly = false;
     private bool timeExpired = false;
     private bool isSubmitting = false;
-    private bool lastAnswerCorrect = false;
+    private bool? lastAnswerCorrect = null;
     private int lastScore = 0;
     private DateTime questionStartTime;
     private System.Threading.Timer? hintTimer;
@@ -310,23 +324,25 @@
                 var json = System.Text.Json.JsonSerializer.Serialize(resultData);
                 var result = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(json);
                 
+                if (result.TryGetProperty("scoreAwarded", out var scoreProp))
+                {
+                    lastScore = scoreProp.GetInt32();
+                }
+
                 if (result.TryGetProperty("isCorrect", out var isCorrectProp))
                 {
                     lastAnswerCorrect = isCorrectProp.GetBoolean();
-                    if (lastAnswerCorrect)
+                    MarkLatestPendingAttempt(lastAnswerCorrect.Value);
+
+                    if (lastAnswerCorrect == true)
                     {
                         hasAnsweredCorrectly = true;
                         Console.WriteLine("✅ [Game] Correct answer! Waiting for round to end...");
                     }
                 }
                 
-                if (result.TryGetProperty("scoreAwarded", out var scoreProp))
-                {
-                    lastScore = scoreProp.GetInt32();
-                }
-                
                 // Если получили ответ - перезагрузим scoreboard для актуальных данных
-                if (lastAnswerCorrect)
+                if (lastAnswerCorrect == true)
                 {
                     Console.WriteLine("📊 [Game] Correct answer! Reloading scoreboard...");
                     Task.Run(async () =>
@@ -442,7 +458,7 @@
         currentAnswer = string.Empty;
         previousAnswers.Clear();
         visibleHints.Clear();
-        lastAnswerCorrect = false;
+        lastAnswerCorrect = null;
         lastScore = 0;
         DisposeHintTimer();
     }
@@ -491,8 +507,9 @@
         
         Console.WriteLine($"📤 [Game] Submitting answer: '{currentAnswer}'");
         
-        previousAnswers.Add(currentAnswer.Trim());
         var answerToSubmit = currentAnswer.Trim();
+        previousAnswers.Add(new AnswerAttempt(answerToSubmit));
+        lastAnswerCorrect = null;
         currentAnswer = string.Empty; // Очищаем поле сразу для следующей попытки
 
         try
@@ -506,16 +523,74 @@
             else
             {
                 Console.WriteLine("❌ [Game] SignalR not connected!");
+                MarkLatestPendingAttempt(false);
+                lastAnswerCorrect = false;
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"❌ [Game] Error submitting answer: {ex.Message}");
+            MarkLatestPendingAttempt(false);
+            lastAnswerCorrect = false;
         }
         finally
         {
             isSubmitting = false;
         }
+    }
+
+
+    private void MarkLatestPendingAttempt(bool isCorrect)
+    {
+        var attempt = previousAnswers.LastOrDefault(a => a.IsPending);
+        if (attempt == null)
+            return;
+
+        attempt.IsCorrect = isCorrect;
+        attempt.ScoreAwarded = isCorrect ? lastScore : 0;
+    }
+
+    private string GetAttemptIcon(AnswerAttempt attempt)
+    {
+        if (attempt.IsPending)
+            return "⏳";
+
+        return attempt.IsCorrect == true ? "✅" : "❌";
+    }
+
+    private string GetAttemptStatusText(AnswerAttempt attempt)
+    {
+        if (attempt.IsPending)
+            return "Checking...";
+
+        if (attempt.IsCorrect == true)
+            return attempt.ScoreAwarded > 0 ? $"Correct · +{attempt.ScoreAwarded}" : "Correct";
+
+        return "Wrong";
+    }
+
+    private string GetAttemptStyle(AnswerAttempt attempt)
+    {
+        if (attempt.IsPending)
+            return "border: 1px solid var(--mud-palette-info); background-color: var(--mud-palette-info-hover);";
+
+        if (attempt.IsCorrect == true)
+            return "border: 1px solid var(--mud-palette-success); background-color: var(--mud-palette-success-hover);";
+
+        return "border: 1px solid var(--mud-palette-lines-default);";
+    }
+
+    private sealed class AnswerAttempt
+    {
+        public AnswerAttempt(string text)
+        {
+            Text = text;
+        }
+
+        public string Text { get; }
+        public bool? IsCorrect { get; set; }
+        public int ScoreAwarded { get; set; }
+        public bool IsPending => IsCorrect is null;
     }
 
     private async Task OnKeyDown(KeyboardEventArgs e)
