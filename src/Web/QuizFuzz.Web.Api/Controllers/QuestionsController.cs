@@ -458,7 +458,7 @@ public class QuestionsController : ControllerBase
         return Ok(MapQuestionToDto(refreshed));
     }
 
-    private static QuestionDto MapQuestionToDto(Question question)
+    private QuestionDto MapQuestionToDto(Question question)
     {
         var answers = question.Answers?
             .OrderByDescending(a => a.IsPrimary)
@@ -512,8 +512,24 @@ public class QuestionsController : ControllerBase
                     Description = qt.Tag.Description,
                     IsActive = qt.Tag.IsActive
                 }).ToList(),
-            MediaUrl = question.MediaAssets?.FirstOrDefault()?.Url
+            MediaUrl = ToPublicMediaUrl(question.MediaAssets?.FirstOrDefault()?.Url)
         };
+    }
+
+    private string? ToPublicMediaUrl(string? mediaUrl)
+    {
+        if (string.IsNullOrWhiteSpace(mediaUrl))
+            return mediaUrl;
+
+        if (Uri.TryCreate(mediaUrl, UriKind.Absolute, out _))
+            return mediaUrl;
+
+        if (!mediaUrl.StartsWith('/'))
+            mediaUrl = $"/{mediaUrl}";
+
+        var request = HttpContext.Request;
+        var pathBase = request.PathBase.HasValue ? request.PathBase.Value : string.Empty;
+        return $"{request.Scheme}://{request.Host}{pathBase}{mediaUrl}";
     }
 
     /// <summary>

@@ -288,7 +288,7 @@ public class ModerationController : ControllerBase
         var questionWithAliases = await _unitOfWork.Questions.GetWithAllDetailsAsync(questionId, HttpContext.RequestAborted);
         if (questionWithAliases != null)
         {
-            dto.MediaUrl = questionWithAliases.MediaAssets.FirstOrDefault()?.Url;
+            dto.MediaUrl = ToPublicMediaUrl(questionWithAliases.MediaAssets.FirstOrDefault()?.Url);
 
             dto.Answers = questionWithAliases.Answers.Select(a => new ModerationAnswerDto
             {
@@ -326,6 +326,22 @@ public class ModerationController : ControllerBase
 
         var stats = await _mediator.Send(new GetModeratorStatsQuery { ModeratorId = moderatorId });
         return Ok(stats);
+    }
+
+    private string? ToPublicMediaUrl(string? mediaUrl)
+    {
+        if (string.IsNullOrWhiteSpace(mediaUrl))
+            return mediaUrl;
+
+        if (Uri.TryCreate(mediaUrl, UriKind.Absolute, out _))
+            return mediaUrl;
+
+        if (!mediaUrl.StartsWith('/'))
+            mediaUrl = $"/{mediaUrl}";
+
+        var request = HttpContext.Request;
+        var pathBase = request.PathBase.HasValue ? request.PathBase.Value : string.Empty;
+        return $"{request.Scheme}://{request.Host}{pathBase}{mediaUrl}";
     }
 
     private static string ToClientStatus(QuestionStatus status)

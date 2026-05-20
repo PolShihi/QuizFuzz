@@ -52,6 +52,11 @@ public class MediaApiClient : IMediaApiClient
             }
 
             var result = await response.Content.ReadFromJsonAsync<MediaUploadResult>();
+            if (result is not null)
+            {
+                result.Url = ToAbsoluteMediaUrl(result.Url);
+            }
+
             return result;
         }
         catch (Exception ex)
@@ -59,5 +64,19 @@ public class MediaApiClient : IMediaApiClient
             _logger.LogError(ex, "❌ [MediaApiClient] Error uploading media to {Endpoint}", endpoint);
             return null;
         }
+    }
+
+    private string ToAbsoluteMediaUrl(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+            return url;
+
+        if (Uri.TryCreate(url, UriKind.Absolute, out _))
+            return url;
+
+        if (_httpClient.BaseAddress is null)
+            return url;
+
+        return new Uri(_httpClient.BaseAddress, url.TrimStart('/')).ToString();
     }
 }

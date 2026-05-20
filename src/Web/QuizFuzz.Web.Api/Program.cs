@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.Extensions.FileProviders;
 using QuizFuzz.Infrastructure;
 using System.Text;
 using Serilog;
@@ -177,7 +178,19 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // Static files (для uploads)
+// В dev Blazor WASM часто запущен на другом origin, а API — на https://localhost:7001.
+// Поэтому медиа должны физически лежать в wwwroot/uploads API и явно раздаваться API-сервером.
+var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+var uploadsRootPath = Path.Combine(webRootPath, "uploads");
+Directory.CreateDirectory(Path.Combine(uploadsRootPath, "images"));
+Directory.CreateDirectory(Path.Combine(uploadsRootPath, "audio"));
+
 app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRootPath),
+    RequestPath = "/uploads"
+});
 
 // Routing ПЕРВЫМ!
 app.UseRouting();

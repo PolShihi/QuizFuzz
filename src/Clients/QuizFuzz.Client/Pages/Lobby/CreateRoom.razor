@@ -95,16 +95,18 @@
             
             <MudDivider Class="my-4" />
 
-            <MudSelect T="Guid" 
+            <MudSelect T="string" 
                        Label="Select Tags (optional)" 
                        MultiSelection="true" 
                        @bind-SelectedValues="selectedTagIds"
                        Variant="Variant.Outlined"
                        Class="mb-4"
+                       ToStringFunc="@GetTagName"
+                       MultiSelectionTextFunc="@GetSelectedTagsText"
                        HelperText="Select categories for questions (leave empty for all categories)">
                 @foreach (var tag in availableTags)
                 {
-                    <MudSelectItem T="Guid" Value="@tag.Id">@tag.Name</MudSelectItem>
+                    <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
                 }
             </MudSelect>
             
@@ -148,9 +150,9 @@
     private string errorMessage = string.Empty;
     private bool isLoading = false;
     private List<TagDto> availableTags = new();
-    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+    private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private IEnumerable<string> selectedDifficulties = new List<string>();
-    private string selectedVictoryMode = "Points"; // По умолчанию режим очков
+    private string selectedVictoryMode = "Points"; // пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
     protected override async Task OnInitializedAsync()
     {
@@ -176,7 +178,7 @@
         }
         catch
         {
-            // Игнорируем ошибки логирования
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
         }
     }
 
@@ -218,6 +220,23 @@
         }
     }
 
+    private string GetTagName(string? tagId)
+    {
+        if (string.IsNullOrWhiteSpace(tagId))
+            return string.Empty;
+
+        var tag = availableTags.FirstOrDefault(t => t.Id.ToString() == tagId);
+        return tag?.Name ?? tagId;
+    }
+
+    private string GetSelectedTagsText(List<string> selectedValues)
+    {
+        if (selectedValues.Count == 0)
+            return string.Empty;
+
+        return string.Join(", ", selectedValues.Select(GetTagName));
+    }
+
     private async Task HandleCreateRoom()
     {
         isLoading = true;
@@ -225,7 +244,7 @@
 
         try
         {
-            // Устанавливаем режим победы
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
             request.VictoryConditionType = selectedVictoryMode.ToUpperInvariant();
             
             await LogToConsole($"?? [CreateRoom] Creating room: {request.Name}");
@@ -246,14 +265,18 @@
             await LogToConsole($"   Selected Tags: {selectedTagIds.Count()}");
             await LogToConsole($"   Selected Difficulties: {selectedDifficulties.Count()}");
             
-            // Добавляем выбранные теги в запрос
-            request.TagSelections = selectedTagIds.Select(tagId => new RoomTagSelectionDto 
-            { 
-                TagId = tagId, 
-                Weight = 1 
-            }).ToList();
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+            request.TagSelections = selectedTagIds
+                .Select(tagId => Guid.TryParse(tagId, out var parsed) ? parsed : Guid.Empty)
+                .Where(tagId => tagId != Guid.Empty)
+                .Select(tagId => new RoomTagSelectionDto 
+                { 
+                    TagId = tagId, 
+                    Weight = 1 
+                })
+                .ToList();
             
-            // Добавляем фильтры сложности
+            // пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
             request.DifficultyFilters = selectedDifficulties.ToList();
             
             if (request.TagSelections.Any())

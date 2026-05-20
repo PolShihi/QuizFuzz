@@ -80,13 +80,16 @@ public class MediaController : ControllerBase
                 await file.CopyToAsync(stream);
             }
 
-            // Возвращаем URL
-            var url = $"/uploads/images/{fileName}";
+            // Возвращаем полный URL, потому что Blazor WASM обычно открыт на другом origin.
+            // Если вернуть только /uploads/..., браузер будет искать файл на origin клиента, а не API.
+            var relativeUrl = $"/uploads/images/{fileName}";
+            var url = BuildPublicUrl(relativeUrl);
             
             _logger.LogInformation("✅ [UploadImage] Image uploaded successfully");
-            _logger.LogInformation("   URL: {Url}", url);
+            _logger.LogInformation("   Relative URL: {RelativeUrl}", relativeUrl);
+            _logger.LogInformation("   Public URL: {Url}", url);
 
-            return Ok(new { url, fileName, size = file.Length });
+            return Ok(new { url, relativeUrl, fileName, size = file.Length });
         }
         catch (Exception ex)
         {
@@ -153,13 +156,16 @@ public class MediaController : ControllerBase
                 await file.CopyToAsync(stream);
             }
 
-            // Возвращаем URL
-            var url = $"/uploads/audio/{fileName}";
+            // Возвращаем полный URL, потому что Blazor WASM обычно открыт на другом origin.
+            // Если вернуть только /uploads/..., браузер будет искать файл на origin клиента, а не API.
+            var relativeUrl = $"/uploads/audio/{fileName}";
+            var url = BuildPublicUrl(relativeUrl);
             
             _logger.LogInformation("✅ [UploadAudio] Audio uploaded successfully");
-            _logger.LogInformation("   URL: {Url}", url);
+            _logger.LogInformation("   Relative URL: {RelativeUrl}", relativeUrl);
+            _logger.LogInformation("   Public URL: {Url}", url);
 
-            return Ok(new { url, fileName, size = file.Length });
+            return Ok(new { url, relativeUrl, fileName, size = file.Length });
         }
         catch (Exception ex)
         {
@@ -201,4 +207,17 @@ public class MediaController : ControllerBase
             return StatusCode(500, "Error deleting media");
         }
     }
+    private string BuildPublicUrl(string relativeUrl)
+    {
+        if (string.IsNullOrWhiteSpace(relativeUrl))
+            return relativeUrl;
+
+        if (Uri.TryCreate(relativeUrl, UriKind.Absolute, out _))
+            return relativeUrl;
+
+        var request = HttpContext.Request;
+        var pathBase = request.PathBase.HasValue ? request.PathBase.Value : string.Empty;
+        return $"{request.Scheme}://{request.Host}{pathBase}{relativeUrl}";
+    }
+
 }
