@@ -11,6 +11,14 @@ public interface IQuestionRepository : IRepository<Question>
     Task<Question?> GetWithAnswersAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Question?> GetWithAllDetailsAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Question>> GetByStatusAsync(QuestionStatus status, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Получить вопросы для очереди модерации (с нужными Include: Author, Tags, Answers).
+    /// </summary>
+    Task<IReadOnlyList<Question>> GetForModerationQueueAsync(
+        QuestionStatus? status = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Question>> GetByTagsAsync(IEnumerable<Guid> tagIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Question>> GetApprovedByTagsAsync(IEnumerable<Guid> tagIds, int limit = 100, CancellationToken cancellationToken = default);
     Task<Question?> GetRandomApprovedAsync(IEnumerable<Guid>? tagIds = null, CancellationToken cancellationToken = default);

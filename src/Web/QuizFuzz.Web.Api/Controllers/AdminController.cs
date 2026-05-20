@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Domain.Enums;
+using QuizFuzz.Shared.Dtos.Admin;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -25,6 +26,119 @@ public class AdminController : ControllerBase
     }
 
     /// <summary>
+    /// Получить список пользователей (для админки клиента)
+    /// </summary>
+    [HttpGet("users")]
+    [ProducesResponseType(typeof(List<UserManagementDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetUsers(CancellationToken cancellationToken)
+    {
+        var users = await _unitOfWork.Users.GetAllAsync(cancellationToken);
+
+        var items = users
+            .OrderByDescending(u => u.CreatedAt)
+            .Select(u => new UserManagementDto
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email.Value,
+                Roles = u.Roles.Select(r => r.ToString()).ToList(),
+                IsBanned = u.IsBanned,
+                CreatedAt = u.CreatedAt,
+                LastLoginAt = u.LastLoginAt
+            })
+            .ToList();
+
+        return Ok(items);
+    }
+
+    /// <summary>
+    /// Получить пользователя (для админки клиента)
+    /// </summary>
+    [HttpGet("users/{id:guid}")]
+    [ProducesResponseType(typeof(UserManagementDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUser(Guid id, CancellationToken cancellationToken)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(id, cancellationToken);
+        if (user == null)
+        {
+            return NotFound($"User with ID {id} not found");
+        }
+
+        return Ok(new UserManagementDto
+        {
+            Id = user.Id,
+            Username = user.Username,
+            Email = user.Email.Value,
+            Roles = user.Roles.Select(r => r.ToString()).ToList(),
+            IsBanned = user.IsBanned,
+            CreatedAt = user.CreatedAt,
+            LastLoginAt = user.LastLoginAt
+        });
+    }
+
+    /// <summary>
+    /// Обновить роли пользователя (для админки клиента)
+    /// </summary>
+    [HttpPut("users/{id:guid}/roles")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateUserRoles(
+        Guid id,
+        [FromBody] UpdateUserRolesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(id, cancellationToken);
+        if (user == null)
+        {
+            return NotFound($"User with ID {id} not found");
+        }
+
+        // Нормализуем желаемые роли, всегда оставляем базовую роль User.
+        var desiredRoleStrings = (request.Roles ?? new List<string>())
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Select(r => r.Trim())
+            .ToList();
+
+        var desiredRoles = new HashSet<UserRole>();
+        foreach (var roleStr in desiredRoleStrings)
+        {
+            if (!Enum.TryParse<UserRole>(roleStr, true, out var parsedRole))
+            {
+                return BadRequest($"Invalid role: {roleStr}");
+            }
+
+            desiredRoles.Add(parsedRole);
+        }
+
+        desiredRoles.Add(UserRole.User);
+
+        // Удаляем роли, которых не должно быть.
+        foreach (var existing in user.Roles.ToList())
+        {
+            if (!desiredRoles.Contains(existing))
+            {
+                user.RemoveRole(existing);
+            }
+        }
+
+        // Добавляем недостающие роли.
+        foreach (var role in desiredRoles)
+        {
+            user.AddRole(role);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Ok(new
+        {
+            message = "Roles updated successfully",
+            roles = user.Roles.Select(r => r.ToString()).ToList()
+        });
+    }
+
+    /// <summary>
     /// Заблокировать пользователя
     /// </summary>
     [HttpPost("users/{id}/ban")]
@@ -38,16 +152,16 @@ public class AdminController : ControllerBase
 
         try
         {
-            user.Ban(request.BanUntil);
+            user.Ban(request.BannedUntil);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogWarning("User {UserId} ({Username}) banned until {BanUntil}", 
-                id, user.Username, request.BanUntil);
+                id, user.Username, request.BannedUntil);
 
             return Ok(new 
             { 
                 message = "User banned successfully",
-                bannedUntil = request.BanUntil,
+                bannedUntil = request.BannedUntil,
                 reason = request.Reason
             });
         }
@@ -261,7 +375,6 @@ public class AdminController : ControllerBase
     }
 }
 
-public record BanUserRequest(DateTime? BanUntil, string? Reason);
 public record ManageRoleRequest(string Role);
 
 public class RecentAction

@@ -44,6 +44,34 @@ public class QuestionRepository : BaseRepository<Question>, IQuestionRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Question>> GetForModerationQueueAsync(
+        QuestionStatus? status = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        if (limit <= 0)
+        {
+            limit = 100;
+        }
+
+        var query = _dbSet
+            .Include(q => q.Author)
+            .Include(q => q.Answers)
+            .Include(q => q.Tags)
+                .ThenInclude(qt => qt.Tag)
+            .AsQueryable();
+
+        if (status.HasValue)
+        {
+            query = query.Where(q => q.Status == status.Value);
+        }
+
+        return await query
+            .OrderByDescending(q => q.UpdatedAt)
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Question>> GetByTagsAsync(
         IEnumerable<Guid> tagIds,
         CancellationToken cancellationToken = default)

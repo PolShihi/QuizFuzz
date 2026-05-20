@@ -116,7 +116,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                 "Creating question entity. UserId: {UserId}, AnswersCount: {AnswersCount}, TagsCount: {TagsCount}",
                 request.UserId, request.CorrectAnswers.Count, request.TagIds.Count);
 
-            // Создаем вопрос со статусом UnderReview
+            // Создаем вопрос (изначально Draft, затем SubmitForReview)
             var question = new Question(
                 request.Type,
                 request.PromptText,
@@ -125,33 +125,28 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                 request.Title,
                 user.Id);
 
-            // Сначала добавляем хотя бы один ответ, потом устанавливаем статус
-
-            await _unitOfWork.Questions.AddAsync(question, cancellationToken);
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-            _logger.LogDebug(
-                "Question entity created. QuestionId: {QuestionId}, Status: {Status}",
-                question.Id, question.Status);
-
-            // Добавляем правильные ответы с настройками fuzzy matching
+            // ВАЖНО: добавляем ответы через агрегат, иначе Question.SubmitForReview() не увидит primary answers
+            // (и модерация не заработает).
             foreach (var answerData in request.CorrectAnswers)
             {
-                var answer = new QuestionAnswer(
-                    question.Id,
+                question.AddAnswer(
                     answerData.Text,
                     isPrimary: true,
                     languageCode: "ru",
                     allowFuzzyMatch: answerData.AllowFuzzyMatch,
-                    maxEditDistance: null, // используем дефолтное
+                    maxEditDistance: null,
                     minConfidence: (decimal)answerData.MinConfidence);
-                
-                await _unitOfWork.QuestionAnswers.AddAsync(answer, cancellationToken);
-                
+
                 _logger.LogTrace(
-                    "Added answer to question. QuestionId: {QuestionId}, Answer: {Answer}, FuzzyMatch: {FuzzyMatch}, MinConfidence: {MinConfidence}",
+                    "Added answer to question aggregate. QuestionId: {QuestionId}, Answer: {Answer}, FuzzyMatch: {FuzzyMatch}, MinConfidence: {MinConfidence}",
                     question.Id, answerData.Text, answerData.AllowFuzzyMatch, answerData.MinConfidence);
             }
+
+            await _unitOfWork.Questions.AddAsync(question, cancellationToken);
+
+            _logger.LogDebug(
+                "Question entity created. QuestionId: {QuestionId}, Status: {Status}",
+                question.Id, question.Status);
 
             // Добавляем теги
             if (request.TagIds.Any())

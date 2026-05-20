@@ -1,7 +1,6 @@
 ﻿@page "/admin/moderation"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Moderation
-@using QuizFuzz.Shared.Dtos.Questions
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Moderator,Admin")]
 @inject IModerationApiClient ModerationClient
@@ -101,7 +100,7 @@
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Filled"
                                    Color="Color.Info"
-                                   OnClick="@(() => ReviewQuestion(context))">
+                                   OnClick="@(async () => await ReviewQuestion(context))">
                             Review
                         </MudButton>
                         @if (context.Status == "UnderReview")
@@ -109,13 +108,13 @@
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
                                        Color="Color.Success"
-                                       OnClick="@(() => QuickApprove(context))">
+                                       OnClick="@(async () => await QuickApprove(context))">
                                 Approve
                             </MudButton>
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
                                        Color="Color.Error"
-                                       OnClick="@(() => QuickReject(context))">
+                                       OnClick="@(async () => await QuickReject(context))">
                                 Reject
                             </MudButton>
                         }
@@ -143,7 +142,7 @@
                               Variant="Variant.Outlined" />
                 
                 <MudText Typo="Typo.h6">Answers</MudText>
-                @foreach (var answer in selectedQuestion.Answers ?? new())
+                @foreach (var answer in selectedQuestion.Answers)
                 {
                     <MudPaper Elevation="1" Class="pa-3">
                         <MudStack Spacing="2">
@@ -175,12 +174,12 @@
         <MudButton OnClick="@(() => showReviewDialog = false)">Cancel</MudButton>
         <MudButton Color="Color.Error"
                    Variant="Variant.Filled"
-                   OnClick="@(() => HandleReject())">
+                   OnClick="@(async () => await HandleReject())">
             Reject
         </MudButton>
         <MudButton Color="Color.Success"
                    Variant="Variant.Filled"
-                   OnClick="@(() => HandleApprove())">
+                   OnClick="@(async () => await HandleApprove())">
             Approve
         </MudButton>
     </DialogActions>
@@ -188,7 +187,7 @@
 
 @code {
     private List<ModerationQueueDto> queue = new();
-    private QuestionDto? selectedQuestion;
+    private ModerationQuestionDetailsDto? selectedQuestion;
     private ModerationQueueDto? selectedQueueItem;
     private bool isLoading = true;
     private bool showReviewDialog = false;
