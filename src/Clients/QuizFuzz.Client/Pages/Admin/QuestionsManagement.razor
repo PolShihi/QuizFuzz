@@ -1,10 +1,12 @@
 ﻿@page "/admin/questions"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
+@using MudBlazor
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Moderator,Admin")]
 @inject IQuestionsApiClient QuestionsClient
 @inject IAdminApiClient AdminClient
+@inject IDialogService DialogService
 
 <PageTitle>Questions Management - QuizFuzz</PageTitle>
 
@@ -28,17 +30,17 @@
         <MudStack Row="true" Spacing="2">
             <MudSelect T="string" Label="Status" @bind-Value="filterStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem Value="@((string)null)">All</MudSelectItem>
-                <MudSelectItem Value="@("DRAFT")">Draft</MudSelectItem>
-                <MudSelectItem Value="@("UNDER_REVIEW")">Under Review</MudSelectItem>
-                <MudSelectItem Value="@("APPROVED")">Approved</MudSelectItem>
-                <MudSelectItem Value="@("REJECTED")">Rejected</MudSelectItem>
+                <MudSelectItem Value="@("Draft")">Draft</MudSelectItem>
+                <MudSelectItem Value="@("UnderReview")">Under Review</MudSelectItem>
+                <MudSelectItem Value="@("Approved")">Approved</MudSelectItem>
+                <MudSelectItem Value="@("Rejected")">Rejected</MudSelectItem>
             </MudSelect>
             
             <MudSelect T="string" Label="Difficulty" @bind-Value="filterDifficulty" Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem Value="@((string)null)">All</MudSelectItem>
-                <MudSelectItem Value="@("EASY")">Easy</MudSelectItem>
-                <MudSelectItem Value="@("MEDIUM")">Medium</MudSelectItem>
-                <MudSelectItem Value="@("HARD")">Hard</MudSelectItem>
+                <MudSelectItem Value="@("Easy")">Easy</MudSelectItem>
+                <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                <MudSelectItem Value="@("Hard")">Hard</MudSelectItem>
             </MudSelect>
 
             <MudButton Variant="Variant.Filled"
@@ -104,22 +106,22 @@
                     <MudText Typo="Typo.caption">@(context.AuthorUsername ?? "System")</MudText>
                 </MudTd>
                 <MudTd DataLabel="Answers">
-                    <MudText>@context.Answers.Count</MudText>
+                    <MudText>@context.AnswersCount</MudText>
                 </MudTd>
                 <MudTd DataLabel="Actions">
                     <MudStack Row="true" Spacing="1">
                         <MudIconButton Icon="@Icons.Material.Filled.Visibility"
                                        Size="Size.Small"
                                        Color="Color.Info"
-                                       OnClick="@(() => ViewQuestion(context))" />
+                                       OnClick="@(async () => await ViewQuestion(context))" />
                         <MudIconButton Icon="@Icons.Material.Filled.Edit"
                                        Size="Size.Small"
                                        Color="Color.Primary"
-                                       OnClick="@(() => EditQuestion(context))" />
+                                       OnClick="@(async () => await EditQuestion(context))" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
                                        Size="Size.Small"
                                        Color="Color.Error"
-                                       OnClick="@(() => DeleteQuestion(context))" />
+                                       OnClick="@(async () => await DeleteQuestion(context))" />
                     </MudStack>
                 </MudTd>
             </RowTemplate>
@@ -159,9 +161,9 @@
                             </MudSelect>
 
                             <MudSelect T="string" Label="Difficulty" @bind-Value="currentQuestion.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
-                                <MudSelectItem Value="@("EASY")">Easy</MudSelectItem>
-                                <MudSelectItem Value="@("MEDIUM")">Medium</MudSelectItem>
-                                <MudSelectItem Value="@("HARD")">Hard</MudSelectItem>
+                                <MudSelectItem Value="@("Easy")">Easy</MudSelectItem>
+                                <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                                <MudSelectItem Value="@("Hard")">Hard</MudSelectItem>
                             </MudSelect>
                         </MudStack>
 
@@ -308,26 +310,48 @@
         showDialog = true;
     }
 
-    private void ViewQuestion(QuestionDto question)
+    private async Task ViewQuestion(QuestionDto question)
     {
-        currentQuestion = question;
-        selectedTagIds = question.Tags.Select(t => t.Id);
-        isEditMode = false;
-        isCreateMode = false;
-        showDialog = true;
+        var parameters = new DialogParameters
+        {
+            ["QuestionId"] = question.Id,
+            ["IsEdit"] = false
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
+        var dialog = DialogService.Show<QuestionViewEditDialog>("View Question", parameters, options);
+        await dialog.Result;
     }
 
-    private void EditQuestion(QuestionDto question)
+    private async Task EditQuestion(QuestionDto question)
     {
-        currentQuestion = question;
-        selectedTagIds = question.Tags.Select(t => t.Id);
-        isEditMode = true;
-        isCreateMode = false;
-        showDialog = true;
+        var parameters = new DialogParameters
+        {
+            ["QuestionId"] = question.Id,
+            ["IsEdit"] = true
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraLarge, FullWidth = true };
+        var dialog = DialogService.Show<QuestionViewEditDialog>("Edit Question", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadQuestions();
+        }
     }
 
     private async Task DeleteQuestion(QuestionDto question)
     {
+        var confirm = await DialogService.ShowMessageBox(
+            "Delete question?",
+            $"Delete \"{question.Title}\"? This cannot be undone.",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (confirm != true)
+            return;
+
         var success = await QuestionsClient.DeleteQuestionAsync(question.Id);
         if (success)
         {
@@ -359,29 +383,61 @@
 
         isSaving = true;
 
-        var request = new CreateQuestionRequest
-        {
-            Title = currentQuestion.Title,
-            PromptText = currentQuestion.PromptText,
-            QuestionType = currentQuestion.QuestionType,
-            Difficulty = currentQuestion.Difficulty,
-            MediaUrl = currentQuestion.MediaUrl,
-            TagIds = selectedTagIds.ToList(),
-            Answers = currentQuestion.Answers.Select(a => new CreateAnswerRequest
-            {
-                AnswerText = a.AnswerText,
-                IsPrimary = a.IsPrimary
-            }).ToList()
-        };
-
         bool success;
         if (isCreateMode)
         {
+            var request = new CreateQuestionRequest
+            {
+                Title = currentQuestion.Title,
+                PromptText = currentQuestion.PromptText,
+                QuestionType = currentQuestion.QuestionType,
+                Difficulty = currentQuestion.Difficulty,
+                MediaUrl = currentQuestion.MediaUrl,
+                TagIds = selectedTagIds.ToList(),
+                Answers = currentQuestion.Answers.Select(a => new CreateAnswerRequest
+                {
+                    AnswerText = a.AnswerText,
+                    IsPrimary = a.IsPrimary,
+                    AllowFuzzyMatch = a.AllowFuzzyMatch,
+                    MaxEditDistance = a.MaxEditDistance,
+                    MinConfidence = a.MinConfidence,
+                    Aliases = a.Aliases.Select(al => new CreateAliasRequest
+                    {
+                        AliasText = al.AliasText,
+                        Kind = al.Kind
+                    }).ToList()
+                }).ToList()
+            };
+
             var result = await QuestionsClient.CreateQuestionAsync(request);
             success = result != null;
         }
         else
         {
+            var request = new UpdateQuestionFullRequest
+            {
+                Title = currentQuestion.Title,
+                PromptText = currentQuestion.PromptText,
+                Difficulty = currentQuestion.Difficulty,
+                MediaUrl = currentQuestion.MediaUrl,
+                TagIds = selectedTagIds.ToList(),
+                Answers = currentQuestion.Answers.Select(a => new UpdateAnswerRequest
+                {
+                    Id = a.Id == Guid.Empty ? null : a.Id,
+                    AnswerText = a.AnswerText,
+                    IsPrimary = a.IsPrimary,
+                    AllowFuzzyMatch = a.AllowFuzzyMatch,
+                    MaxEditDistance = a.MaxEditDistance,
+                    MinConfidence = a.MinConfidence,
+                    Aliases = a.Aliases.Select(al => new UpdateAliasRequest
+                    {
+                        Id = al.Id == Guid.Empty ? null : al.Id,
+                        AliasText = al.AliasText,
+                        Kind = al.Kind
+                    }).ToList()
+                }).ToList()
+            };
+
             var result = await QuestionsClient.UpdateQuestionAsync(currentQuestion.Id, request);
             success = result != null;
         }
@@ -397,18 +453,18 @@
 
     private Color GetStatusColor(string status) => status switch
     {
-        "DRAFT" => Color.Default,
-        "UNDER_REVIEW" => Color.Warning,
-        "APPROVED" => Color.Success,
-        "REJECTED" => Color.Error,
+        "Draft" or "DRAFT" => Color.Default,
+        "UnderReview" or "UNDER_REVIEW" => Color.Warning,
+        "Approved" or "APPROVED" => Color.Success,
+        "Rejected" or "REJECTED" => Color.Error,
         _ => Color.Default
     };
 
     private Color GetDifficultyColor(string difficulty) => difficulty switch
     {
-        "EASY" => Color.Success,
-        "MEDIUM" => Color.Warning,
-        "HARD" => Color.Error,
+        "Easy" or "EASY" => Color.Success,
+        "Medium" or "MEDIUM" => Color.Warning,
+        "Hard" or "HARD" => Color.Error,
         _ => Color.Default
     };
 }

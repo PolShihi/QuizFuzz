@@ -34,7 +34,9 @@ public class QuestionsController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetQuestions([FromQuery] QuestionStatus? status = null)
+    public async Task<IActionResult> GetQuestions(
+        [FromQuery] QuestionStatus? status = null,
+        [FromQuery] Difficulty? difficulty = null)
     {
         IReadOnlyList<Question> questions;
 
@@ -48,6 +50,26 @@ public class QuestionsController : ControllerBase
             questions = await _unitOfWork.Questions.GetByStatusAsync(QuestionStatus.Approved);
         }
 
+        if (difficulty.HasValue)
+        {
+            questions = questions.Where(q => q.Difficulty == difficulty.Value).ToList();
+        }
+
+        // Resolve author usernames + answer counts (list endpoint is lightweight: no full DTO expansion)
+        var authorIds = questions.Where(q => q.AuthorUserId.HasValue).Select(q => q.AuthorUserId!.Value).Distinct().ToList();
+        var allUsers = await _unitOfWork.Users.GetAllAsync();
+        var userDict = allUsers
+            .Where(u => authorIds.Contains(u.Id))
+            .ToDictionary(u => u.Id, u => u.Username);
+
+        // Answers counts (без тяжелых Include в репозитории списка)
+        var answerCounts = new Dictionary<Guid, int>();
+        foreach (var q in questions)
+        {
+            var answers = await _unitOfWork.QuestionAnswers.GetByQuestionIdAsync(q.Id);
+            answerCounts[q.Id] = answers.Count;
+        }
+
         var result = questions.Select(q => new QuestionDto
         {
             Id = q.Id,
@@ -58,9 +80,11 @@ public class QuestionsController : ControllerBase
             LanguageCode = q.LanguageCode,
             Status = q.Status.ToString(),
             AuthorUserId = q.AuthorUserId,
+            AuthorUsername = q.AuthorUserId.HasValue && userDict.TryGetValue(q.AuthorUserId.Value, out var username) ? username : null,
             CreatedAt = q.CreatedAt,
             UpdatedAt = q.UpdatedAt,
             Answers = new List<QuestionAnswerDto>(), // Simplified list endpoint
+            AnswersCount = answerCounts.TryGetValue(q.Id, out var count) ? count : 0,
             Hints = new List<HintDto>(),
             Tags = new List<TagDto>()
         }).ToList();
@@ -333,6 +357,240 @@ public class QuestionsController : ControllerBase
             _logger.LogError(ex, "Error updating question {QuestionId}", id);
             return BadRequest(ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Полное обновление вопроса (для админ-панели: просмотр/редактирование ответов/алиасов/тегов)
+    /// </summary>
+    [HttpPut("{id:guid}/full")]
+    [Authorize(Roles = "Moderator,Admin")]
+    [ProducesResponseType(typeof(QuestionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateQuestionFull(Guid id, [FromBody] UpdateQuestionFullRequest request)
+    {
+        var question = await _unitOfWork.Questions.GetWithAllDetailsAsync(id, HttpContext.RequestAborted);
+        if (question == null)
+        {
+            return NotFound($"Question with ID {id} not found");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PromptText) || request.PromptText.Length < 10)
+        {
+            return BadRequest("PromptText must be at least 10 characters");
+        }
+
+        if (request.Answers == null || request.Answers.Count == 0)
+        {
+            return BadRequest("At least one answer is required");
+        }
+
+        if (!request.Answers.Any(a => a.IsPrimary))
+        {
+            return BadRequest("At least one primary answer is required");
+        }
+
+        if (!Enum.TryParse<Difficulty>(request.Difficulty, true, out var parsedDifficulty))
+        {
+            return BadRequest($"Invalid difficulty: {request.Difficulty}");
+        }
+
+        // Basic fields
+        question.UpdateTitle(request.Title);
+        question.UpdatePrompt(request.PromptText);
+        question.UpdateDifficulty(parsedDifficulty);
+
+        // Tags: make it match request.TagIds
+        var desiredTagIds = new HashSet<Guid>(request.TagIds ?? new List<Guid>());
+        var currentTagIds = question.Tags.Select(t => t.TagId).ToList();
+
+        foreach (var tagId in currentTagIds)
+        {
+            if (!desiredTagIds.Contains(tagId))
+            {
+                question.RemoveTag(tagId);
+            }
+        }
+
+        if (desiredTagIds.Count > 0)
+        {
+            var tags = await _unitOfWork.Tags.GetAllAsync(HttpContext.RequestAborted);
+            foreach (var tagId in desiredTagIds)
+            {
+                var tag = tags.FirstOrDefault(t => t.Id == tagId);
+                if (tag != null)
+                {
+                    question.AddTag(tag);
+                }
+            }
+        }
+
+        // Answers: update existing + add new first, then delete removed.
+        var originalExistingAnswerIds = question.Answers.Select(a => a.Id).ToHashSet();
+        var existingAnswersById = question.Answers.ToDictionary(a => a.Id, a => a);
+        var requestedExistingAnswerIds = request.Answers.Where(a => a.Id.HasValue).Select(a => a.Id!.Value).ToHashSet();
+
+        // Update/add answers
+        foreach (var answerReq in request.Answers)
+        {
+            if (answerReq.Id.HasValue && existingAnswersById.TryGetValue(answerReq.Id.Value, out var existing))
+            {
+                existing.UpdateAnswerText(answerReq.AnswerText);
+                if (answerReq.IsPrimary) existing.SetAsPrimary(); else existing.SetAsAlternative();
+                existing.UpdateFuzzyMatchSettings(answerReq.AllowFuzzyMatch, answerReq.MaxEditDistance, answerReq.MinConfidence);
+
+                // Aliases: sync by text (simple approach)
+                var desiredAliases = answerReq.Aliases ?? new List<UpdateAliasRequest>();
+                var desiredNormalized = desiredAliases
+                    .Where(a => !string.IsNullOrWhiteSpace(a.AliasText))
+                    .Select(a => new { Text = a.AliasText.Trim(), Kind = a.Kind })
+                    .ToList();
+
+                var existingAliasIds = existing.Aliases.Select(a => a.Id).ToHashSet();
+
+                // Remove aliases not present by id when provided, else by text match
+                var desiredById = desiredAliases.Where(a => a.Id.HasValue).Select(a => a.Id!.Value).ToHashSet();
+                foreach (var alias in existing.Aliases.ToList())
+                {
+                    if (desiredById.Count > 0)
+                    {
+                        if (!desiredById.Contains(alias.Id))
+                        {
+                            existing.RemoveAlias(alias.Id);
+                        }
+                    }
+                }
+
+                // Add missing aliases
+                foreach (var aliasReq in desiredAliases)
+                {
+                    if (string.IsNullOrWhiteSpace(aliasReq.AliasText))
+                        continue;
+
+                    if (aliasReq.Id.HasValue && existingAliasIds.Contains(aliasReq.Id.Value))
+                        continue;
+
+                    if (!Enum.TryParse<AliasKind>(aliasReq.Kind, true, out var aliasKind))
+                        aliasKind = AliasKind.Synonym;
+
+                    // AddAlias checks duplicates by normalized value
+                    existing.AddAlias(aliasReq.AliasText, aliasKind);
+                }
+            }
+            else
+            {
+                var created = question.AddAnswer(
+                    answerReq.AnswerText,
+                    isPrimary: answerReq.IsPrimary,
+                    languageCode: question.LanguageCode,
+                    allowFuzzyMatch: answerReq.AllowFuzzyMatch,
+                    maxEditDistance: answerReq.MaxEditDistance,
+                    minConfidence: answerReq.MinConfidence);
+
+                foreach (var aliasReq in answerReq.Aliases ?? new List<UpdateAliasRequest>())
+                {
+                    if (string.IsNullOrWhiteSpace(aliasReq.AliasText))
+                        continue;
+
+                    if (!Enum.TryParse<AliasKind>(aliasReq.Kind, true, out var aliasKind))
+                        aliasKind = AliasKind.Synonym;
+
+                    created.AddAlias(aliasReq.AliasText, aliasKind);
+                }
+            }
+        }
+
+        // Ensure primary exists before deletions
+        if (!question.Answers.Any(a => a.IsPrimary))
+        {
+            return BadRequest("Invalid update: question must have at least one primary answer");
+        }
+
+        // Delete answers that were present before but removed from request
+        foreach (var existingId in originalExistingAnswerIds)
+        {
+            if (!requestedExistingAnswerIds.Contains(existingId))
+            {
+                question.RemoveAnswer(existingId);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync(HttpContext.RequestAborted);
+
+        // Return refreshed question dto
+        var refreshed = await _unitOfWork.Questions.GetWithAllDetailsAsync(id, HttpContext.RequestAborted);
+        if (refreshed == null)
+        {
+            return NotFound();
+        }
+
+        var dto = new QuestionDto
+        {
+            Id = refreshed.Id,
+            QuestionType = refreshed.Type.ToString(),
+            Title = refreshed.Title ?? string.Empty,
+            PromptText = refreshed.PromptText,
+            Difficulty = refreshed.Difficulty.ToString(),
+            LanguageCode = refreshed.LanguageCode,
+            Status = refreshed.Status.ToString(),
+            AuthorUserId = refreshed.AuthorUserId,
+            AuthorUsername = refreshed.Author?.Username,
+            CreatedAt = refreshed.CreatedAt,
+            UpdatedAt = refreshed.UpdatedAt,
+            Answers = refreshed.Answers.Select(a => new QuestionAnswerDto
+            {
+                Id = a.Id,
+                AnswerText = a.AnswerText,
+                IsPrimary = a.IsPrimary,
+                IsActive = a.IsActive,
+                AllowFuzzyMatch = a.AllowFuzzyMatch,
+                MaxEditDistance = a.MaxEditDistance,
+                MinConfidence = a.MinConfidence,
+                Aliases = a.Aliases.Select(alias => new FuzzyAliasDto
+                {
+                    Id = alias.Id,
+                    AliasText = alias.AliasText,
+                    Kind = alias.Kind.ToString()
+                }).ToList()
+            }).ToList(),
+            Hints = refreshed.Hints.Select(h => new HintDto
+            {
+                Id = h.Id,
+                OrderIndex = h.OrderIndex,
+                HintText = h.HintText ?? "",
+                RevealTimeSeconds = h.RevealTimeSec
+            }).ToList(),
+            Tags = refreshed.Tags.Select(qt => new TagDto
+            {
+                Id = qt.Tag.Id,
+                Name = qt.Tag.Name,
+                Description = qt.Tag.Description,
+                IsActive = qt.Tag.IsActive
+            }).ToList()
+        };
+
+        return Ok(dto);
+    }
+
+    /// <summary>
+    /// Удалить вопрос (для админ-панели)
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Moderator,Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteQuestion(Guid id)
+    {
+        var question = await _unitOfWork.Questions.GetByIdAsync(id, HttpContext.RequestAborted);
+        if (question == null)
+        {
+            return NotFound($"Question with ID {id} not found");
+        }
+
+        _unitOfWork.Questions.Remove(question);
+        await _unitOfWork.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return Ok(new { message = "Question deleted successfully" });
     }
 
     /// <summary>

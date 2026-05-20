@@ -1,0 +1,181 @@
+@using MudBlazor
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Moderation
+@inject IModerationApiClient ModerationClient
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Review Question</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-6" Spacing="3">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                <MudText Color="Color.Secondary">Loading…</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled">@error</MudAlert>
+        }
+        else if (question != null)
+        {
+            <MudStack Spacing="3">
+                <MudTextField Label="Title" @bind-Value="question.Title" ReadOnly="true" Variant="Variant.Outlined" />
+                <MudTextField Label="Question Text"
+                              @bind-Value="question.PromptText"
+                              Lines="3"
+                              ReadOnly="true"
+                              Variant="Variant.Outlined" />
+
+                <MudStack Row="true" Spacing="2">
+                    <MudChip T="string" Size="Size.Small">@question.Type</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary">@question.Difficulty</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@question.Status</MudChip>
+                </MudStack>
+
+                <MudText Typo="Typo.h6">Answers</MudText>
+                @foreach (var answer in question.Answers)
+                {
+                    <MudPaper Elevation="1" Class="pa-3">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center">
+                                <MudText><strong>@answer.AnswerText</strong></MudText>
+                                @if (answer.IsPrimary)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">Primary</MudChip>
+                                }
+                            </MudStack>
+                            @if (answer.Aliases?.Any() == true)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Aliases: @string.Join(", ", answer.Aliases.Select(a => a.AliasText))
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                <MudTextField Label="Comment (optional)"
+                              @bind-Value="comment"
+                              Lines="2"
+                              Variant="Variant.Outlined" />
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Disabled="@isSubmitting" OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Disabled="@isSubmitting"
+                   Color="Color.Error"
+                   Variant="Variant.Filled"
+                   OnClick="@Reject">
+            Reject
+        </MudButton>
+        <MudButton Disabled="@isSubmitting"
+                   Color="Color.Success"
+                   Variant="Variant.Filled"
+                   OnClick="@Approve">
+            Approve
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid QuestionId { get; set; }
+    [Parameter] public string? CurrentStatus { get; set; }
+
+    private ModerationQuestionDetailsDto? question;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private string? error;
+    private string comment = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            question = await ModerationClient.GetQuestionForModerationAsync(QuestionId);
+            if (question == null)
+            {
+                error = "Failed to load question details (null response).";
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Approve()
+    {
+        if (isSubmitting) return;
+        isSubmitting = true;
+        error = null;
+        try
+        {
+            var ok = await ModerationClient.ApproveAsync(new ModerationActionRequest
+            {
+                QueueId = QuestionId,
+                Action = "APPROVE",
+                Comment = comment
+            });
+            if (!ok)
+            {
+                error = "Approve failed (non-success status).";
+                return;
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task Reject()
+    {
+        if (isSubmitting) return;
+        isSubmitting = true;
+        error = null;
+        try
+        {
+            var reason = string.IsNullOrWhiteSpace(comment) ? "Rejected by moderator" : comment;
+            var ok = await ModerationClient.RejectAsync(new ModerationActionRequest
+            {
+                QueueId = QuestionId,
+                Action = "REJECT",
+                Comment = comment,
+                Reason = reason
+            });
+            if (!ok)
+            {
+                error = "Reject failed (non-success status).";
+                return;
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

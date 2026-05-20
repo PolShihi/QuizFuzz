@@ -1,0 +1,253 @@
+@using MudBlazor
+@using QuizFuzz.Client.Services.Api
+@using QuizFuzz.Shared.Dtos.Questions
+@inject IQuestionsApiClient QuestionsClient
+@inject IAdminApiClient AdminClient
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@title</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (isLoading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-6" Spacing="3">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                <MudText Color="Color.Secondary">Loading…</MudText>
+            </MudStack>
+        }
+        else if (!string.IsNullOrWhiteSpace(error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Filled">@error</MudAlert>
+        }
+        else if (question != null)
+        {
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudStack Spacing="3">
+                        <MudTextField Label="Title"
+                                      @bind-Value="question.Title"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      ReadOnly="@(!isEdit)" />
+
+                        <MudTextField Label="Question Text"
+                                      @bind-Value="question.PromptText"
+                                      Lines="3"
+                                      Variant="Variant.Outlined"
+                                      Required="true"
+                                      ReadOnly="@(!isEdit)" />
+
+                        <MudStack Row="true" Spacing="2">
+                            <MudSelect T="string" Label="Type" @bind-Value="question.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
+                                <MudSelectItem Value="@("TEXT")">Text</MudSelectItem>
+                                <MudSelectItem Value="@("IMAGE")">Image</MudSelectItem>
+                                <MudSelectItem Value="@("AUDIO")">Audio</MudSelectItem>
+                            </MudSelect>
+
+                            <MudSelect T="string" Label="Difficulty" @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
+                                <MudSelectItem Value="@("Easy")">Easy</MudSelectItem>
+                                <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
+                                <MudSelectItem Value="@("Hard")">Hard</MudSelectItem>
+                            </MudSelect>
+                        </MudStack>
+
+                        @if (question.QuestionType != "TEXT")
+                        {
+                            <MudTextField Label="Media URL"
+                                          @bind-Value="question.MediaUrl"
+                                          Variant="Variant.Outlined"
+                                          ReadOnly="@(!isEdit)" />
+                        }
+
+                        <MudText Typo="Typo.h6" Class="mt-4">Answers</MudText>
+                        @foreach (var (answer, index) in question.Answers.Select((a, i) => (a, i)))
+                        {
+                            <MudPaper Elevation="2" Class="pa-3">
+                                <MudStack Spacing="2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                                        <MudTextField Label="@($"Answer {index + 1}")"
+                                                      @bind-Value="answer.AnswerText"
+                                                      Variant="Variant.Outlined"
+                                                      FullWidth="true"
+                                                      ReadOnly="@(!isEdit)" />
+                                        <MudCheckBox T="bool" @bind-Checked="answer.IsPrimary" Label="Primary" ReadOnly="@(!isEdit)" />
+                                        @if (isEdit)
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                           Color="Color.Error"
+                                                           Size="Size.Small"
+                                                           OnClick="@(() => RemoveAnswer(index))" />
+                                        }
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                        @if (isEdit)
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="@AddAnswer">
+                                Add Answer
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="2" Class="pa-3">
+                        <MudText Typo="Typo.h6" Class="mb-3">Tags</MudText>
+                        @if (isEdit)
+                        {
+                            <MudSelect T="Guid" Label="Select Tags" MultiSelection="true" @bind-SelectedValues="selectedTagIds" Variant="Variant.Outlined">
+                                @foreach (var tag in availableTags)
+                                {
+                                    <MudSelectItem T="Guid" Value="@tag.Id">@tag.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else
+                        {
+                            @foreach (var tag in question.Tags)
+                            {
+                                <MudChip T="string" Size="Size.Small" Class="ma-1">@tag.Name</MudChip>
+                            }
+                        }
+                    </MudPaper>
+
+                    <MudPaper Elevation="2" Class="pa-3 mt-3">
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Info</MudText>
+                        <MudText Typo="Typo.caption">Status: @question.Status</MudText><br />
+                        <MudText Typo="Typo.caption">Author: @(question.AuthorUsername ?? "System")</MudText><br />
+                        <MudText Typo="Typo.caption">Created: @question.CreatedAt.ToString("dd/MM/yyyy")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Disabled="@isSaving" OnClick="@Close">@closeText</MudButton>
+        @if (isEdit)
+        {
+            <MudButton Color="Color.Primary"
+                       Variant="Variant.Filled"
+                       OnClick="@Save"
+                       Disabled="@isSaving">
+                @(isSaving ? "Saving..." : "Save")
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid QuestionId { get; set; }
+    [Parameter] public bool IsEdit { get; set; }
+
+    private bool isEdit => IsEdit;
+    private string title => isEdit ? "Edit Question" : "View Question";
+    private string closeText => isEdit ? "Cancel" : "Close";
+
+    private QuestionDto? question;
+    private List<TagDto> availableTags = new();
+    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var loadQuestionTask = QuestionsClient.GetQuestionAsync(QuestionId);
+            var loadTagsTask = AdminClient.GetTagsAsync();
+            await Task.WhenAll(loadQuestionTask, loadTagsTask);
+
+            question = loadQuestionTask.Result;
+            availableTags = loadTagsTask.Result;
+
+            if (question == null)
+            {
+                error = "Question not found (null response).";
+                return;
+            }
+
+            selectedTagIds = question.Tags.Select(t => t.Id);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+
+    private void AddAnswer()
+    {
+        question?.Answers.Add(new QuestionAnswerDto { AnswerText = "", IsPrimary = false, IsActive = true });
+    }
+
+    private void RemoveAnswer(int index)
+    {
+        if (question?.Answers.Count > 1)
+        {
+            question.Answers.RemoveAt(index);
+        }
+    }
+
+    private async Task Save()
+    {
+        if (question == null) return;
+        isSaving = true;
+        error = null;
+        try
+        {
+            var request = new UpdateQuestionFullRequest
+            {
+                Title = question.Title,
+                PromptText = question.PromptText,
+                Difficulty = question.Difficulty,
+                MediaUrl = question.MediaUrl,
+                TagIds = selectedTagIds.ToList(),
+                Answers = question.Answers.Select(a => new UpdateAnswerRequest
+                {
+                    Id = a.Id == Guid.Empty ? null : a.Id,
+                    AnswerText = a.AnswerText,
+                    IsPrimary = a.IsPrimary,
+                    AllowFuzzyMatch = a.AllowFuzzyMatch,
+                    MaxEditDistance = a.MaxEditDistance,
+                    MinConfidence = a.MinConfidence,
+                    Aliases = a.Aliases.Select(al => new UpdateAliasRequest
+                    {
+                        Id = al.Id == Guid.Empty ? null : al.Id,
+                        AliasText = al.AliasText,
+                        Kind = al.Kind
+                    }).ToList()
+                }).ToList()
+            };
+
+            var updated = await QuestionsClient.UpdateQuestionAsync(question.Id, request);
+            if (updated == null)
+            {
+                error = "Save failed (null response).";
+                return;
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}
+

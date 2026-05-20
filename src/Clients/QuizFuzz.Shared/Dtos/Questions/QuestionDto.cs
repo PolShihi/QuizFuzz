@@ -14,6 +14,7 @@ public class QuestionDto
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public List<QuestionAnswerDto> Answers { get; set; } = new();
+    public int AnswersCount { get; set; }
     public List<HintDto> Hints { get; set; } = new();
     public List<TagDto> Tags { get; set; } = new();
     public string? MediaUrl { get; set; }

@@ -1,10 +1,12 @@
 ﻿@page "/admin/moderation"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Moderation
+@using MudBlazor
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Moderator,Admin")]
 @inject IModerationApiClient ModerationClient
 @inject NavigationManager Navigation
+@inject IDialogService DialogService
 
 <PageTitle>Moderation Queue - QuizFuzz</PageTitle>
 
@@ -125,75 +127,11 @@
     }
 </MudContainer>
 
-<!-- Review Dialog -->
-<MudDialog @bind-IsVisible="@showReviewDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true })">
-    <TitleContent>
-        <MudText Typo="Typo.h6">Review Question</MudText>
-    </TitleContent>
-    <DialogContent>
-        @if (selectedQuestion != null)
-        {
-            <MudStack Spacing="3">
-                <MudTextField Label="Title" @bind-Value="selectedQuestion.Title" ReadOnly="true" Variant="Variant.Outlined" />
-                <MudTextField Label="Question Text" 
-                              @bind-Value="selectedQuestion.PromptText" 
-                              Lines="3" 
-                              ReadOnly="true" 
-                              Variant="Variant.Outlined" />
-                
-                <MudText Typo="Typo.h6">Answers</MudText>
-                @foreach (var answer in selectedQuestion.Answers)
-                {
-                    <MudPaper Elevation="1" Class="pa-3">
-                        <MudStack Spacing="2">
-                            <MudStack Row="true" AlignItems="AlignItems.Center">
-                                <MudText><strong>@answer.AnswerText</strong></MudText>
-                                @if (answer.IsPrimary)
-                                {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">Primary</MudChip>
-                                }
-                            </MudStack>
-                            @if (answer.Aliases?.Any() == true)
-                            {
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Aliases: @string.Join(", ", answer.Aliases.Select(a => a.AliasText))
-                                </MudText>
-                            }
-                        </MudStack>
-                    </MudPaper>
-                }
-
-                <MudTextField Label="Comment (optional)"
-                              @bind-Value="moderationComment"
-                              Lines="2"
-                              Variant="Variant.Outlined" />
-            </MudStack>
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="@(() => showReviewDialog = false)">Cancel</MudButton>
-        <MudButton Color="Color.Error"
-                   Variant="Variant.Filled"
-                   OnClick="@(async () => await HandleReject())">
-            Reject
-        </MudButton>
-        <MudButton Color="Color.Success"
-                   Variant="Variant.Filled"
-                   OnClick="@(async () => await HandleApprove())">
-            Approve
-        </MudButton>
-    </DialogActions>
-</MudDialog>
-
 @code {
     private List<ModerationQueueDto> queue = new();
-    private ModerationQuestionDetailsDto? selectedQuestion;
-    private ModerationQueueDto? selectedQueueItem;
     private bool isLoading = true;
-    private bool showReviewDialog = false;
     private string? selectedStatus = "UnderReview";
     private int pendingCount = 0;
-    private string moderationComment = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -216,10 +154,20 @@
 
     private async Task ReviewQuestion(ModerationQueueDto item)
     {
-        selectedQueueItem = item;
-        selectedQuestion = await ModerationClient.GetQuestionForModerationAsync(item.QuestionId);
-        moderationComment = string.Empty;
-        showReviewDialog = true;
+        var parameters = new DialogParameters
+        {
+            ["QuestionId"] = item.QuestionId,
+            ["CurrentStatus"] = item.Status
+        };
+
+        var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
+        var dialog = DialogService.Show<ReviewQuestionDialog>("Review Question", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            await LoadQueue();
+        }
     }
 
     private async Task QuickApprove(ModerationQueueDto item)
@@ -249,45 +197,6 @@
         var success = await ModerationClient.RejectAsync(request);
         if (success)
         {
-            await LoadQueue();
-        }
-    }
-
-    private async Task HandleApprove()
-    {
-        if (selectedQueueItem == null) return;
-
-        var request = new ModerationActionRequest
-        {
-            QueueId = selectedQueueItem.Id,
-            Action = "APPROVE",
-            Comment = moderationComment
-        };
-
-        var success = await ModerationClient.ApproveAsync(request);
-        if (success)
-        {
-            showReviewDialog = false;
-            await LoadQueue();
-        }
-    }
-
-    private async Task HandleReject()
-    {
-        if (selectedQueueItem == null) return;
-
-        var request = new ModerationActionRequest
-        {
-            QueueId = selectedQueueItem.Id,
-            Action = "REJECT",
-            Comment = moderationComment,
-            Reason = string.IsNullOrEmpty(moderationComment) ? "Rejected by moderator" : moderationComment
-        };
-
-        var success = await ModerationClient.RejectAsync(request);
-        if (success)
-        {
-            showReviewDialog = false;
             await LoadQueue();
         }
     }
