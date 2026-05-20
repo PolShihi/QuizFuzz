@@ -232,6 +232,7 @@ public class ModerationController : ControllerBase
                 })
                 .ToList(),
             TagIds = request.TagIds,
+            MediaUrl = request.MediaUrl,
             Title = request.Title,
             Explanation = request.Explanation
         };
@@ -287,6 +288,8 @@ public class ModerationController : ControllerBase
         var questionWithAliases = await _unitOfWork.Questions.GetWithAllDetailsAsync(questionId, HttpContext.RequestAborted);
         if (questionWithAliases != null)
         {
+            dto.MediaUrl = questionWithAliases.MediaAssets.FirstOrDefault()?.Url;
+
             dto.Answers = questionWithAliases.Answers.Select(a => new ModerationAnswerDto
             {
                 Id = a.Id,
@@ -344,6 +347,7 @@ public record SuggestQuestionRequest
     public QuizFuzz.Domain.Enums.Difficulty Difficulty { get; init; }
     public List<AnswerWithFuzzySettings> CorrectAnswers { get; init; } = new();
     public List<Guid> TagIds { get; init; } = new();
+    public string? MediaUrl { get; init; }
     public string? Title { get; init; }
     public string? Explanation { get; init; }
 }

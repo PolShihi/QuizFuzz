@@ -13,13 +13,13 @@ public class MediaController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
 
     public MediaController(
-        ILogger<MediaController> _logger,
+        ILogger<MediaController> logger,
         IWebHostEnvironment environment,
         IUnitOfWork unitOfWork)
     {
-        _logger = _logger;
-        _environment = environment;
-        _unitOfWork = unitOfWork;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _environment = environment ?? throw new ArgumentNullException(nameof(environment));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
     }
 
     /// <summary>
@@ -32,7 +32,6 @@ public class MediaController : ControllerBase
         try
         {
             _logger.LogInformation("📤 [UploadImage] Starting image upload...");
-            _logger.LogInformation("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
             // Валидация
             if (file == null || file.Length == 0)
@@ -40,6 +39,8 @@ public class MediaController : ControllerBase
                 _logger.LogWarning("❌ [UploadImage] File is empty");
                 return BadRequest("File is empty");
             }
+
+            _logger.LogInformation("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
             // Проверка типа файла
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
@@ -59,7 +60,8 @@ public class MediaController : ControllerBase
             }
 
             // Создаем папку uploads если не существует
-            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads", "images");
+            var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var uploadsPath = Path.Combine(webRootPath, "uploads", "images");
             if (!Directory.Exists(uploadsPath))
             {
                 Directory.CreateDirectory(uploadsPath);
@@ -103,7 +105,6 @@ public class MediaController : ControllerBase
         try
         {
             _logger.LogInformation("📤 [UploadAudio] Starting audio upload...");
-            _logger.LogInformation("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
             // Валидация
             if (file == null || file.Length == 0)
@@ -111,6 +112,8 @@ public class MediaController : ControllerBase
                 _logger.LogWarning("❌ [UploadAudio] File is empty");
                 return BadRequest("File is empty");
             }
+
+            _logger.LogInformation("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
             // Проверка типа файла
             var allowedExtensions = new[] { ".mp3", ".wav", ".ogg", ".m4a" };
@@ -130,7 +133,8 @@ public class MediaController : ControllerBase
             }
 
             // Создаем папку uploads если не существует
-            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads", "audio");
+            var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var uploadsPath = Path.Combine(webRootPath, "uploads", "audio");
             if (!Directory.Exists(uploadsPath))
             {
                 Directory.CreateDirectory(uploadsPath);
@@ -175,7 +179,8 @@ public class MediaController : ControllerBase
         {
             _logger.LogInformation("🗑️ [DeleteMedia] Deleting {Type}: {FileName}", type, fileName);
 
-            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads", type == "audio" ? "audio" : "images");
+            var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var uploadsPath = Path.Combine(webRootPath, "uploads", type == "audio" ? "audio" : "images");
             var filePath = Path.Combine(uploadsPath, fileName);
 
             if (!System.IO.File.Exists(filePath))

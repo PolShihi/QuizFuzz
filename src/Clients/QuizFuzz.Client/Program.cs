@@ -119,4 +119,15 @@ builder.Services.AddScoped<ITagsApiClient>(sp =>
     return new TagsApiClient(httpClient, sp.GetRequiredService<ILogger<TagsApiClient>>());
 });
 
+builder.Services.AddScoped<IMediaApiClient>(sp =>
+{
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new MediaApiClient(httpClient, sp.GetRequiredService<ILogger<MediaApiClient>>());
+});
+
 await builder.Build().RunAsync();

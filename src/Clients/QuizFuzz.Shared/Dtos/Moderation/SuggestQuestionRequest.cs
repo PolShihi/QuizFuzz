@@ -10,6 +10,7 @@ public class SuggestQuestionRequest
     public Difficulty Difficulty { get; set; }
     public List<AnswerWithSettings> CorrectAnswers { get; set; } = new();
     public List<Guid> TagIds { get; set; } = new();
+    public string? MediaUrl { get; set; }
     public string? Explanation { get; set; }
 }
 

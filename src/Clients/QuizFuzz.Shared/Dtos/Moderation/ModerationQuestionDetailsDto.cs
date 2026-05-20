@@ -8,6 +8,7 @@ public class ModerationQuestionDetailsDto
     public string Type { get; set; } = string.Empty;
     public string Difficulty { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string? MediaUrl { get; set; }
 
     public Guid AuthorUserId { get; set; }
     public string AuthorUsername { get; set; } = string.Empty;

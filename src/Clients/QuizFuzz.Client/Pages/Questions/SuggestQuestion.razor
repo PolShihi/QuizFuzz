@@ -3,10 +3,12 @@
 @using QuizFuzz.Shared.Dtos.Questions
 @using QuizFuzz.Shared.Dtos.Moderation
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using QuizFuzz.Shared.Enums
 @attribute [Authorize]
 @inject IQuestionsApiClient QuestionsClient
 @inject ITagsApiClient TagsClient
+@inject IMediaApiClient MediaClient
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject ILogger<SuggestQuestion> Logger
@@ -52,13 +54,15 @@
 
                 <!-- Type -->
                 <MudItem xs="12" sm="6">
-                    <MudSelect @bind-Value="questionType"
+                    <MudSelect T="string"
+                               Value="@questionType"
+                               ValueChanged="@OnQuestionTypeChanged"
                                Label="Question Type"
                                Variant="Variant.Outlined"
                                Required="true">
-                        <MudSelectItem Value="@("Text")">Text</MudSelectItem>
-                        <MudSelectItem Value="@("Image")">Image</MudSelectItem>
-                        <MudSelectItem Value="@("Audio")">Audio</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Text")">Text</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Image")">Image</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Audio")">Audio</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
@@ -74,6 +78,63 @@
                         <MudSelectItem Value="@("Expert")">Expert</MudSelectItem>
                     </MudSelect>
                 </MudItem>
+
+                @if (RequiresMedia)
+                {
+                    <MudItem xs="12">
+                        <MudPaper Class="pa-4" Outlined="true">
+                            <MudStack Spacing="2">
+                                <MudText Typo="Typo.h6">
+                                    <MudIcon Icon="@MediaIcon" Class="mr-2" />
+                                    @(questionType == "Image" ? "Image file" : "Audio file")
+                                </MudText>
+
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                    @(questionType == "Image"
+                                        ? "Upload JPG, PNG, GIF or WEBP up to 10 MB."
+                                        : "Upload MP3, WAV, OGG or M4A up to 20 MB.")
+                                </MudText>
+
+                                <InputFile OnChange="OnMediaFileSelected" accept="@MediaAccept" />
+
+                                @if (selectedMediaFile is not null)
+                                {
+                                    <MudText Typo="Typo.caption">
+                                        Selected: @selectedMediaFile.Name (@FormatFileSize(selectedMediaFile.Size))
+                                    </MudText>
+                                }
+
+                                @if (isUploadingMedia)
+                                {
+                                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                                    <MudText Typo="Typo.caption">Uploading media...</MudText>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(mediaUploadError))
+                                {
+                                    <MudAlert Severity="Severity.Error" Dense="true">@mediaUploadError</MudAlert>
+                                }
+
+                                @if (!string.IsNullOrWhiteSpace(uploadedMediaUrl))
+                                {
+                                    <MudAlert Severity="Severity.Success" Dense="true">Media uploaded successfully.</MudAlert>
+
+                                    @if (questionType == "Image")
+                                    {
+                                        <MudImage Src="@uploadedMediaUrl" Alt="Uploaded question image preview" Class="rounded-lg" Style="max-height: 240px; max-width: 100%; object-fit: contain;" />
+                                    }
+                                    else if (questionType == "Audio")
+                                    {
+                                        <audio controls style="width: 100%;">
+                                            <source src="@uploadedMediaUrl" />
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                    }
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
 
                 <!-- Correct Answers -->
                 <MudItem xs="12">
@@ -100,10 +161,9 @@
                             <MudPaper Class="pa-3 mt-2" Outlined="true">
                                 <MudText Typo="Typo.subtitle2" Class="mb-2">⚙️ Fuzzy Matching Settings</MudText>
                                 <MudStack Spacing="2">
-                                    <MudSwitch T="bool" 
-                                               Checked="@answer.AllowFuzzyMatch" 
-                                               CheckedChanged="@((bool val) => { answer.AllowFuzzyMatch = val; StateHasChanged(); })"
-                                               Color="Color.Primary" 
+                                    <MudSwitch T="bool"
+                                               @bind-Value="answer.AllowFuzzyMatch"
+                                               Color="Color.Primary"
                                                Label="Enable Fuzzy Matching" />
                                     
                                     @if (answer.AllowFuzzyMatch)
@@ -113,10 +173,9 @@
                                                 Min Confidence: @answer.MinConfidence.ToString("P0")
                                             </MudText>
                                             <MudSlider T="double"
-                                                       Value="@answer.MinConfidence" 
-                                                       ValueChanged="@((double val) => { answer.MinConfidence = val; StateHasChanged(); })"
-                                                       Min="0.0" 
-                                                       Max="1.0" 
+                                                       @bind-Value="answer.MinConfidence"
+                                                       Min="0.0"
+                                                       Max="1.0"
                                                        Step="0.05"
                                                        Color="Color.Info" />
                                             
@@ -140,14 +199,17 @@
 
                 <!-- Tags -->
                 <MudItem xs="12">
-                    <MudSelect @bind-SelectedValues="selectedTagIds"
+                    <MudSelect T="string"
+                               @bind-SelectedValues="selectedTagIds"
                                Label="Tags"
                                Variant="Variant.Outlined"
                                MultiSelection="true"
+                               ToStringFunc="@GetTagName"
+                               MultiSelectionTextFunc="@GetSelectedTagsText"
                                HelperText="Select relevant tags for your question">
                         @foreach (var tag in availableTags)
                         {
-                            <MudSelectItem Value="@tag.Id">@tag.Name</MudSelectItem>
+                            <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
@@ -236,10 +298,22 @@
     private string explanation = string.Empty;
     private string suggestedTagName = string.Empty;
     private string suggestedTagDescription = string.Empty;
+    private IBrowserFile? selectedMediaFile;
+    private string? uploadedMediaUrl;
+    private string? mediaUploadError;
 
+    private bool isUploadingMedia;
     private List<AnswerItem> correctAnswers = new() { new AnswerItem() };
-    private IEnumerable<Guid> selectedTagIds = new List<Guid>();
+    private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private List<QuizFuzz.Shared.Dtos.Questions.TagDto> availableTags = new();
+
+    private bool RequiresMedia => questionType is "Image" or "Audio";
+    private string MediaAccept => questionType == "Image"
+        ? ".jpg,.jpeg,.png,.gif,.webp,image/*"
+        : ".mp3,.wav,.ogg,.m4a,audio/*";
+    private string MediaIcon => questionType == "Image"
+        ? Icons.Material.Filled.Image
+        : Icons.Material.Filled.AudioFile;
 
     private class AnswerItem
     {
@@ -267,6 +341,92 @@
             Logger.LogError(ex, "❌ [SuggestQuestion] Error loading tags");
             Snackbar.Add($"Error loading tags: {ex.Message}", Severity.Error);
         }
+    }
+
+    private Task OnQuestionTypeChanged(string value)
+    {
+        if (questionType != value)
+        {
+            questionType = value;
+            selectedMediaFile = null;
+            uploadedMediaUrl = null;
+            mediaUploadError = null;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnMediaFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedMediaFile = e.File;
+        uploadedMediaUrl = null;
+        mediaUploadError = null;
+
+        if (selectedMediaFile is null)
+            return;
+
+        var maxSize = questionType == "Image" ? 10 * 1024 * 1024L : 20 * 1024 * 1024L;
+        if (selectedMediaFile.Size > maxSize)
+        {
+            mediaUploadError = questionType == "Image"
+                ? "Image file size must not exceed 10 MB."
+                : "Audio file size must not exceed 20 MB.";
+            Snackbar.Add(mediaUploadError, Severity.Error);
+            return;
+        }
+
+        try
+        {
+            isUploadingMedia = true;
+            var result = questionType == "Image"
+                ? await MediaClient.UploadImageAsync(selectedMediaFile)
+                : await MediaClient.UploadAudioAsync(selectedMediaFile);
+
+            if (result is null || string.IsNullOrWhiteSpace(result.Url))
+            {
+                mediaUploadError = "Media upload failed. Please try another file.";
+                Snackbar.Add(mediaUploadError, Severity.Error);
+                return;
+            }
+
+            uploadedMediaUrl = result.Url;
+            Snackbar.Add("Media uploaded successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ [SuggestQuestion] Error uploading media");
+            mediaUploadError = $"Media upload failed: {ex.Message}";
+            Snackbar.Add(mediaUploadError, Severity.Error);
+        }
+        finally
+        {
+            isUploadingMedia = false;
+        }
+    }
+
+    private string GetTagName(string? tagId)
+    {
+        if (string.IsNullOrWhiteSpace(tagId))
+            return string.Empty;
+
+        var tag = availableTags.FirstOrDefault(t => t.Id.ToString() == tagId);
+        return tag?.Name ?? tagId;
+    }
+
+    private string GetSelectedTagsText(List<string> selectedValues)
+    {
+        if (selectedValues.Count == 0)
+            return string.Empty;
+
+        return string.Join(", ", selectedValues.Select(GetTagName));
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes >= 1024 * 1024)
+            return $"{bytes / 1024d / 1024d:0.##} MB";
+
+        return $"{bytes / 1024d:0.##} KB";
     }
 
     private string GetConfidenceDescription(double confidence)
@@ -354,6 +514,14 @@
             return;
         }
 
+        if (RequiresMedia && string.IsNullOrWhiteSpace(uploadedMediaUrl))
+        {
+            Snackbar.Add(questionType == "Image"
+                ? "Please upload an image file for this question."
+                : "Please upload an audio file for this question.", Severity.Warning);
+            return;
+        }
+
         isSubmitting = true;
 
         try
@@ -376,7 +544,11 @@
                         MinConfidence = a.MinConfidence
                     })
                     .ToList(),
-                TagIds = selectedTagIds.ToList(),
+                TagIds = selectedTagIds
+                    .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+                    .Where(id => id != Guid.Empty)
+                    .ToList(),
+                MediaUrl = RequiresMedia ? uploadedMediaUrl : null,
                 Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation
             };
 

@@ -19,6 +19,7 @@ public record SubmitQuestionSuggestionCommand : IRequest<SubmitQuestionSuggestio
     public DomainDifficulty Difficulty { get; init; }
     public List<AnswerWithFuzzySettings> CorrectAnswers { get; init; } = new();
     public List<Guid> TagIds { get; init; } = new();
+    public string? MediaUrl { get; init; }
     public string? Title { get; init; }
     public string? Explanation { get; init; }
 }
@@ -163,6 +164,23 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                             question.Id, tag.Id, tag.Name);
                     }
                 }
+            }
+
+
+            // Добавляем медиа-файл для IMAGE/AUDIO вопросов, если пользователь загрузил его на клиенте.
+            if (!string.IsNullOrWhiteSpace(request.MediaUrl))
+            {
+                var mediaType = request.Type switch
+                {
+                    DomainQuestionType.Image => "IMAGE",
+                    DomainQuestionType.Audio => "AUDIO",
+                    _ => "OTHER"
+                };
+
+                question.AddMediaAsset(mediaType, request.MediaUrl, "FileSystem");
+                _logger.LogInformation(
+                    "Added media asset to suggested question. QuestionId: {QuestionId}, MediaType: {MediaType}, Url: {MediaUrl}",
+                    question.Id, mediaType, request.MediaUrl);
             }
 
             // Теперь устанавливаем статус "На рассмотрении" после добавления ответов
