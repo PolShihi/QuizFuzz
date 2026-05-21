@@ -15,7 +15,7 @@ public class QuestionAnswer : BaseEntity
     public string LanguageCode { get; private set; }
     public bool IsActive { get; private set; }
     
-    // 🔥 НОВОЕ: Настройки fuzzy matching для этого ответа
+    //  НОВОЕ: Настройки fuzzy matching для этого ответа
     /// <summary>
     /// Разрешено ли использовать fuzzy matching для этого ответа
     /// </summary>

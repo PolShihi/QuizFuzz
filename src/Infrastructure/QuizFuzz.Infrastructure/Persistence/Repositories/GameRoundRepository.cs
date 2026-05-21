@@ -13,7 +13,6 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
 
     public async Task<GameRound?> GetWithDetailsAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"🔍 [GameRoundRepo] GetWithDetailsAsync - RoundId: {id}");
         
         var round = await _dbSet
             .Include(gr => gr.Question)
@@ -22,7 +21,7 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
             .Include(gr => gr.Question)
                 .ThenInclude(q => q.Hints)
             .Include(gr => gr.Question)
-                .ThenInclude(q => q.MediaAssets) // 🔥 КРИТИЧНО: загружаем MediaAssets!
+                .ThenInclude(q => q.MediaAssets) //  КРИТИЧНО: загружаем MediaAssets!
             .Include(gr => gr.Answers)
                 .ThenInclude(a => a.User)
             .Include(gr => gr.Answers)
@@ -32,7 +31,6 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
             
         if (round != null)
         {
-            Console.WriteLine($"✅ [GameRoundRepo] Round found with {round.Question.MediaAssets.Count} MediaAssets");
         }
         
         return round;
@@ -53,7 +51,6 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
         Guid sessionId,
         CancellationToken cancellationToken = default)
     {
-        Console.WriteLine($"🔍 [GameRoundRepo] GetActiveRoundBySessionIdAsync - SessionId: {sessionId}");
         
         var round = await _dbSet
             .Include(gr => gr.Question)
@@ -62,33 +59,26 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
             .Include(gr => gr.Question)
                 .ThenInclude(q => q.Hints)
             .Include(gr => gr.Question)
-                .ThenInclude(q => q.MediaAssets) // 🔥 КРИТИЧНО: загружаем MediaAssets!
+                .ThenInclude(q => q.MediaAssets) //  КРИТИЧНО: загружаем MediaAssets!
             .FirstOrDefaultAsync(
                 gr => gr.SessionId == sessionId && gr.Status == RoundStatus.Active,
                 cancellationToken);
                 
         if (round != null)
         {
-            Console.WriteLine($"✅ [GameRoundRepo] Active round found: {round.Id}");
-            Console.WriteLine($"   📝 Question: {round.Question.PromptText}");
-            Console.WriteLine($"   🎯 Type: {round.Question.Type}");
-            Console.WriteLine($"   📎 MediaAssets count: {round.Question.MediaAssets.Count}");
             
             if (round.Question.MediaAssets.Any())
             {
                 foreach (var media in round.Question.MediaAssets)
                 {
-                    Console.WriteLine($"      🔗 {media.MediaType}: {media.Url}");
                 }
             }
             else
             {
-                Console.WriteLine($"   ⚠️ No MediaAssets for this question");
             }
         }
         else
         {
-            Console.WriteLine($"❌ [GameRoundRepo] No active round found for session {sessionId}");
         }
         
         return round;

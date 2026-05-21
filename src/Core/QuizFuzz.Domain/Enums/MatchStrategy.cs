@@ -9,8 +9,8 @@ public enum MatchStrategy
     Alias = 2,
     EditDistance = 3,
     Token = 4,
-    Transliteration = 5, // 🔥 НОВОЕ: Транслитерация + Levenshtein
-    Phonetic = 6,        // 🔥 ОБНОВЛЕНО: Фонетическое (Soundex + Metaphone)
+    Transliteration = 5, //  НОВОЕ: Транслитерация + Levenshtein
+    Phonetic = 6,        //  ОБНОВЛЕНО: Фонетическое (Soundex + Metaphone)
     Semantic = 7,
     Rejected = 8
 }

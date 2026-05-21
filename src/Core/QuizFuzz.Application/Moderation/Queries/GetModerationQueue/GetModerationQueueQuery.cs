@@ -66,7 +66,7 @@ public class GetModerationQueueQueryHandler : IRequestHandler<GetModerationQueue
         GetModerationQueueQuery request, 
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Fetching moderation queue. Status: {Status}, Limit: {Limit}",
             request.Status?.ToString() ?? "All", request.Limit ?? 100);
 
@@ -86,7 +86,7 @@ public class GetModerationQueueQueryHandler : IRequestHandler<GetModerationQueue
             var users = await _unitOfWork.Users.GetAllAsync(cancellationToken);
             var userDict = users.ToDictionary(u => u.Id, u => u.Username);
 
-            _logger.LogTrace(
+            _logger.LogDebug(
                 "Retrieved {Count} users for username resolution",
                 users.Count);
 
@@ -106,7 +106,7 @@ public class GetModerationQueueQueryHandler : IRequestHandler<GetModerationQueue
                     g => g.Key,
                     g => g.OrderByDescending(ma => ma.ActionDate).First());
 
-            _logger.LogTrace(
+            _logger.LogDebug(
                 "Retrieved moderation history for {Count} questions",
                 latestActionsByQuestion.Count);
 
@@ -162,7 +162,7 @@ public class GetModerationQueueQueryHandler : IRequestHandler<GetModerationQueue
                 items = items.Take(request.Limit.Value).ToList();
             }
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Moderation queue fetched successfully. Total items: {Count}",
                 items.Count);
 
@@ -175,7 +175,7 @@ public class GetModerationQueueQueryHandler : IRequestHandler<GetModerationQueue
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
+            _logger.LogDebug(ex,
                 "Error fetching moderation queue. Status: {Status}",
                 request.Status?.ToString() ?? "All");
 

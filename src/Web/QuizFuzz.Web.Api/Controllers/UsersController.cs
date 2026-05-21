@@ -189,13 +189,13 @@ public class UsersController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("User {UserId} updated profile", userId);
+            _logger.LogDebug("User {UserId} updated profile", userId);
 
             return Ok(new { message = "Profile updated successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating user profile {UserId}", userId);
+            _logger.LogDebug(ex, "Error updating user profile {UserId}", userId);
             return BadRequest(ex.Message);
         }
     }

@@ -128,53 +128,44 @@ public class QuestionRepository : BaseRepository<Question>, IQuestionRepository
             .Include(q => q.Answers)
                 .ThenInclude(a => a.Aliases)
             .Include(q => q.Hints)
-            .Include(q => q.MediaAssets)  // 🔥 КРИТИЧНО: загружаем MediaAssets для IMAGE/AUDIO!
+            .Include(q => q.MediaAssets)  //  КРИТИЧНО: загружаем MediaAssets для IMAGE/AUDIO!
             .Include(q => q.Tags)
                 .ThenInclude(qt => qt.Tag)
             .Where(q => q.Status == QuestionStatus.Approved);
 
         // Логируем начальное количество вопросов
         var totalApproved = await _dbSet.CountAsync(q => q.Status == QuestionStatus.Approved, cancellationToken);
-        Console.WriteLine($"🔍 [QuestionRepo] Total approved questions: {totalApproved}");
 
         // Фильтр по тегам (OR логика - хотя бы один тег совпадает)
         if (tagIds != null && tagIds.Any())
         {
             var tagIdsList = tagIds.ToList();
-            Console.WriteLine($"🏷️ [QuestionRepo] Filtering by {tagIdsList.Count} tags:");
             foreach (var tagId in tagIdsList)
             {
-                Console.WriteLine($"   📌 Tag ID: {tagId}");
             }
             
             query = query.Where(q => q.Tags.Any(qt => tagIdsList.Contains(qt.TagId)));
             
             var countWithTags = await query.CountAsync(cancellationToken);
-            Console.WriteLine($"✅ [QuestionRepo] Questions matching tags: {countWithTags}");
         }
         else
         {
-            Console.WriteLine($"🏷️ [QuestionRepo] No tag filter applied (all tags)");
         }
 
         // Фильтр по сложности (OR логика - хотя бы одна сложность совпадает)
         if (difficulties != null && difficulties.Any())
         {
             var difficultiesList = difficulties.ToList();
-            Console.WriteLine($"📊 [QuestionRepo] Filtering by {difficultiesList.Count} difficulties:");
             foreach (var diff in difficultiesList)
             {
-                Console.WriteLine($"   🎯 {diff}");
             }
             
             query = query.Where(q => difficultiesList.Contains(q.Difficulty));
             
             var countWithDifficulty = await query.CountAsync(cancellationToken);
-            Console.WriteLine($"✅ [QuestionRepo] Questions matching difficulty: {countWithDifficulty}");
         }
         else
         {
-            Console.WriteLine($"📊 [QuestionRepo] No difficulty filter applied (all difficulties)");
         }
 
         // Случайный выбор
@@ -184,27 +175,18 @@ public class QuestionRepository : BaseRepository<Question>, IQuestionRepository
             
         if (result != null)
         {
-            Console.WriteLine($"✅ [QuestionRepo] Question selected: {result.Id}");
-            Console.WriteLine($"   📝 Text: {result.PromptText}");
-            Console.WriteLine($"   📊 Difficulty: {result.Difficulty}");
-            Console.WriteLine($"   🎯 Type: {result.Type}");
-            Console.WriteLine($"   📎 MediaAssets: {result.MediaAssets.Count}");
             if (result.MediaAssets.Any())
             {
                 foreach (var media in result.MediaAssets)
                 {
-                    Console.WriteLine($"      🔗 {media.MediaType}: {media.Url}");
                 }
             }
-            Console.WriteLine($"   🏷️ Tags ({result.Tags.Count}):");
             foreach (var qt in result.Tags)
             {
-                Console.WriteLine($"      • {qt.Tag?.Name ?? "Unknown"} (ID: {qt.TagId})");
             }
         }
         else
         {
-            Console.WriteLine($"❌ [QuestionRepo] NO question found with current filters!");
         }
         
         return result;

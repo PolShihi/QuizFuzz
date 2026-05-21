@@ -31,16 +31,16 @@ public class MediaController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("📤 [UploadImage] Starting image upload...");
+            _logger.LogDebug(" [UploadImage] Starting image upload...");
 
             // Валидация
             if (file == null || file.Length == 0)
             {
-                _logger.LogWarning("❌ [UploadImage] File is empty");
+                _logger.LogDebug(" [UploadImage] File is empty");
                 return BadRequest("File is empty");
             }
 
-            _logger.LogInformation("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
+            _logger.LogDebug("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
             // Проверка типа файла
             var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
@@ -48,14 +48,14 @@ public class MediaController : ControllerBase
             
             if (!allowedExtensions.Contains(extension))
             {
-                _logger.LogWarning("❌ [UploadImage] Invalid file type: {Extension}", extension);
+                _logger.LogDebug(" [UploadImage] Invalid file type: {Extension}", extension);
                 return BadRequest($"Invalid file type. Allowed: {string.Join(", ", allowedExtensions)}");
             }
 
             // Проверка размера (макс 10 МБ)
             if (file.Length > 10 * 1024 * 1024)
             {
-                _logger.LogWarning("❌ [UploadImage] File too large: {Size} bytes", file.Length);
+                _logger.LogDebug(" [UploadImage] File too large: {Size} bytes", file.Length);
                 return BadRequest("File size exceeds 10 MB");
             }
 
@@ -65,14 +65,14 @@ public class MediaController : ControllerBase
             if (!Directory.Exists(uploadsPath))
             {
                 Directory.CreateDirectory(uploadsPath);
-                _logger.LogInformation("📁 [UploadImage] Created directory: {Path}", uploadsPath);
+                _logger.LogDebug(" [UploadImage] Created directory: {Path}", uploadsPath);
             }
 
             // Генерируем уникальное имя файла
             var fileName = $"{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(uploadsPath, fileName);
 
-            _logger.LogInformation("💾 [UploadImage] Saving to: {FilePath}", filePath);
+            _logger.LogDebug(" [UploadImage] Saving to: {FilePath}", filePath);
 
             // Сохраняем файл
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -85,15 +85,15 @@ public class MediaController : ControllerBase
             var relativeUrl = $"/uploads/images/{fileName}";
             var url = BuildPublicUrl(relativeUrl);
             
-            _logger.LogInformation("✅ [UploadImage] Image uploaded successfully");
-            _logger.LogInformation("   Relative URL: {RelativeUrl}", relativeUrl);
-            _logger.LogInformation("   Public URL: {Url}", url);
+            _logger.LogDebug(" [UploadImage] Image uploaded successfully");
+            _logger.LogDebug("   Relative URL: {RelativeUrl}", relativeUrl);
+            _logger.LogDebug("   Public URL: {Url}", url);
 
             return Ok(new { url, relativeUrl, fileName, size = file.Length });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [UploadImage] Error uploading image");
+            _logger.LogDebug(ex, " [UploadImage] Error uploading image");
             return StatusCode(500, "Error uploading image");
         }
     }
@@ -107,16 +107,16 @@ public class MediaController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("📤 [UploadAudio] Starting audio upload...");
+            _logger.LogDebug(" [UploadAudio] Starting audio upload...");
 
             // Валидация
             if (file == null || file.Length == 0)
             {
-                _logger.LogWarning("❌ [UploadAudio] File is empty");
+                _logger.LogDebug(" [UploadAudio] File is empty");
                 return BadRequest("File is empty");
             }
 
-            _logger.LogInformation("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
+            _logger.LogDebug("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
 
             // Проверка типа файла
             var allowedExtensions = new[] { ".mp3", ".wav", ".ogg", ".m4a" };
@@ -124,14 +124,14 @@ public class MediaController : ControllerBase
             
             if (!allowedExtensions.Contains(extension))
             {
-                _logger.LogWarning("❌ [UploadAudio] Invalid file type: {Extension}", extension);
+                _logger.LogDebug(" [UploadAudio] Invalid file type: {Extension}", extension);
                 return BadRequest($"Invalid file type. Allowed: {string.Join(", ", allowedExtensions)}");
             }
 
             // Проверка размера (макс 20 МБ)
             if (file.Length > 20 * 1024 * 1024)
             {
-                _logger.LogWarning("❌ [UploadAudio] File too large: {Size} bytes", file.Length);
+                _logger.LogDebug(" [UploadAudio] File too large: {Size} bytes", file.Length);
                 return BadRequest("File size exceeds 20 MB");
             }
 
@@ -141,14 +141,14 @@ public class MediaController : ControllerBase
             if (!Directory.Exists(uploadsPath))
             {
                 Directory.CreateDirectory(uploadsPath);
-                _logger.LogInformation("📁 [UploadAudio] Created directory: {Path}", uploadsPath);
+                _logger.LogDebug(" [UploadAudio] Created directory: {Path}", uploadsPath);
             }
 
             // Генерируем уникальное имя файла
             var fileName = $"{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(uploadsPath, fileName);
 
-            _logger.LogInformation("💾 [UploadAudio] Saving to: {FilePath}", filePath);
+            _logger.LogDebug(" [UploadAudio] Saving to: {FilePath}", filePath);
 
             // Сохраняем файл
             using (var stream = new FileStream(filePath, FileMode.Create))
@@ -161,15 +161,15 @@ public class MediaController : ControllerBase
             var relativeUrl = $"/uploads/audio/{fileName}";
             var url = BuildPublicUrl(relativeUrl);
             
-            _logger.LogInformation("✅ [UploadAudio] Audio uploaded successfully");
-            _logger.LogInformation("   Relative URL: {RelativeUrl}", relativeUrl);
-            _logger.LogInformation("   Public URL: {Url}", url);
+            _logger.LogDebug(" [UploadAudio] Audio uploaded successfully");
+            _logger.LogDebug("   Relative URL: {RelativeUrl}", relativeUrl);
+            _logger.LogDebug("   Public URL: {Url}", url);
 
             return Ok(new { url, relativeUrl, fileName, size = file.Length });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [UploadAudio] Error uploading audio");
+            _logger.LogDebug(ex, " [UploadAudio] Error uploading audio");
             return StatusCode(500, "Error uploading audio");
         }
     }
@@ -183,7 +183,7 @@ public class MediaController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("🗑️ [DeleteMedia] Deleting {Type}: {FileName}", type, fileName);
+            _logger.LogDebug(" [DeleteMedia] Deleting {Type}: {FileName}", type, fileName);
 
             var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
             var uploadsPath = Path.Combine(webRootPath, "uploads", type == "audio" ? "audio" : "images");
@@ -191,19 +191,19 @@ public class MediaController : ControllerBase
 
             if (!System.IO.File.Exists(filePath))
             {
-                _logger.LogWarning("❌ [DeleteMedia] File not found: {FilePath}", filePath);
+                _logger.LogDebug(" [DeleteMedia] File not found: {FilePath}", filePath);
                 return NotFound("File not found");
             }
 
             System.IO.File.Delete(filePath);
             
-            _logger.LogInformation("✅ [DeleteMedia] File deleted successfully");
+            _logger.LogDebug(" [DeleteMedia] File deleted successfully");
 
             return Ok(new { message = "File deleted successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [DeleteMedia] Error deleting media");
+            _logger.LogDebug(ex, " [DeleteMedia] Error deleting media");
             return StatusCode(500, "Error deleting media");
         }
     }

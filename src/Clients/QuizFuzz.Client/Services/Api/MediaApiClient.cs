@@ -46,7 +46,7 @@ public class MediaApiClient : IMediaApiClient
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
-                _logger.LogError("❌ [MediaApiClient] Upload failed. Endpoint: {Endpoint}, Status: {Status}, Error: {Error}",
+                _logger.LogDebug(" [MediaApiClient] Upload failed. Endpoint: {Endpoint}, Status: {Status}, Error: {Error}",
                     endpoint, response.StatusCode, error);
                 return null;
             }
@@ -61,7 +61,7 @@ public class MediaApiClient : IMediaApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [MediaApiClient] Error uploading media to {Endpoint}", endpoint);
+            _logger.LogDebug(ex, " [MediaApiClient] Error uploading media to {Endpoint}", endpoint);
             return null;
         }
     }

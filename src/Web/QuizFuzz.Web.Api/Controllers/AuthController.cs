@@ -77,7 +77,7 @@ public class AuthController : ControllerBase
             var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, email.Value, roles);
             var refreshToken = _tokenService.GenerateRefreshToken();
 
-            _logger.LogInformation("User {Username} registered successfully", request.Username);
+            _logger.LogDebug("User {Username} registered successfully", request.Username);
 
             return Ok(new AuthResponse
             {
@@ -152,7 +152,7 @@ public class AuthController : ControllerBase
         var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
-        _logger.LogInformation("User {Username} logged in successfully", user.Username);
+        _logger.LogDebug("User {Username} logged in successfully", user.Username);
 
         return Ok(new AuthResponse
         {
@@ -214,7 +214,7 @@ public class AuthController : ControllerBase
         var newAccessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
-        _logger.LogInformation("Tokens refreshed for user {UserId}", userId);
+        _logger.LogDebug("Tokens refreshed for user {UserId}", userId);
 
         return Ok(new
         {
@@ -233,7 +233,7 @@ public class AuthController : ControllerBase
     {
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         
-        _logger.LogInformation("User {UserId} logged out", userId);
+        _logger.LogDebug("User {UserId} logged out", userId);
 
         // В клиентском приложении нужно удалить токены
         // На сервере можно добавить токен в черный список (опционально)

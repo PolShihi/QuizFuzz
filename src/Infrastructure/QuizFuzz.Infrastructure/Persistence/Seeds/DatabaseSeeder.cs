@@ -27,26 +27,26 @@ public class DatabaseSeeder
 
     public async Task SeedAsync()
     {
-        _logger.LogInformation("Starting database seeding...");
+        _logger.LogDebug("Starting database seeding...");
 
         await SeedTagsAsync();
         await SeedAdminUserAsync();
         
-        // 🔥 ВАЖНО: Сохраняем Tags и Admin перед созданием вопросов
+        //  ВАЖНО: Сохраняем Tags и Admin перед созданием вопросов
         await _context.SaveChangesAsync();
         
         await SeedQuestionsAsync();
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Database seeding completed successfully!");
+        _logger.LogDebug("Database seeding completed successfully!");
     }
 
     private async Task SeedTagsAsync()
     {
         if (await _context.Tags.AnyAsync())
         {
-            _logger.LogInformation("Tags already exist, skipping...");
+            _logger.LogDebug("Tags already exist, skipping...");
             return;
         }
 
@@ -70,14 +70,14 @@ public class DatabaseSeeder
         };
 
         await _context.Tags.AddRangeAsync(tags);
-        _logger.LogInformation("Seeded {Count} tags", tags.Length);
+        _logger.LogDebug("Seeded {Count} tags", tags.Length);
     }
 
     private async Task SeedAdminUserAsync()
     {
         if (await _context.Users.AnyAsync())
         {
-            _logger.LogInformation("Users already exist, skipping admin creation...");
+            _logger.LogDebug("Users already exist, skipping admin creation...");
             return;
         }
 
@@ -89,15 +89,15 @@ public class DatabaseSeeder
         admin.AddRole(Domain.Enums.UserRole.Moderator);
 
         await _context.Users.AddAsync(admin);
-        _logger.LogInformation("Created admin user: admin@quizfuzz.com");
-        _logger.LogWarning("IMPORTANT: Default admin password is 'Admin123!' - CHANGE IT IMMEDIATELY!");
+        _logger.LogDebug("Created admin user: admin@quizfuzz.com");
+        _logger.LogDebug("IMPORTANT: Default admin password is 'Admin123!' - CHANGE IT IMMEDIATELY!");
     }
 
     private async Task SeedQuestionsAsync()
     {
         if (await _context.Questions.AnyAsync())
         {
-            _logger.LogInformation("Questions already exist, skipping...");
+            _logger.LogDebug("Questions already exist, skipping...");
             return;
         }
 
@@ -106,7 +106,7 @@ public class DatabaseSeeder
         
         if (adminUser == null)
         {
-            _logger.LogWarning("Admin user not found, cannot seed questions");
+            _logger.LogDebug("Admin user not found, cannot seed questions");
             return;
         }
 
@@ -368,25 +368,25 @@ public class DatabaseSeeder
             {
                 questionType = Domain.Enums.QuestionType.Image;
                 mediaUrl = "/uploads/seed/images/paris.svg"; // SVG placeholder
-                _logger.LogInformation("🖼️ Creating IMAGE question: {Text}", q.Text);
+                _logger.LogDebug(" Creating IMAGE question: {Text}", q.Text);
             }
             else if (questionIndex == totalQuestions - 3) // Эйфелева башня IMAGE
             {
                 questionType = Domain.Enums.QuestionType.Image;
                 mediaUrl = "/uploads/seed/images/eiffel-tower.svg"; // SVG placeholder
-                _logger.LogInformation("🖼️ Creating IMAGE question: {Text}", q.Text);
+                _logger.LogDebug(" Creating IMAGE question: {Text}", q.Text);
             }
             else if (questionIndex == totalQuestions - 2) // Фортепиано AUDIO
             {
                 questionType = Domain.Enums.QuestionType.Audio;
                 mediaUrl = "/uploads/seed/audio/piano-melody.html"; // HTML placeholder (заменить на реальный MP3)
-                _logger.LogInformation("🎵 Creating AUDIO question: {Text}", q.Text);
+                _logger.LogDebug(" Creating AUDIO question: {Text}", q.Text);
             }
             else if (questionIndex == totalQuestions - 1) // Гитара AUDIO
             {
                 questionType = Domain.Enums.QuestionType.Audio;
                 mediaUrl = "/uploads/seed/audio/guitar-riff.html"; // HTML placeholder (заменить на реальный MP3)
-                _logger.LogInformation("🎵 Creating AUDIO question: {Text}", q.Text);
+                _logger.LogDebug(" Creating AUDIO question: {Text}", q.Text);
             }
             
             var question = new Question(
@@ -428,7 +428,7 @@ public class DatabaseSeeder
                 };
                 
                 question.AddMediaAsset(mediaType, mediaUrl, "FileSystem");
-                _logger.LogInformation("   Added {MediaType} asset: {Url}", mediaType, mediaUrl);
+                _logger.LogDebug("   Added {MediaType} asset: {Url}", mediaType, mediaUrl);
             }
 
             // Отправляем на ревью и одобряем
@@ -468,12 +468,12 @@ public class DatabaseSeeder
         }
 
         await _context.Questions.AddRangeAsync(questionsList);
-        _logger.LogInformation("Seeded {Count} questions ({WithTags} with tags, {WithoutTags} without tags)", 
+        _logger.LogDebug("Seeded {Count} questions ({WithTags} with tags, {WithoutTags} without tags)", 
             questionsList.Count, 
             questionsWithTags.Length, 
             questionsWithoutTags.Length);
             
-        // 🔥 НОВОЕ: Добавляем вопросы с разными настройками fuzzy matching
+        //  НОВОЕ: Добавляем вопросы с разными настройками fuzzy matching
         await SeedFuzzyMatchingExamplesAsync(tags);
     }
     
@@ -482,7 +482,7 @@ public class DatabaseSeeder
     /// </summary>
     private async Task SeedFuzzyMatchingExamplesAsync(List<Tag> tags)
     {
-        _logger.LogInformation("🎯 Seeding fuzzy matching example questions...");
+        _logger.LogDebug(" Seeding fuzzy matching example questions...");
         
         var historyTag = tags.FirstOrDefault(t => t.Name == "История");
         var scienceTag = tags.FirstOrDefault(t => t.Name == "Наука");
@@ -505,25 +505,25 @@ public class DatabaseSeeder
             "1939",
             isPrimary: true,
             languageCode: "ru",
-            allowFuzzyMatch: false,    // ✅ ВЫКЛЮЧЕН fuzzy matching
-            maxEditDistance: 0,        // ✅ Только точное совпадение
-            minConfidence: 1.0m);      // ✅ 100% уверенность
+            allowFuzzyMatch: false,    //  ВЫКЛЮЧЕН fuzzy matching
+            maxEditDistance: 0,        //  Только точное совпадение
+            minConfidence: 1.0m);      //  100% уверенность
             
         // Текстовая альтернатива - мягкое сравнение
         var a2 = q1.AddAnswer(
             "тысяча девятьсот тридцать девятый",
             isPrimary: false,
             languageCode: "ru",
-            allowFuzzyMatch: true,     // ✅ ВКЛЮЧЕН fuzzy matching
-            maxEditDistance: 3,        // ✅ Допустимы опечатки в длинной фразе
-            minConfidence: 0.70m);     // ✅ 70% уверенность
+            allowFuzzyMatch: true,     //  ВКЛЮЧЕН fuzzy matching
+            maxEditDistance: 3,        //  Допустимы опечатки в длинной фразе
+            minConfidence: 0.70m);     //  70% уверенность
             
         q1.SubmitForReview();
         q1.Approve();
         if (historyTag != null) q1.AddTag(historyTag);
         
         await _context.Questions.AddAsync(q1);
-        _logger.LogInformation("   ✅ Added: Year WW2 question (strict number + flexible text)");
+        _logger.LogDebug("    Added: Year WW2 question (strict number + flexible text)");
         
         // ==========================================
         // 2. ВОПРОС С ДАТОЙ (STRICT)
@@ -558,7 +558,7 @@ public class DatabaseSeeder
         if (generalTag != null) q2.AddTag(generalTag);
         
         await _context.Questions.AddAsync(q2);
-        _logger.LogInformation("   ✅ Added: Programmer Day question (strict date)");
+        _logger.LogDebug("    Added: Programmer Day question (strict date)");
         
         // ==========================================
         // 3. ВОПРОС С ТЕКСТОВЫМ ОТВЕТОМ (FLEXIBLE)
@@ -575,9 +575,9 @@ public class DatabaseSeeder
             "Париж",
             isPrimary: true,
             languageCode: "ru",
-            allowFuzzyMatch: true,     // ✅ ВКЛЮЧЕН fuzzy matching
-            maxEditDistance: 2,        // ✅ Допустимы 2 опечатки
-            minConfidence: 0.75m);     // ✅ 75% уверенность
+            allowFuzzyMatch: true,     //  ВКЛЮЧЕН fuzzy matching
+            maxEditDistance: 2,        //  Допустимы 2 опечатки
+            minConfidence: 0.75m);     //  75% уверенность
             
         // Английский вариант - строгое сравнение
         q3.AddAnswer(
@@ -585,7 +585,7 @@ public class DatabaseSeeder
             isPrimary: false,
             languageCode: "en",
             allowFuzzyMatch: true,
-            maxEditDistance: 1,        // ✅ Только 1 опечатка для короткого слова
+            maxEditDistance: 1,        //  Только 1 опечатка для короткого слова
             minConfidence: 0.85m);
             
         q3.SubmitForReview();
@@ -593,7 +593,7 @@ public class DatabaseSeeder
         if (geographyTag != null) q3.AddTag(geographyTag);
         
         await _context.Questions.AddAsync(q3);
-        _logger.LogInformation("   ✅ Added: Paris question (flexible text)");
+        _logger.LogDebug("    Added: Paris question (flexible text)");
         
         // ==========================================
         // 4. СМЕШАННЫЙ ВОПРОС (MIXED: число + текст)
@@ -628,7 +628,7 @@ public class DatabaseSeeder
         if (scienceTag != null) q4.AddTag(scienceTag);
         
         await _context.Questions.AddAsync(q4);
-        _logger.LogInformation("   ✅ Added: Planets question (mixed: strict number + flexible text)");
+        _logger.LogDebug("    Added: Planets question (mixed: strict number + flexible text)");
         
         // ==========================================
         // 5. НАУЧНЫЙ ТЕРМИН (MODERATE)
@@ -646,15 +646,15 @@ public class DatabaseSeeder
             isPrimary: true,
             languageCode: "ru",
             allowFuzzyMatch: true,
-            maxEditDistance: 1,        // ✅ Только 1 опечатка для термина
-            minConfidence: 0.90m);     // ✅ 90% уверенность (высокая)
+            maxEditDistance: 1,        //  Только 1 опечатка для термина
+            minConfidence: 0.90m);     //  90% уверенность (высокая)
             
         q5.SubmitForReview();
         q5.Approve();
         if (scienceTag != null) q5.AddTag(scienceTag);
         
         await _context.Questions.AddAsync(q5);
-        _logger.LogInformation("   ✅ Added: Photosynthesis question (moderate term)");
+        _logger.LogDebug("    Added: Photosynthesis question (moderate term)");
         
         // ==========================================
         // 6. ИМЯ СОБСТВЕННОЕ (MODERATE)
@@ -672,7 +672,7 @@ public class DatabaseSeeder
             isPrimary: true,
             languageCode: "ru",
             allowFuzzyMatch: true,
-            maxEditDistance: 2,        // ✅ Допустимы опечатки в имени
+            maxEditDistance: 2,        //  Допустимы опечатки в имени
             minConfidence: 0.80m);
             
         // Полное имя
@@ -698,7 +698,7 @@ public class DatabaseSeeder
         if (literatureTag != null) q6.AddTag(literatureTag);
         
         await _context.Questions.AddAsync(q6);
-        _logger.LogInformation("   ✅ Added: Tolstoy question (moderate name with multiple answers)");
+        _logger.LogDebug("    Added: Tolstoy question (moderate name with multiple answers)");
         
         // ==========================================
         // 7. КОРОТКОЕ СЛОВО (STRICT-MODERATE)
@@ -716,8 +716,8 @@ public class DatabaseSeeder
             isPrimary: true,
             languageCode: "en",
             allowFuzzyMatch: true,
-            maxEditDistance: 1,        // ✅ Только 1 опечатка для 2-буквенного слова
-            minConfidence: 0.90m);     // ✅ Высокая уверенность
+            maxEditDistance: 1,        //  Только 1 опечатка для 2-буквенного слова
+            minConfidence: 0.90m);     //  Высокая уверенность
             
         // Полное название
         q7.AddAnswer(
@@ -733,7 +733,7 @@ public class DatabaseSeeder
         if (scienceTag != null) q7.AddTag(scienceTag);
         
         await _context.Questions.AddAsync(q7);
-        _logger.LogInformation("   ✅ Added: Gold symbol question (short word)");
+        _logger.LogDebug("    Added: Gold symbol question (short word)");
         
         // ==========================================
         // 8. ДЛИННАЯ ФРАЗА (VERY FLEXIBLE)
@@ -751,8 +751,8 @@ public class DatabaseSeeder
             isPrimary: true,
             languageCode: "ru",
             allowFuzzyMatch: true,
-            maxEditDistance: 3,        // ✅ Допустимы 3 опечатки в длинной фразе
-            minConfidence: 0.70m);     // ✅ 70% уверенность
+            maxEditDistance: 3,        //  Допустимы 3 опечатки в длинной фразе
+            minConfidence: 0.70m);     //  70% уверенность
             
         // Короткий вариант
         q8.AddAnswer(
@@ -768,12 +768,12 @@ public class DatabaseSeeder
         if (geographyTag != null) q8.AddTag(geographyTag);
         
         await _context.Questions.AddAsync(q8);
-        _logger.LogInformation("   ✅ Added: Eiffel Tower question (long phrase)");
+        _logger.LogDebug("    Added: Eiffel Tower question (long phrase)");
         
-        _logger.LogInformation("✅ Seeded 8 fuzzy matching example questions with various settings!");
-        _logger.LogInformation("📊 Settings breakdown:");
-        _logger.LogInformation("   - STRICT (numbers, dates): AllowFuzzy=false, MaxDist=0, MinConf=1.0");
-        _logger.LogInformation("   - MODERATE (terms, names, short words): AllowFuzzy=true, MaxDist=1-2, MinConf=0.80-0.90");
-        _logger.LogInformation("   - FLEXIBLE (text, long phrases): AllowFuzzy=true, MaxDist=2-3, MinConf=0.70-0.75");
+        _logger.LogDebug(" Seeded 8 fuzzy matching example questions with various settings!");
+        _logger.LogDebug(" Settings breakdown:");
+        _logger.LogDebug("   - STRICT (numbers, dates): AllowFuzzy=false, MaxDist=0, MinConf=1.0");
+        _logger.LogDebug("   - MODERATE (terms, names, short words): AllowFuzzy=true, MaxDist=1-2, MinConf=0.80-0.90");
+        _logger.LogDebug("   - FLEXIBLE (text, long phrases): AllowFuzzy=true, MaxDist=2-3, MinConf=0.70-0.75");
     }
 }

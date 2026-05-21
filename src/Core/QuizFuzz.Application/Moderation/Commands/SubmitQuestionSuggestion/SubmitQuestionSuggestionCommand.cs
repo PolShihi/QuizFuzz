@@ -55,7 +55,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
         SubmitQuestionSuggestionCommand request, 
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "User submitting question suggestion. UserId: {UserId}, Type: {Type}, Difficulty: {Difficulty}",
             request.UserId, request.Type, request.Difficulty);
 
@@ -65,7 +65,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
             var user = await _unitOfWork.Users.GetByIdAsync(request.UserId, cancellationToken);
             if (user == null)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "User not found for question suggestion. UserId: {UserId}",
                     request.UserId);
                 return new SubmitQuestionSuggestionResult
@@ -78,7 +78,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
             // Проверяем, не забанен ли пользователь
             if (user.IsBanActive())
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Banned user attempted to submit question. UserId: {UserId}, BannedUntil: {BannedUntil}",
                     request.UserId, user.BannedUntil);
                 return new SubmitQuestionSuggestionResult
@@ -91,7 +91,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
             // Валидация данных
             if (string.IsNullOrWhiteSpace(request.PromptText))
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Invalid question submission: empty prompt. UserId: {UserId}",
                     request.UserId);
                 return new SubmitQuestionSuggestionResult
@@ -103,7 +103,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
 
             if (!request.CorrectAnswers.Any())
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Invalid question submission: no correct answers. UserId: {UserId}",
                     request.UserId);
                 return new SubmitQuestionSuggestionResult
@@ -138,7 +138,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                     maxEditDistance: null,
                     minConfidence: (decimal)answerData.MinConfidence);
 
-                _logger.LogTrace(
+                _logger.LogDebug(
                     "Added answer to question aggregate. QuestionId: {QuestionId}, Answer: {Answer}, FuzzyMatch: {FuzzyMatch}, MinConfidence: {MinConfidence}",
                     question.Id, answerData.Text, answerData.AllowFuzzyMatch, answerData.MinConfidence);
             }
@@ -159,7 +159,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                     if (tag != null)
                     {
                         question.AddTag(tag);
-                        _logger.LogTrace(
+                        _logger.LogDebug(
                             "Added tag to question. QuestionId: {QuestionId}, TagId: {TagId}, TagName: {TagName}",
                             question.Id, tag.Id, tag.Name);
                     }
@@ -178,7 +178,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                 };
 
                 question.AddMediaAsset(mediaType, request.MediaUrl, "FileSystem");
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "Added media asset to suggested question. QuestionId: {QuestionId}, MediaType: {MediaType}, Url: {MediaUrl}",
                     question.Id, mediaType, request.MediaUrl);
             }
@@ -188,7 +188,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
 
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Question suggestion submitted successfully. QuestionId: {QuestionId}, UserId: {UserId}, Status: {Status}",
                 question.Id, user.Id, question.Status);
 
@@ -201,7 +201,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
+            _logger.LogDebug(ex,
                 "Error submitting question suggestion. UserId: {UserId}",
                 request.UserId);
 

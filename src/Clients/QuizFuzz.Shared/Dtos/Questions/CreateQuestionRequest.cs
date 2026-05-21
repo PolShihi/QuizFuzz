@@ -41,7 +41,7 @@ public class CreateAnswerRequest
 
     public List<CreateAliasRequest> Aliases { get; set; } = new();
     
-    // 🔥 НОВОЕ: Настройки fuzzy matching для этого ответа
+    //  НОВОЕ: Настройки fuzzy matching для этого ответа
     /// <summary>
     /// Разрешить fuzzy matching для этого ответа (по умолчанию true)
     /// </summary>

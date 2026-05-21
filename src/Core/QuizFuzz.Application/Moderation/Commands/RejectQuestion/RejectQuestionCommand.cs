@@ -41,7 +41,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
         RejectQuestionCommand request, 
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Starting question rejection process. QuestionId: {QuestionId}, ModeratorId: {ModeratorId}, Reason: {Reason}",
             request.QuestionId, request.ModeratorUserId, request.Reason);
 
@@ -51,7 +51,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
             var question = await _unitOfWork.Questions.GetByIdAsync(request.QuestionId, cancellationToken);
             if (question == null)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Question not found for rejection. QuestionId: {QuestionId}",
                     request.QuestionId);
                 return new RejectQuestionResult
@@ -65,7 +65,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
             var moderator = await _unitOfWork.Users.GetByIdAsync(request.ModeratorUserId, cancellationToken);
             if (moderator == null)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Moderator not found. ModeratorId: {ModeratorId}",
                     request.ModeratorUserId);
                 return new RejectQuestionResult
@@ -78,7 +78,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
             // Проверяем права модератора
             if (!moderator.IsModerator && !moderator.IsAdmin)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "User is not authorized to reject questions. UserId: {UserId}, Roles: {Roles}",
                     request.ModeratorUserId, string.Join(", ", moderator.Roles));
                 return new RejectQuestionResult
@@ -93,7 +93,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
             // Отклоняем вопрос
             question.Reject();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Question status changed. QuestionId: {QuestionId}, PreviousStatus: {PreviousStatus}, NewStatus: {NewStatus}",
                 question.Id, previousStatus, question.Status);
 
@@ -116,7 +116,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
             // Сохраняем изменения
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Question rejected successfully. QuestionId: {QuestionId}, ModeratorId: {ModeratorId}, ActionId: {ActionId}",
                 question.Id, moderator.Id, moderationAction.Id);
 
@@ -129,7 +129,7 @@ public class RejectQuestionCommandHandler : IRequestHandler<RejectQuestionComman
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
+            _logger.LogDebug(ex,
                 "Error rejecting question. QuestionId: {QuestionId}, ModeratorId: {ModeratorId}",
                 request.QuestionId, request.ModeratorUserId);
 

@@ -47,7 +47,7 @@ public class ModerationController : ControllerBase
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var userRole = User.FindFirstValue(ClaimTypes.Role);
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Moderation queue requested. UserId: {UserId}, Role: {Role}, Status: {Status}, Limit: {Limit}",
             userId, userRole, status ?? "All", limit ?? 100);
 

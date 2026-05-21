@@ -44,7 +44,7 @@ public class GetModeratorStatsQueryHandler : IRequestHandler<GetModeratorStatsQu
         GetModeratorStatsQuery request, 
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Fetching moderator stats. ModeratorId: {ModeratorId}",
             request.ModeratorId);
 
@@ -69,7 +69,7 @@ public class GetModeratorStatsQueryHandler : IRequestHandler<GetModeratorStatsQu
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
+            _logger.LogDebug(ex,
                 "Error fetching moderator stats. ModeratorId: {ModeratorId}",
                 request.ModeratorId);
             

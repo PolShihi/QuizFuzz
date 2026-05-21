@@ -35,7 +35,7 @@ public class LobbyHub : Hub
 
         await Groups.AddToGroupAsync(Context.ConnectionId, LobbyGroupName);
 
-        _logger.LogInformation("User {UserId} ({Username}) joined lobby", userId, username);
+        _logger.LogDebug("User {UserId} ({Username}) joined lobby", userId, username);
 
         // Отправляем список публичных комнат
         var rooms = await _unitOfWork.Rooms.GetPublicRoomsAsync();
@@ -69,7 +69,7 @@ public class LobbyHub : Hub
 
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, LobbyGroupName);
 
-        _logger.LogInformation("User {UserId} left lobby", userId);
+        _logger.LogDebug("User {UserId} left lobby", userId);
     }
 
     /// <summary>
@@ -95,7 +95,7 @@ public class LobbyHub : Hub
                 createdAt = room.CreatedAt
             });
 
-            _logger.LogInformation("Notified lobby about new room {RoomId}", roomId);
+            _logger.LogDebug("Notified lobby about new room {RoomId}", roomId);
         }
     }
 
@@ -119,7 +119,7 @@ public class LobbyHub : Hub
                 updatedAt = room.UpdatedAt
             });
 
-            _logger.LogInformation("Notified lobby about room update {RoomId}", roomId);
+            _logger.LogDebug("Notified lobby about room update {RoomId}", roomId);
         }
     }
 
@@ -134,7 +134,7 @@ public class LobbyHub : Hub
             timestamp = DateTime.UtcNow
         });
 
-        _logger.LogInformation("Notified lobby about room removal {RoomId}", roomId);
+        _logger.LogDebug("Notified lobby about room removal {RoomId}", roomId);
     }
 
     public override async Task OnConnectedAsync()
@@ -143,7 +143,7 @@ public class LobbyHub : Hub
         var username = Context.User?.Identity?.Name ?? "Anonymous";
         var connectionId = Context.ConnectionId;
         
-        _logger.LogInformation("🔌 [LobbyHub] CONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}, Username: {Username}", 
+        _logger.LogDebug(" [LobbyHub] CONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}, Username: {Username}", 
             connectionId, userId, username);
         
         await base.OnConnectedAsync();
@@ -154,12 +154,12 @@ public class LobbyHub : Hub
         var userId = GetUserId();
         var connectionId = Context.ConnectionId;
         
-        _logger.LogInformation("🔌 [LobbyHub] DISCONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}", 
+        _logger.LogDebug(" [LobbyHub] DISCONNECTED - ConnectionId: {ConnectionId}, UserId: {UserId}", 
             connectionId, userId);
         
         if (exception != null)
         {
-            _logger.LogError(exception, "❌ [LobbyHub] Disconnection error for ConnectionId: {ConnectionId}", connectionId);
+            _logger.LogDebug(exception, " [LobbyHub] Disconnection error for ConnectionId: {ConnectionId}", connectionId);
         }
         
         await base.OnDisconnectedAsync(exception);
@@ -173,12 +173,12 @@ public class LobbyHub : Hub
         var userId = GetUserId();
         var groupName = $"Room_{roomId}";
         
-        _logger.LogInformation("📡 [LobbyHub] JoinRoomGroup - ConnectionId: {ConnectionId}, UserId: {UserId}, RoomId: {RoomId}", 
+        _logger.LogDebug(" [LobbyHub] JoinRoomGroup - ConnectionId: {ConnectionId}, UserId: {UserId}, RoomId: {RoomId}", 
             Context.ConnectionId, userId, roomId);
         
         await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
         
-        _logger.LogInformation("✅ [LobbyHub] Joined room group: {GroupName}", groupName);
+        _logger.LogDebug(" [LobbyHub] Joined room group: {GroupName}", groupName);
     }
 
     /// <summary>
@@ -188,12 +188,12 @@ public class LobbyHub : Hub
     {
         var groupName = $"Room_{roomId}";
         
-        _logger.LogInformation("📡 [LobbyHub] LeaveRoomGroup - ConnectionId: {ConnectionId}, RoomId: {RoomId}", 
+        _logger.LogDebug(" [LobbyHub] LeaveRoomGroup - ConnectionId: {ConnectionId}, RoomId: {RoomId}", 
             Context.ConnectionId, roomId);
         
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
         
-        _logger.LogInformation("✅ [LobbyHub] Left room group: {GroupName}", groupName);
+        _logger.LogDebug(" [LobbyHub] Left room group: {GroupName}", groupName);
     }
 
     private Guid GetUserId()

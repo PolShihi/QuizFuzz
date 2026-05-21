@@ -165,7 +165,7 @@ public class QuestionsController : ControllerBase
             // Добавляем ответы
             foreach (var answerDto in request.Answers)
             {
-                // 🔥 НОВОЕ: Передаем настройки fuzzy matching из DTO
+                //  НОВОЕ: Передаем настройки fuzzy matching из DTO
                 var answer = question.AddAnswer(
                     answerDto.AnswerText, 
                     answerDto.IsPrimary,
@@ -174,7 +174,7 @@ public class QuestionsController : ControllerBase
                     answerDto.MaxEditDistance,
                     answerDto.MinConfidence);
                     
-                _logger.LogInformation("Added answer '{Text}' with fuzzy settings: Allow={Allow}, MaxDist={MaxDist}, MinConf={MinConf}",
+                _logger.LogDebug("Added answer '{Text}' with fuzzy settings: Allow={Allow}, MaxDist={MaxDist}, MinConf={MinConf}",
                     answerDto.AnswerText, answerDto.AllowFuzzyMatch, answerDto.MaxEditDistance, answerDto.MinConfidence);
 
                 // Добавляем алиасы
@@ -214,13 +214,13 @@ public class QuestionsController : ControllerBase
                 };
                 
                 question.AddMediaAsset(mediaType, request.MediaUrl, "FileSystem");
-                _logger.LogInformation("📎 [CreateQuestion] Added media asset: {Type} - {Url}", mediaType, request.MediaUrl);
+                _logger.LogDebug(" [CreateQuestion] Added media asset: {Type} - {Url}", mediaType, request.MediaUrl);
             }
 
             await _unitOfWork.Questions.AddAsync(question);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Question {QuestionId} created by user {UserId}", question.Id, userId);
+            _logger.LogDebug("Question {QuestionId} created by user {UserId}", question.Id, userId);
 
             // Return created question with DTO
             var createdQuestion = await _unitOfWork.Questions.GetWithAllDetailsAsync(question.Id);
@@ -234,7 +234,7 @@ public class QuestionsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating question");
+            _logger.LogDebug(ex, "Error creating question");
             return BadRequest(ex.Message);
         }
     }
@@ -279,13 +279,13 @@ public class QuestionsController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Question {QuestionId} updated by user {UserId}", id, userId);
+            _logger.LogDebug("Question {QuestionId} updated by user {UserId}", id, userId);
 
             return Ok(new { message = "Question updated successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating question {QuestionId}", id);
+            _logger.LogDebug(ex, "Error updating question {QuestionId}", id);
             return BadRequest(ex.Message);
         }
     }
@@ -578,7 +578,7 @@ public class QuestionsController : ControllerBase
             question.SubmitForReview();
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Question {QuestionId} submitted for review by user {UserId}", id, userId);
+            _logger.LogDebug("Question {QuestionId} submitted for review by user {UserId}", id, userId);
 
             return Ok(new { message = "Question submitted for review", status = question.Status });
         }
@@ -607,7 +607,7 @@ public class QuestionsController : ControllerBase
             question.Approve();
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Question {QuestionId} approved by {UserId}", id, _currentUserService.UserId);
+            _logger.LogDebug("Question {QuestionId} approved by {UserId}", id, _currentUserService.UserId);
 
             return Ok(new { message = "Question approved", status = question.Status });
         }
@@ -636,7 +636,7 @@ public class QuestionsController : ControllerBase
             question.Reject();
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Question {QuestionId} rejected by {UserId}", id, _currentUserService.UserId);
+            _logger.LogDebug("Question {QuestionId} rejected by {UserId}", id, _currentUserService.UserId);
 
             return Ok(new { message = "Question rejected", status = question.Status });
         }

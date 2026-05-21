@@ -40,7 +40,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
         ApproveQuestionCommand request, 
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Starting question approval process. QuestionId: {QuestionId}, ModeratorId: {ModeratorId}",
             request.QuestionId, request.ModeratorUserId);
 
@@ -50,7 +50,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
             var question = await _unitOfWork.Questions.GetByIdAsync(request.QuestionId, cancellationToken);
             if (question == null)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Question not found for approval. QuestionId: {QuestionId}",
                     request.QuestionId);
                 return new ApproveQuestionResult
@@ -64,7 +64,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
             var moderator = await _unitOfWork.Users.GetByIdAsync(request.ModeratorUserId, cancellationToken);
             if (moderator == null)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Moderator not found. ModeratorId: {ModeratorId}",
                     request.ModeratorUserId);
                 return new ApproveQuestionResult
@@ -77,7 +77,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
             // Проверяем права модератора
             if (!moderator.IsModerator && !moderator.IsAdmin)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "User is not authorized to approve questions. UserId: {UserId}, Roles: {Roles}",
                     request.ModeratorUserId, string.Join(", ", moderator.Roles));
                 return new ApproveQuestionResult
@@ -92,7 +92,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
             // Одобряем вопрос
             question.Approve();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Question status changed. QuestionId: {QuestionId}, PreviousStatus: {PreviousStatus}, NewStatus: {NewStatus}",
                 question.Id, previousStatus, question.Status);
 
@@ -114,7 +114,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
             // Сохраняем изменения
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Question approved successfully. QuestionId: {QuestionId}, ModeratorId: {ModeratorId}, ActionId: {ActionId}",
                 question.Id, moderator.Id, moderationAction.Id);
 
@@ -127,7 +127,7 @@ public class ApproveQuestionCommandHandler : IRequestHandler<ApproveQuestionComm
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
+            _logger.LogDebug(ex,
                 "Error approving question. QuestionId: {QuestionId}, ModeratorId: {ModeratorId}",
                 request.QuestionId, request.ModeratorUserId);
 

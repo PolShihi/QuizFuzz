@@ -95,7 +95,7 @@ public class TagsController : ControllerBase
         await _unitOfWork.Tags.AddAsync(tag, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tag {TagName} created with ID {TagId} by {User}", tag.Name, tag.Id, User.Identity?.Name);
+        _logger.LogDebug("Tag {TagName} created with ID {TagId} by {User}", tag.Name, tag.Id, User.Identity?.Name);
 
         return CreatedAtAction(nameof(GetTag), new { id = tag.Id }, ToDto(tag));
     }
@@ -126,7 +126,7 @@ public class TagsController : ControllerBase
         await _unitOfWork.Tags.AddAsync(tag, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tag suggestion {TagName} created with ID {TagId} by {User}", tag.Name, tag.Id, User.Identity?.Name);
+        _logger.LogDebug("Tag suggestion {TagName} created with ID {TagId} by {User}", tag.Name, tag.Id, User.Identity?.Name);
 
         return CreatedAtAction(nameof(GetTag), new { id = tag.Id }, ToDto(tag));
     }
@@ -150,7 +150,7 @@ public class TagsController : ControllerBase
         _unitOfWork.Tags.Update(tag);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tag {TagId} description updated by {User}", id, User.Identity?.Name);
+        _logger.LogDebug("Tag {TagId} description updated by {User}", id, User.Identity?.Name);
 
         return Ok(ToDto(tag));
     }
@@ -174,7 +174,7 @@ public class TagsController : ControllerBase
         _unitOfWork.Tags.Update(tag);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tag {TagId} activated by {User}", id, User.Identity?.Name);
+        _logger.LogDebug("Tag {TagId} activated by {User}", id, User.Identity?.Name);
 
         return Ok(ToDto(tag));
     }
@@ -198,7 +198,7 @@ public class TagsController : ControllerBase
         _unitOfWork.Tags.Update(tag);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Tag {TagId} deactivated by {User}", id, User.Identity?.Name);
+        _logger.LogDebug("Tag {TagId} deactivated by {User}", id, User.Identity?.Name);
 
         return NoContent();
     }

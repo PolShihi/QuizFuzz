@@ -26,7 +26,7 @@ public static class SeedExtensions
         {
             var loggerFactory = services.GetRequiredService<ILoggerFactory>();
             var logger = loggerFactory.CreateLogger("DatabaseSeeding");
-            logger.LogError(ex, "An error occurred while seeding the database");
+            logger.LogDebug(ex, "An error occurred while seeding the database");
             throw;
         }
     }

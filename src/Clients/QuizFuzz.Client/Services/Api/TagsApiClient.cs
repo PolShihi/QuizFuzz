@@ -21,25 +21,25 @@ public class TagsApiClient : ITagsApiClient
     {
         try
         {
-            _logger.LogInformation("🏷️ [TagsApiClient] Fetching active tags...");
+            _logger.LogDebug(" [TagsApiClient] Fetching active tags...");
             
             var response = await _httpClient.GetAsync("api/tags");
             
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("❌ [TagsApiClient] Failed to fetch tags. Status: {Status}", response.StatusCode);
+                _logger.LogDebug(" [TagsApiClient] Failed to fetch tags. Status: {Status}", response.StatusCode);
                 return new List<TagDto>();
             }
 
             var tags = await response.Content.ReadFromJsonAsync<List<TagDto>>();
             
-            _logger.LogInformation("✅ [TagsApiClient] Loaded {Count} tags", tags?.Count ?? 0);
+            _logger.LogDebug(" [TagsApiClient] Loaded {Count} tags", tags?.Count ?? 0);
             
             return tags ?? new List<TagDto>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [TagsApiClient] Error fetching tags");
+            _logger.LogDebug(ex, " [TagsApiClient] Error fetching tags");
             return new List<TagDto>();
         }
     }
@@ -48,25 +48,25 @@ public class TagsApiClient : ITagsApiClient
     {
         try
         {
-            _logger.LogInformation("🏷️ [TagsApiClient] Fetching tag {TagId}...", id);
+            _logger.LogDebug(" [TagsApiClient] Fetching tag {TagId}...", id);
             
             var response = await _httpClient.GetAsync($"api/tags/{id}");
             
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("❌ [TagsApiClient] Failed to fetch tag. Status: {Status}", response.StatusCode);
+                _logger.LogDebug(" [TagsApiClient] Failed to fetch tag. Status: {Status}", response.StatusCode);
                 return null;
             }
 
             var tag = await response.Content.ReadFromJsonAsync<TagDto>();
             
-            _logger.LogInformation("✅ [TagsApiClient] Tag loaded: {Name}", tag?.Name);
+            _logger.LogDebug(" [TagsApiClient] Tag loaded: {Name}", tag?.Name);
             
             return tag;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [TagsApiClient] Error fetching tag {TagId}", id);
+            _logger.LogDebug(ex, " [TagsApiClient] Error fetching tag {TagId}", id);
             return null;
         }
     }
@@ -75,25 +75,25 @@ public class TagsApiClient : ITagsApiClient
     {
         try
         {
-            _logger.LogInformation("🏷️ [TagsApiClient] Fetching all tags...");
+            _logger.LogDebug(" [TagsApiClient] Fetching all tags...");
             
             var response = await _httpClient.GetAsync("api/tags");
             
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("❌ [TagsApiClient] Failed to fetch all tags. Status: {Status}", response.StatusCode);
+                _logger.LogDebug(" [TagsApiClient] Failed to fetch all tags. Status: {Status}", response.StatusCode);
                 return new List<TagDto>();
             }
 
             var tags = await response.Content.ReadFromJsonAsync<List<TagDto>>();
             
-            _logger.LogInformation("✅ [TagsApiClient] Loaded {Count} tags", tags?.Count ?? 0);
+            _logger.LogDebug(" [TagsApiClient] Loaded {Count} tags", tags?.Count ?? 0);
             
             return tags ?? new List<TagDto>();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [TagsApiClient] Error fetching all tags");
+            _logger.LogDebug(ex, " [TagsApiClient] Error fetching all tags");
             return new List<TagDto>();
         }
     }
@@ -102,23 +102,23 @@ public class TagsApiClient : ITagsApiClient
     {
         try
         {
-            _logger.LogInformation("🏷️ [TagsApiClient] Suggesting tag {TagName}...", name);
+            _logger.LogDebug(" [TagsApiClient] Suggesting tag {TagName}...", name);
 
             var response = await _httpClient.PostAsJsonAsync("api/tags/suggestions", new { name, description });
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("❌ [TagsApiClient] Failed to suggest tag. Status: {Status}", response.StatusCode);
+                _logger.LogDebug(" [TagsApiClient] Failed to suggest tag. Status: {Status}", response.StatusCode);
                 return null;
             }
 
             var tag = await response.Content.ReadFromJsonAsync<TagDto>();
-            _logger.LogInformation("✅ [TagsApiClient] Tag suggestion saved: {Name}", tag?.Name);
+            _logger.LogDebug(" [TagsApiClient] Tag suggestion saved: {Name}", tag?.Name);
             return tag;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [TagsApiClient] Error suggesting tag {TagName}", name);
+            _logger.LogDebug(ex, " [TagsApiClient] Error suggesting tag {TagName}", name);
             return null;
         }
     }

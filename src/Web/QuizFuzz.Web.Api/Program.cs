@@ -7,9 +7,11 @@ using System.Text;
 using Serilog;
 using Serilog.Events;
 
-// Configure Serilog BEFORE building the app
+// Configure Serilog BEFORE building the app.
+// Verbose logging is enabled only for DEBUG builds. Release builds keep logging silent.
+#if DEBUG
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
+    .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
     .MinimumLevel.Override("System", LogEventLevel.Warning)
@@ -20,14 +22,19 @@ Log.Logger = new LoggerConfiguration()
         path: "logs/quizfuzz-.log",
         rollingInterval: RollingInterval.Day,
         outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} {Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}{NewLine}",
-        retainedFileCountLimit: 30,
-        fileSizeLimitBytes: 10_000_000, // 10 MB
+        retainedFileCountLimit: 7,
+        fileSizeLimitBytes: 10_000_000,
         rollOnFileSizeLimit: true)
     .CreateLogger();
+#else
+Log.Logger = new LoggerConfiguration().CreateLogger();
+#endif
 
 try
 {
-    Log.Information("🚀 Starting QuizFuzz Web API...");
+    #if DEBUG
+    Log.Debug("Starting QuizFuzz Web API...");
+#endif
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -211,10 +218,10 @@ app.MapHub<QuizFuzz.Web.Api.Hubs.LobbyHub>("/hubs/lobby").RequireCors("AllowAll"
 
 // Log mapped endpoints
 var appLogger = app.Services.GetRequiredService<ILogger<Program>>();
-appLogger.LogInformation("🚀 [Startup] SignalR Hubs mapped:");
-appLogger.LogInformation("   - GameHub: /hubs/game");
-appLogger.LogInformation("   - LobbyHub: /hubs/lobby");
-appLogger.LogInformation("🔐 [Startup] CORS enabled for: {Origins}", string.Join(", ", allowedOrigins));
+appLogger.LogDebug(" [Startup] SignalR Hubs mapped:");
+appLogger.LogDebug("   - GameHub: /hubs/game");
+appLogger.LogDebug("   - LobbyHub: /hubs/lobby");
+appLogger.LogDebug(" [Startup] CORS enabled for: {Origins}", string.Join(", ", allowedOrigins));
 
 // Health check endpoint
 app.MapHealthChecks("/health");
@@ -228,16 +235,16 @@ if (app.Environment.IsDevelopment())
     try
     {
         var seedLogger = services.GetRequiredService<ILogger<Program>>();
-        seedLogger.LogInformation("🌱 [Startup] Seeding database...");
+        seedLogger.LogDebug(" [Startup] Seeding database...");
         
         await QuizFuzz.Infrastructure.Persistence.Seeds.SeedExtensions.SeedDatabaseAsync(services);
         
-        seedLogger.LogInformation("✅ [Startup] Database seeded successfully!");
+        seedLogger.LogDebug(" [Startup] Database seeded successfully!");
     }
     catch (Exception ex)
     {
         var seedLogger = services.GetRequiredService<ILogger<Program>>();
-        seedLogger.LogError(ex, "❌ [Startup] Error while seeding database");
+        seedLogger.LogDebug(ex, " [Startup] Error while seeding database");
     }
 }
 
@@ -245,7 +252,9 @@ app.Run();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "💥 Application terminated unexpectedly");
+    #if DEBUG
+    Log.Debug(ex, "Application terminated unexpectedly");
+#endif
 }
 finally
 {

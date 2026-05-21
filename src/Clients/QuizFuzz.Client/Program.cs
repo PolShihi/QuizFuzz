@@ -7,8 +7,17 @@ using QuizFuzz.Client.Services;
 using QuizFuzz.Client.Services.Api;
 using Blazored.LocalStorage;
 using MudBlazor.Services;
+using Microsoft.Extensions.Logging;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
+
+#if DEBUG
+builder.Logging.SetMinimumLevel(LogLevel.Debug);
+#else
+builder.Logging.ClearProviders();
+builder.Logging.SetMinimumLevel(LogLevel.None);
+#endif
+
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 

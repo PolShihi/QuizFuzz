@@ -67,7 +67,7 @@ public class InvitationsController : ControllerBase
             await _unitOfWork.Invitations.AddAsync(invitation);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Invitation {Code} created for room {RoomId} by user {UserId}", 
+            _logger.LogDebug("Invitation {Code} created for room {RoomId} by user {UserId}", 
                 code, request.RoomId, userId);
 
             return CreatedAtAction(
@@ -85,7 +85,7 @@ public class InvitationsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating invitation for room {RoomId}", request.RoomId);
+            _logger.LogDebug(ex, "Error creating invitation for room {RoomId}", request.RoomId);
             return BadRequest(ex.Message);
         }
     }
@@ -179,7 +179,7 @@ public class InvitationsController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("User {UserId} joined room {RoomId} via invitation {Code}", 
+            _logger.LogDebug("User {UserId} joined room {RoomId} via invitation {Code}", 
                 userId, invitation.RoomId, code);
 
             return Ok(new
@@ -192,7 +192,7 @@ public class InvitationsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error accepting invitation {Code}", code);
+            _logger.LogDebug(ex, "Error accepting invitation {Code}", code);
             return BadRequest(ex.Message);
         }
     }
@@ -264,7 +264,7 @@ public class InvitationsController : ControllerBase
         _unitOfWork.Invitations.Remove(invitation);
         await _unitOfWork.SaveChangesAsync();
 
-        _logger.LogInformation("Invitation {InvitationId} deleted by user {UserId}", id, userId);
+        _logger.LogDebug("Invitation {InvitationId} deleted by user {UserId}", id, userId);
 
         return NoContent();
     }

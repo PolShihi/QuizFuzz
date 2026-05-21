@@ -140,7 +140,7 @@ public class AdminController : ControllerBase
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Roles for user {UserId} ({Username}) changed to {Roles}",
             id,
             user.Username,
@@ -178,7 +178,7 @@ public class AdminController : ControllerBase
             user.Ban(request.BannedUntil);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogWarning(
+            _logger.LogDebug(
                 "User {UserId} ({Username}) banned until {BanUntil}. Reason: {Reason}",
                 id, user.Username, request.BannedUntil, request.Reason);
 
@@ -186,7 +186,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error banning user {UserId}", id);
+            _logger.LogDebug(ex, "Error banning user {UserId}", id);
             return BadRequest(ex.Message);
         }
     }
@@ -208,13 +208,13 @@ public class AdminController : ControllerBase
             user.Unban();
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-            _logger.LogInformation("User {UserId} ({Username}) unbanned", id, user.Username);
+            _logger.LogDebug("User {UserId} ({Username}) unbanned", id, user.Username);
 
             return Ok(MapUser(user));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error unbanning user {UserId}", id);
+            _logger.LogDebug(ex, "Error unbanning user {UserId}", id);
             return BadRequest(ex.Message);
         }
     }
@@ -240,7 +240,7 @@ public class AdminController : ControllerBase
             _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Role {Role} added to user {UserId} ({Username})", 
+            _logger.LogDebug("Role {Role} added to user {UserId} ({Username})", 
                 role, id, user.Username);
 
             return Ok(new 
@@ -251,7 +251,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error adding role to user {UserId}", id);
+            _logger.LogDebug(ex, "Error adding role to user {UserId}", id);
             return BadRequest(ex.Message);
         }
     }
@@ -277,7 +277,7 @@ public class AdminController : ControllerBase
             _unitOfWork.Users.Update(user);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Role {Role} removed from user {UserId} ({Username})", 
+            _logger.LogDebug("Role {Role} removed from user {UserId} ({Username})", 
                 userRole, id, user.Username);
 
             return Ok(new 
@@ -288,7 +288,7 @@ public class AdminController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error removing role from user {UserId}", id);
+            _logger.LogDebug(ex, "Error removing role from user {UserId}", id);
             return BadRequest(ex.Message);
         }
     }

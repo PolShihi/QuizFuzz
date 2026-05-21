@@ -363,7 +363,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Logger.LogInformation("[SuggestQuestion] Page initialized");
+        Logger.LogDebug("[SuggestQuestion] Page initialized");
         await LoadTags();
     }
 
@@ -371,13 +371,13 @@
     {
         try
         {
-            Logger.LogInformation("[SuggestQuestion] Loading tags...");
+            Logger.LogDebug("[SuggestQuestion] Loading tags...");
             availableTags = await TagsClient.GetAllTagsAsync();
-            Logger.LogInformation("[SuggestQuestion] Loaded {Count} tags", availableTags.Count);
+            Logger.LogDebug("[SuggestQuestion] Loaded {Count} tags", availableTags.Count);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "[SuggestQuestion] Error loading tags");
+            Logger.LogDebug(ex, "[SuggestQuestion] Error loading tags");
             Snackbar.Add($"Error loading tags: {ex.Message}", Severity.Error);
         }
     }
@@ -433,7 +433,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "[SuggestQuestion] Error uploading media");
+            Logger.LogDebug(ex, "[SuggestQuestion] Error uploading media");
             mediaUploadError = $"Media upload failed: {ex.Message}";
             Snackbar.Add(mediaUploadError, Severity.Error);
         }
@@ -532,7 +532,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "[SuggestQuestion] Error suggesting tag");
+            Logger.LogDebug(ex, "[SuggestQuestion] Error suggesting tag");
             Snackbar.Add($"Error suggesting tag: {ex.Message}", Severity.Error);
         }
         finally
@@ -631,14 +631,14 @@
 
     private async Task SubmitQuestion()
     {
-        Logger.LogInformation("[SuggestQuestion] Starting question submission");
+        Logger.LogDebug("[SuggestQuestion] Starting question submission");
         
         await form.Validate();
         validationErrors = ValidateQuestionSuggestion();
 
         if (!isValid || validationErrors.Count > 0)
         {
-            Logger.LogWarning("[SuggestQuestion] Form validation failed: {Errors}", string.Join("; ", validationErrors));
+            Logger.LogDebug("[SuggestQuestion] Form validation failed: {Errors}", string.Join("; ", validationErrors));
             Snackbar.Add("Please fix the validation errors before submitting.", Severity.Warning);
             StateHasChanged();
             return;
@@ -648,7 +648,7 @@
 
         try
         {
-            Logger.LogInformation("[SuggestQuestion] Building request - Type: {Type}, Difficulty: {Difficulty}, Answers: {Count}", 
+            Logger.LogDebug("[SuggestQuestion] Building request - Type: {Type}, Difficulty: {Difficulty}, Answers: {Count}", 
                 questionType, difficulty, correctAnswers.Count);
 
             var request = new SuggestQuestionRequest
@@ -674,30 +674,30 @@
                 Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation.Trim()
             };
 
-            Logger.LogInformation("[SuggestQuestion] Sending request to API...");
+            Logger.LogDebug("[SuggestQuestion] Sending request to API...");
             var success = await QuestionsClient.SuggestQuestionAsync(request);
 
             if (success)
             {
-                Logger.LogInformation("[SuggestQuestion] Question submitted successfully.");
+                Logger.LogDebug("[SuggestQuestion] Question submitted successfully.");
                 Snackbar.Add("Question submitted successfully! It will be reviewed by moderators.", Severity.Success);
                 Navigation.NavigateTo("/lobby");
             }
             else
             {
-                Logger.LogError("[SuggestQuestion] API returned failure");
+                Logger.LogDebug("[SuggestQuestion] API returned failure");
                 Snackbar.Add("Failed to submit question. Please try again.", Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "[SuggestQuestion] Exception during submission");
+            Logger.LogDebug(ex, "[SuggestQuestion] Exception during submission");
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
         finally
         {
             isSubmitting = false;
-            Logger.LogInformation("[SuggestQuestion] Submission process completed");
+            Logger.LogDebug("[SuggestQuestion] Submission process completed");
         }
     }
 }

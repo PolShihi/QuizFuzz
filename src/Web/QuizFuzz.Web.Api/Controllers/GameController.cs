@@ -116,7 +116,7 @@ public class GameController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Round {RoundId} started in session {SessionId}", round.Id, sessionId);
+            _logger.LogDebug("Round {RoundId} started in session {SessionId}", round.Id, sessionId);
 
             return Ok(new
             {
@@ -131,7 +131,7 @@ public class GameController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error starting round for session {SessionId}", sessionId);
+            _logger.LogDebug(ex, "Error starting round for session {SessionId}", sessionId);
             return BadRequest(ex.Message);
         }
     }
@@ -212,7 +212,7 @@ public class GameController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Answer submitted for round {RoundId} by user {UserId}: {IsCorrect}",
                 request.RoundId, userId, matchResult.IsCorrect);
 
@@ -226,7 +226,7 @@ public class GameController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error submitting answer for round {RoundId}", request.RoundId);
+            _logger.LogDebug(ex, "Error submitting answer for round {RoundId}", request.RoundId);
             return BadRequest(ex.Message);
         }
     }
@@ -257,7 +257,7 @@ public class GameController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Round {RoundId} ended", roundId);
+            _logger.LogDebug("Round {RoundId} ended", roundId);
 
             // Получаем результаты раунда
             var results = round.Answers
@@ -282,7 +282,7 @@ public class GameController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error ending round {RoundId}", roundId);
+            _logger.LogDebug(ex, "Error ending round {RoundId}", roundId);
             return BadRequest(ex.Message);
         }
     }
@@ -324,22 +324,22 @@ public class GameController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCurrentQuestion(Guid sessionId)
     {
-        _logger.LogInformation("🔍 [GameController] GetCurrentQuestion called - SessionId: {SessionId}", sessionId);
+        _logger.LogDebug(" [GameController] GetCurrentQuestion called - SessionId: {SessionId}", sessionId);
         
         var round = await _unitOfWork.GameRounds.GetActiveRoundBySessionIdAsync(sessionId);
 
         if (round == null)
         {
-            _logger.LogWarning("❌ [GameController] No active round found for session {SessionId}", sessionId);
+            _logger.LogDebug(" [GameController] No active round found for session {SessionId}", sessionId);
             return NotFound("No active round found for this session");
         }
 
-        _logger.LogInformation("✅ [GameController] Active round found: {RoundId}", round.Id);
-        _logger.LogInformation("   📝 Question: {QuestionText}", round.Question.PromptText);
-        _logger.LogInformation("   🎯 Type: {QuestionType}", round.Question.Type);
-        _logger.LogInformation("   📎 MediaAssets count: {MediaCount}", round.Question.MediaAssets.Count);
+        _logger.LogDebug(" [GameController] Active round found: {RoundId}", round.Id);
+        _logger.LogDebug("    Question: {QuestionText}", round.Question.PromptText);
+        _logger.LogDebug("    Type: {QuestionType}", round.Question.Type);
+        _logger.LogDebug("    MediaAssets count: {MediaCount}", round.Question.MediaAssets.Count);
 
-        // 🔥 ИСПРАВЛЕНО: Формируем ПОЛНЫЙ URL для MediaAssets
+        //  ИСПРАВЛЕНО: Формируем ПОЛНЫЙ URL для MediaAssets
         string? mediaUrl = null;
         if (round.Question.MediaAssets.Any())
         {
@@ -353,20 +353,20 @@ public class GameController : ControllerBase
                 var baseUrl = $"{request.Scheme}://{request.Host}";
                 mediaUrl = $"{baseUrl}{firstMedia.Url}";
                 
-                _logger.LogInformation("   🔗 MediaUrl converted to FULL URL: {MediaUrl}", mediaUrl);
+                _logger.LogDebug("    MediaUrl converted to FULL URL: {MediaUrl}", mediaUrl);
             }
             else
             {
                 // Уже полный URL или внешний ресурс
                 mediaUrl = firstMedia.Url;
-                _logger.LogInformation("   🔗 MediaUrl (already full): {MediaUrl}", mediaUrl);
+                _logger.LogDebug("    MediaUrl (already full): {MediaUrl}", mediaUrl);
             }
             
-            _logger.LogInformation("   📸 MediaType: {MediaType}", firstMedia.MediaType);
+            _logger.LogDebug("    MediaType: {MediaType}", firstMedia.MediaType);
         }
         else
         {
-            _logger.LogInformation("   ℹ️ No MediaAssets for this question");
+            _logger.LogDebug("   ℹ No MediaAssets for this question");
         }
 
         var result = new GameQuestionDto
@@ -374,7 +374,7 @@ public class GameController : ControllerBase
             QuestionId = round.QuestionId,
             RoundId = round.Id,
             Text = round.Question.PromptText,
-            MediaUrl = mediaUrl, // ✅ ИСПРАВЛЕНО: теперь ПОЛНЫЙ URL!
+            MediaUrl = mediaUrl, //  ИСПРАВЛЕНО: теперь ПОЛНЫЙ URL!
             QuestionType = round.Question.Type.ToString(),
             TimeLimit = round.TimeLimitSec,
             StartedAt = round.StartedAt ?? DateTime.UtcNow,
@@ -386,7 +386,7 @@ public class GameController : ControllerBase
             }).ToList()
         };
 
-        _logger.LogInformation("📤 [GameController] Returning question DTO with FULL MediaUrl: {MediaUrl}", result.MediaUrl);
+        _logger.LogDebug(" [GameController] Returning question DTO with FULL MediaUrl: {MediaUrl}", result.MediaUrl);
 
         return Ok(result);
     }

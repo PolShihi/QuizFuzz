@@ -45,11 +45,11 @@ public class RoomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetRooms()
     {
-        _logger.LogInformation("📋 [GetRooms] Loading lobby rooms list");
+        _logger.LogDebug(" [GetRooms] Loading lobby rooms list");
         
         var rooms = await _unitOfWork.Rooms.GetLobbyRoomsAsync();
         
-        _logger.LogInformation("📋 [GetRooms] Found {Count} rooms", rooms.Count());
+        _logger.LogDebug(" [GetRooms] Found {Count} rooms", rooms.Count());
 
         var result = new List<RoomListItemDto>();
         
@@ -59,7 +59,7 @@ public class RoomsController : ControllerBase
             var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(r.Id);
             var playerCount = session?.Players.Count(p => p.IsActive) ?? 0;
             
-            _logger.LogInformation("📊 [GetRooms] Room '{RoomName}': {Players}/{MaxPlayers} players", 
+            _logger.LogDebug(" [GetRooms] Room '{RoomName}': {Players}/{MaxPlayers} players", 
                 r.Name, playerCount, r.MaxPlayers);
             
             result.Add(new RoomListItemDto
@@ -69,13 +69,13 @@ public class RoomsController : ControllerBase
                 OwnerUsername = r.Owner.Username,
                 IsPrivate = r.Visibility == RoomVisibility.Private,
                 MaxPlayers = r.MaxPlayers,
-                CurrentPlayers = playerCount, // ✅ Реальное количество!
+                CurrentPlayers = playerCount, //  Реальное количество!
                 Status = r.Status.ToString(),
                 CreatedAt = r.CreatedAt
             });
         }
         
-        _logger.LogInformation("✅ [GetRooms] Returning {Count} rooms with player counts", result.Count);
+        _logger.LogDebug(" [GetRooms] Returning {Count} rooms with player counts", result.Count);
 
         return Ok(result);
     }
@@ -118,30 +118,30 @@ public class RoomsController : ControllerBase
         if (room == null)
             return NotFound($"Room with ID {id} not found");
 
-        _logger.LogInformation("🔍 [GetRoom] Loading room {RoomId}", id);
-        _logger.LogInformation("🔍 [GetRoom] Room owner: {OwnerId}", room.OwnerUserId);
+        _logger.LogDebug(" [GetRoom] Loading room {RoomId}", id);
+        _logger.LogDebug(" [GetRoom] Room owner: {OwnerId}", room.OwnerUserId);
         
         // Получаем активную сессию для загрузки игроков
         var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
         
-        _logger.LogInformation("🔍 [GetRoom] GetActiveByRoomIdAsync returned: {Result}", session != null ? $"Session {session.Id}" : "NULL");
+        _logger.LogDebug(" [GetRoom] GetActiveByRoomIdAsync returned: {Result}", session != null ? $"Session {session.Id}" : "NULL");
         
         var players = new List<PlayerInRoomDto>();
         if (session != null)
         {
-            _logger.LogInformation("📊 [GetRoom] Loading players from session {SessionId}", session.Id);
-            _logger.LogInformation("📊 [GetRoom] Session has {Count} players", session.Players.Count);
+            _logger.LogDebug(" [GetRoom] Loading players from session {SessionId}", session.Id);
+            _logger.LogDebug(" [GetRoom] Session has {Count} players", session.Players.Count);
             
             foreach (var player in session.Players.Where(p => p.IsActive))
             {
-                _logger.LogInformation("👤 [GetRoom] Processing player {UserId}, IsActive: {IsActive}", player.UserId, player.IsActive);
+                _logger.LogDebug(" [GetRoom] Processing player {UserId}, IsActive: {IsActive}", player.UserId, player.IsActive);
                 
                 var user = await _unitOfWork.Users.GetByIdAsync(player.UserId);
                 if (user != null)
                 {
                     var isRoomOwner = player.UserId == room.OwnerUserId;
                     
-                    _logger.LogInformation("✅ [GetRoom] Adding player: {Username}, IsOwner: {IsOwner}", user.Username, isRoomOwner);
+                    _logger.LogDebug(" [GetRoom] Adding player: {Username}, IsOwner: {IsOwner}", user.Username, isRoomOwner);
                     
                     players.Add(new PlayerInRoomDto
                     {
@@ -154,16 +154,16 @@ public class RoomsController : ControllerBase
                 }
                 else
                 {
-                    _logger.LogWarning("❌ [GetRoom] User {UserId} not found!", player.UserId);
+                    _logger.LogDebug(" [GetRoom] User {UserId} not found!", player.UserId);
                 }
             }
             
-            _logger.LogInformation("✅ [GetRoom] Loaded {Count} players for room {RoomId}", players.Count, id);
+            _logger.LogDebug(" [GetRoom] Loaded {Count} players for room {RoomId}", players.Count, id);
         }
         else
         {
-            _logger.LogWarning("❌ [GetRoom] No active session found for room {RoomId}!", id);
-            _logger.LogWarning("❌ [GetRoom] This means session was not created or not found!");
+            _logger.LogDebug(" [GetRoom] No active session found for room {RoomId}!", id);
+            _logger.LogDebug(" [GetRoom] This means session was not created or not found!");
         }
         
         var result = new RoomDetailsDto
@@ -230,7 +230,7 @@ public class RoomsController : ControllerBase
             if (request.DifficultyFilters != null && request.DifficultyFilters.Any())
             {
                 difficultyFiltersJson = System.Text.Json.JsonSerializer.Serialize(request.DifficultyFilters);
-                _logger.LogInformation("🎯 [CreateRoom] Difficulty filters: {Filters}", difficultyFiltersJson);
+                _logger.LogDebug(" [CreateRoom] Difficulty filters: {Filters}", difficultyFiltersJson);
             }
             
             // Определяем VictoryValue в зависимости от режима
@@ -238,12 +238,12 @@ public class RoomsController : ControllerBase
             if (victoryType == VictoryConditionType.Points)
             {
                 victoryValue = request.VictoryValue;
-                _logger.LogInformation("🏆 [CreateRoom] Victory Mode: POINTS, Target: {Value} points", victoryValue);
+                _logger.LogDebug(" [CreateRoom] Victory Mode: POINTS, Target: {Value} points", victoryValue);
             }
             else // Questions
             {
                 victoryValue = request.NumberOfRounds;
-                _logger.LogInformation("🏆 [CreateRoom] Victory Mode: QUESTIONS, Target: {Value} questions", victoryValue);
+                _logger.LogDebug(" [CreateRoom] Victory Mode: QUESTIONS, Target: {Value} questions", victoryValue);
             }
 
             var room = new Room(
@@ -262,17 +262,17 @@ public class RoomsController : ControllerBase
             }
 
             // Добавляем выбранные теги
-            _logger.LogInformation("🏷️ [CreateRoom] Adding {Count} tag selections", request.TagSelections.Count);
+            _logger.LogDebug(" [CreateRoom] Adding {Count} tag selections", request.TagSelections.Count);
             foreach (var tagSelection in request.TagSelections)
             {
                 room.AddTagSelection(tagSelection.TagId, tagSelection.Weight);
-                _logger.LogInformation("   ✅ Tag {TagId} added with weight {Weight}", tagSelection.TagId, tagSelection.Weight);
+                _logger.LogDebug("    Tag {TagId} added with weight {Weight}", tagSelection.TagId, tagSelection.Weight);
             }
 
             await _unitOfWork.Rooms.AddAsync(room);
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("🏠 [Room] Room {RoomId} created by user {UserId}", room.Id, userId);
+            _logger.LogDebug(" [Room] Room {RoomId} created by user {UserId}", room.Id, userId);
 
             // Загружаем пользователя для получения username
             var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
@@ -285,15 +285,15 @@ public class RoomsController : ControllerBase
             
             var session = new GameSession(room.Id, numberOfRounds);
             
-            _logger.LogInformation("📊 [CreateRoom] Game session created");
-            _logger.LogInformation("   Victory Type: {VictoryType}", victoryType);
-            _logger.LogInformation("   Victory Value: {VictoryValue}", victoryValue);
-            _logger.LogInformation("   Session Rounds Planned: {Rounds}", numberOfRounds);
+            _logger.LogDebug(" [CreateRoom] Game session created");
+            _logger.LogDebug("   Victory Type: {VictoryType}", victoryType);
+            _logger.LogDebug("   Victory Value: {VictoryValue}", victoryValue);
+            _logger.LogDebug("   Session Rounds Planned: {Rounds}", numberOfRounds);
             session.AddPlayer(userId.Value, true); // isOwner = true
             await _unitOfWork.GameSessions.AddAsync(session);
             await _unitOfWork.SaveChangesAsync();
             
-            _logger.LogInformation("👤 [Room] Creator {Username} automatically joined room {RoomId} as player in session {SessionId}", 
+            _logger.LogDebug(" [Room] Creator {Username} automatically joined room {RoomId} as player in session {SessionId}", 
                 user?.Username, room.Id, session.Id);
             
             // Возвращаем RoomListItemDto для совместимости с Frontend
@@ -316,7 +316,7 @@ public class RoomsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating room");
+            _logger.LogDebug(ex, "Error creating room");
             return BadRequest(ex.Message);
         }
     }
@@ -352,79 +352,79 @@ public class RoomsController : ControllerBase
                 return BadRequest("Invalid access code");
         }
 
-        _logger.LogInformation("🔍 [JoinRoom] Step 3: Getting current user...");
+        _logger.LogDebug(" [JoinRoom] Step 3: Getting current user...");
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
         {
-            _logger.LogError("❌ [JoinRoom] User ID is NULL - Unauthorized!");
+            _logger.LogDebug(" [JoinRoom] User ID is NULL - Unauthorized!");
             return Unauthorized();
         }
-        _logger.LogInformation("✅ [JoinRoom] User ID: {UserId}", userId.Value);
+        _logger.LogDebug(" [JoinRoom] User ID: {UserId}", userId.Value);
 
         // Получаем или создаем активную сессию
-        _logger.LogInformation("🔍 [JoinRoom] Step 4: Loading active session for room...");
+        _logger.LogDebug(" [JoinRoom] Step 4: Loading active session for room...");
         var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
 
         if (session == null)
         {
-            _logger.LogWarning("⚠️ [JoinRoom] No active session found - creating new one...");
+            _logger.LogDebug(" [JoinRoom] No active session found - creating new one...");
             // Создаем новую сессию если её нет
             // Количество раундов по умолчанию 10 (если сессия создается при старте игры)
             session = new GameSession(id, 10);
-            _logger.LogInformation("📊 [StartGame] Game session created with default 10 rounds");
+            _logger.LogDebug(" [StartGame] Game session created with default 10 rounds");
             await _unitOfWork.GameSessions.AddAsync(session);
             await _unitOfWork.SaveChangesAsync();
-            _logger.LogInformation("✅ [JoinRoom] New session created: {SessionId}", session.Id);
+            _logger.LogDebug(" [JoinRoom] New session created: {SessionId}", session.Id);
         }
         else
         {
-            _logger.LogInformation("✅ [JoinRoom] Active session found: {SessionId}, Players: {Count}", 
+            _logger.LogDebug(" [JoinRoom] Active session found: {SessionId}, Players: {Count}", 
                 session.Id, session.Players.Count);
         }
 
         // Проверяем, не присоединился ли уже игрок
-        _logger.LogInformation("🔍 [JoinRoom] Step 5: Checking if player already in session...");
+        _logger.LogDebug(" [JoinRoom] Step 5: Checking if player already in session...");
         var existingPlayer = session.Players.FirstOrDefault(p => p.UserId == userId.Value && p.IsActive);
         if (existingPlayer != null)
         {
-            _logger.LogInformation("ℹ️ [JoinRoom] User {UserId} ALREADY in session!", userId);
+            _logger.LogDebug("ℹ [JoinRoom] User {UserId} ALREADY in session!", userId);
             return Ok(new { success = true, message = "Already in room", sessionId = session.Id });
         }
-        _logger.LogInformation("✅ [JoinRoom] Player not in session - can join");
+        _logger.LogDebug(" [JoinRoom] Player not in session - can join");
 
         // Проверяем лимит игроков
-        _logger.LogInformation("🔍 [JoinRoom] Step 6: Checking room capacity...");
+        _logger.LogDebug(" [JoinRoom] Step 6: Checking room capacity...");
         var activePlayers = session.Players.Count(p => p.IsActive);
-        _logger.LogInformation("📊 [JoinRoom] Current players: {Count}/{Max}", activePlayers, room.MaxPlayers);
+        _logger.LogDebug(" [JoinRoom] Current players: {Count}/{Max}", activePlayers, room.MaxPlayers);
         
         if (activePlayers >= room.MaxPlayers)
         {
-            _logger.LogError("❌ [JoinRoom] Room is FULL! ({Count}/{Max})", activePlayers, room.MaxPlayers);
+            _logger.LogDebug(" [JoinRoom] Room is FULL! ({Count}/{Max})", activePlayers, room.MaxPlayers);
             return BadRequest($"Room is full ({activePlayers}/{room.MaxPlayers})");
         }
-        _logger.LogInformation("✅ [JoinRoom] Room has space");
+        _logger.LogDebug(" [JoinRoom] Room has space");
 
         // Добавляем игрока в сессию
-        _logger.LogInformation("🔍 [JoinRoom] Step 7: Adding player to session...");
+        _logger.LogDebug(" [JoinRoom] Step 7: Adding player to session...");
         var isOwner = room.OwnerUserId == userId.Value;
-        _logger.LogInformation("📊 [JoinRoom] IsOwner: {IsOwner}", isOwner);
+        _logger.LogDebug(" [JoinRoom] IsOwner: {IsOwner}", isOwner);
         
         session.AddPlayer(userId.Value, isOwner);
-        _logger.LogInformation("✅ [JoinRoom] session.AddPlayer() called");
+        _logger.LogDebug(" [JoinRoom] session.AddPlayer() called");
         
         await _unitOfWork.SaveChangesAsync();
-        _logger.LogInformation("✅ [JoinRoom] Changes saved to database");
+        _logger.LogDebug(" [JoinRoom] Changes saved to database");
 
         var user = await _unitOfWork.Users.GetByIdAsync(userId.Value);
-        _logger.LogInformation("🎉 [JoinRoom] ========== JOIN SUCCESS ==========");
-        _logger.LogInformation("✅ [JoinRoom] User {Username} (ID: {UserId}) joined room {RoomId}", 
+        _logger.LogDebug(" [JoinRoom] ========== JOIN SUCCESS ==========");
+        _logger.LogDebug(" [JoinRoom] User {Username} (ID: {UserId}) joined room {RoomId}", 
             user?.Username ?? "Unknown", userId, room.Name);
-        _logger.LogInformation("✅ [JoinRoom] Session: {SessionId}, Total players: {Count}/{Max}", 
+        _logger.LogDebug(" [JoinRoom] Session: {SessionId}, Total players: {Count}/{Max}", 
             session.Id, activePlayers + 1, room.MaxPlayers);
         
-        // 🔥 КРИТИЧНО: Отправляем уведомление через SignalR всем игрокам в комнате
+        //  КРИТИЧНО: Отправляем уведомление через SignalR всем игрокам в комнате
         var groupName = $"Room_{id}";
-        _logger.LogInformation("📡 [JoinRoom] Sending PlayerJoined notification to group: {GroupName}", groupName);
+        _logger.LogDebug(" [JoinRoom] Sending PlayerJoined notification to group: {GroupName}", groupName);
         
         try
         {
@@ -437,14 +437,14 @@ public class RoomsController : ControllerBase
                 playersCount = activePlayers + 1
             });
             
-            _logger.LogInformation("✅ [JoinRoom] PlayerJoined notification sent successfully!");
+            _logger.LogDebug(" [JoinRoom] PlayerJoined notification sent successfully!");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [JoinRoom] Failed to send PlayerJoined notification via SignalR");
+            _logger.LogDebug(ex, " [JoinRoom] Failed to send PlayerJoined notification via SignalR");
         }
         
-        _logger.LogInformation("🎉 [JoinRoom] ========== JOIN END ==========");
+        _logger.LogDebug(" [JoinRoom] ========== JOIN END ==========");
 
         return Ok(new
         {
@@ -474,7 +474,7 @@ public class RoomsController : ControllerBase
         session.RemovePlayer(userId.Value);
         await _unitOfWork.SaveChangesAsync();
 
-        _logger.LogInformation("User {UserId} left room {RoomId}", userId, id);
+        _logger.LogDebug("User {UserId} left room {RoomId}", userId, id);
 
         return Ok(new { message = "Successfully left room" });
     }
@@ -488,87 +488,87 @@ public class RoomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> StartGame(Guid id)
     {
-        _logger.LogInformation("🎮 [StartGame] ========== START GAME REQUEST ==========");
-        _logger.LogInformation("🎮 [StartGame] Room ID: {RoomId}", id);
+        _logger.LogDebug(" [StartGame] ========== START GAME REQUEST ==========");
+        _logger.LogDebug(" [StartGame] Room ID: {RoomId}", id);
         
         var room = await _unitOfWork.Rooms.GetWithDetailsAsync(id);
 
         if (room == null)
         {
-            _logger.LogError("❌ [StartGame] Room not found: {RoomId}", id);
+            _logger.LogDebug(" [StartGame] Room not found: {RoomId}", id);
             return NotFound($"Room with ID {id} not found");
         }
 
-        _logger.LogInformation("✅ [StartGame] Room found: {RoomName}, Status: {Status}", room.Name, room.Status);
+        _logger.LogDebug(" [StartGame] Room found: {RoomName}, Status: {Status}", room.Name, room.Status);
 
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
         {
-            _logger.LogError("❌ [StartGame] User ID is NULL - Unauthorized!");
+            _logger.LogDebug(" [StartGame] User ID is NULL - Unauthorized!");
             return Unauthorized();
         }
 
-        _logger.LogInformation("✅ [StartGame] User ID: {UserId}", userId.Value);
+        _logger.LogDebug(" [StartGame] User ID: {UserId}", userId.Value);
 
         // Проверка прав владельца
         if (room.OwnerUserId != userId.Value)
         {
-            _logger.LogError("❌ [StartGame] User {UserId} is NOT owner! Owner: {OwnerId}", userId, room.OwnerUserId);
+            _logger.LogDebug(" [StartGame] User {UserId} is NOT owner! Owner: {OwnerId}", userId, room.OwnerUserId);
             return Forbid();
         }
 
-        _logger.LogInformation("✅ [StartGame] User is owner - can start game");
+        _logger.LogDebug(" [StartGame] User is owner - can start game");
 
         if (room.Status != RoomStatus.Lobby)
         {
-            _logger.LogError("❌ [StartGame] Room status is {Status}, not Lobby!", room.Status);
+            _logger.LogDebug(" [StartGame] Room status is {Status}, not Lobby!", room.Status);
             return BadRequest($"Game can only be started from lobby. Current status: {room.Status}");
         }
 
-        _logger.LogInformation("✅ [StartGame] Room status is Lobby");
+        _logger.LogDebug(" [StartGame] Room status is Lobby");
 
         var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
 
         if (session == null)
         {
-            _logger.LogError("❌ [StartGame] No active session found for room {RoomId}", id);
+            _logger.LogDebug(" [StartGame] No active session found for room {RoomId}", id);
             return BadRequest("No active session found");
         }
 
-        _logger.LogInformation("✅ [StartGame] Session found: {SessionId}, Status: {Status}", session.Id, session.Status);
+        _logger.LogDebug(" [StartGame] Session found: {SessionId}, Status: {Status}", session.Id, session.Status);
 
         var activePlayers = session.Players.Count(p => p.IsActive);
-        _logger.LogInformation("📊 [StartGame] Active players: {Count}", activePlayers);
+        _logger.LogDebug(" [StartGame] Active players: {Count}", activePlayers);
         
         if (activePlayers < 2)
         {
-            _logger.LogError("❌ [StartGame] Not enough players: {Count}/2", activePlayers);
+            _logger.LogDebug(" [StartGame] Not enough players: {Count}/2", activePlayers);
             return BadRequest($"At least 2 players are required to start the game. Current: {activePlayers}");
         }
 
-        _logger.LogInformation("✅ [StartGame] Enough players to start");
+        _logger.LogDebug(" [StartGame] Enough players to start");
 
         try
         {
-            _logger.LogInformation("🔄 [StartGame] Calling room.StartGame()...");
+            _logger.LogDebug(" [StartGame] Calling room.StartGame()...");
             room.StartGame();
-            _logger.LogInformation("✅ [StartGame] room.StartGame() succeeded. New status: {Status}", room.Status);
+            _logger.LogDebug(" [StartGame] room.StartGame() succeeded. New status: {Status}", room.Status);
 
-            _logger.LogInformation("🔄 [StartGame] Calling session.Start()...");
-            _logger.LogInformation("   Session current status: {Status}", session.Status);
+            _logger.LogDebug(" [StartGame] Calling session.Start()...");
+            _logger.LogDebug("   Session current status: {Status}", session.Status);
             session.Start();
-            _logger.LogInformation("✅ [StartGame] session.Start() succeeded. New status: {Status}", session.Status);
+            _logger.LogDebug(" [StartGame] session.Start() succeeded. New status: {Status}", session.Status);
 
-            // 🎯 КРИТИЧНО: Автоматически создаем и запускаем первый раунд!
-            _logger.LogInformation("🎲 [StartGame] Creating first round...");
+            //  КРИТИЧНО: Автоматически создаем и запускаем первый раунд!
+            _logger.LogDebug(" [StartGame] Creating first round...");
             
             // Получаем случайный вопрос по тегам и сложности комнаты
             var tagIds = room.TagSelections.Select(ts => ts.TagId).ToArray();
             var difficultyFilters = room.GetDifficultyFilters();
             
-            _logger.LogInformation("🎲 [StartGame] Selecting first question with filters:");
-            _logger.LogInformation("   📌 Tags: {TagCount}", tagIds.Length);
-            _logger.LogInformation("   📊 Difficulties: {Filters}", 
+            _logger.LogDebug(" [StartGame] Selecting first question with filters:");
+            _logger.LogDebug("    Tags: {TagCount}", tagIds.Length);
+            _logger.LogDebug("    Difficulties: {Filters}", 
                 difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "ALL");
             
             var question = await _unitOfWork.Questions.GetRandomApprovedWithFiltersAsync(
@@ -577,13 +577,13 @@ public class RoomsController : ControllerBase
             
             if (question == null)
             {
-                _logger.LogError("❌ [StartGame] No approved questions available with specified filters!");
-                _logger.LogError("   Tags: {Tags}", tagIds.Any() ? string.Join(", ", tagIds) : "None");
-                _logger.LogError("   Difficulties: {Diff}", difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "None");
+                _logger.LogDebug(" [StartGame] No approved questions available with specified filters!");
+                _logger.LogDebug("   Tags: {Tags}", tagIds.Any() ? string.Join(", ", tagIds) : "None");
+                _logger.LogDebug("   Difficulties: {Diff}", difficultyFilters.Any() ? string.Join(", ", difficultyFilters) : "None");
                 return BadRequest("No approved questions available with specified filters");
             }
             
-            _logger.LogInformation("✅ [StartGame] Question selected: {QuestionId}, Difficulty: {Difficulty} - '{QuestionText}'", 
+            _logger.LogDebug(" [StartGame] Question selected: {QuestionId}, Difficulty: {Difficulty} - '{QuestionText}'", 
                 question.Id, question.Difficulty, question.PromptText);
             
             // Создаем первый раунд
@@ -591,30 +591,30 @@ public class RoomsController : ControllerBase
             var firstRound = session.AddRound(question.Id, timeLimitSec);
             session.StartRound(firstRound.Id);
             
-            _logger.LogInformation("✅ [StartGame] First round created: {RoundId}, Time limit: {Time}s", 
+            _logger.LogDebug(" [StartGame] First round created: {RoundId}, Time limit: {Time}s", 
                 firstRound.Id, timeLimitSec);
 
-            _logger.LogInformation("💾 [StartGame] Saving changes...");
+            _logger.LogDebug(" [StartGame] Saving changes...");
             await _unitOfWork.SaveChangesAsync();
-            _logger.LogInformation("✅ [StartGame] Changes saved!");
+            _logger.LogDebug(" [StartGame] Changes saved!");
 
-            _logger.LogInformation("🎉 [StartGame] ========== GAME STARTED SUCCESSFULLY ==========");
-            _logger.LogInformation("   Room: {RoomId}, Session: {SessionId}", id, session.Id);
-            _logger.LogInformation("   Players: {Count}", activePlayers);
-            _logger.LogInformation("   First Round: {RoundId}, Question: {QuestionId}", firstRound.Id, question.Id);
+            _logger.LogDebug(" [StartGame] ========== GAME STARTED SUCCESSFULLY ==========");
+            _logger.LogDebug("   Room: {RoomId}, Session: {SessionId}", id, session.Id);
+            _logger.LogDebug("   Players: {Count}", activePlayers);
+            _logger.LogDebug("   First Round: {RoundId}, Question: {QuestionId}", firstRound.Id, question.Id);
 
-            // 🔥 КРИТИЧНО: Отправляем уведомление GameStarted через SignalR
+            //  КРИТИЧНО: Отправляем уведомление GameStarted через SignalR
             var groupName = $"Room_{id}";
-            _logger.LogInformation("📡 [StartGame] Sending GameStarted notification to group: {GroupName}", groupName);
+            _logger.LogDebug(" [StartGame] Sending GameStarted notification to group: {GroupName}", groupName);
             
             try
             {
                 await _lobbyHubContext.Clients.Group(groupName).SendAsync("GameStarted", session.Id);
-                _logger.LogInformation("✅ [StartGame] GameStarted notification sent successfully!");
+                _logger.LogDebug(" [StartGame] GameStarted notification sent successfully!");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ [StartGame] Failed to send GameStarted notification via SignalR");
+                _logger.LogDebug(ex, " [StartGame] Failed to send GameStarted notification via SignalR");
             }
 
             return Ok(new
@@ -629,12 +629,12 @@ public class RoomsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            _logger.LogError(ex, "❌ [StartGame] InvalidOperationException: {Message}", ex.Message);
+            _logger.LogDebug(ex, " [StartGame] InvalidOperationException: {Message}", ex.Message);
             return BadRequest(ex.Message);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [StartGame] Unexpected exception: {Message}", ex.Message);
+            _logger.LogDebug(ex, " [StartGame] Unexpected exception: {Message}", ex.Message);
             return BadRequest($"Error starting game: {ex.Message}");
         }
     }
@@ -647,7 +647,7 @@ public class RoomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ResetRoom(Guid id)
     {
-        _logger.LogInformation("🔄 [ResetRoom] Resetting room {RoomId} to Lobby", id);
+        _logger.LogDebug(" [ResetRoom] Resetting room {RoomId} to Lobby", id);
         
         var room = await _unitOfWork.Rooms.GetWithDetailsAsync(id);
 
@@ -661,27 +661,27 @@ public class RoomsController : ControllerBase
         // Проверка прав владельца
         if (room.OwnerUserId != userId.Value)
         {
-            _logger.LogError("❌ [ResetRoom] User {UserId} is not owner", userId);
+            _logger.LogDebug(" [ResetRoom] User {UserId} is not owner", userId);
             return Forbid();
         }
 
         try
         {
-            _logger.LogInformation("🔄 [ResetRoom] Current status: {Status}", room.Status);
+            _logger.LogDebug(" [ResetRoom] Current status: {Status}", room.Status);
             room.ReturnToLobby();
-            _logger.LogInformation("✅ [ResetRoom] New status: {Status}", room.Status);
+            _logger.LogDebug(" [ResetRoom] New status: {Status}", room.Status);
             
             // Также сбрасываем сессию если нужно
             var session = await _unitOfWork.GameSessions.GetActiveByRoomIdAsync(id);
             if (session != null && session.Status != GameSessionStatus.Pending)
             {
-                _logger.LogInformation("🔄 [ResetRoom] Aborting active session {SessionId}", session.Id);
+                _logger.LogDebug(" [ResetRoom] Aborting active session {SessionId}", session.Id);
                 session.Abort();
             }
             
             await _unitOfWork.SaveChangesAsync();
             
-            _logger.LogInformation("✅ [ResetRoom] Room reset successfully");
+            _logger.LogDebug(" [ResetRoom] Room reset successfully");
 
             return Ok(new
             {
@@ -691,7 +691,7 @@ public class RoomsController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ [ResetRoom] Error: {Message}", ex.Message);
+            _logger.LogDebug(ex, " [ResetRoom] Error: {Message}", ex.Message);
             return BadRequest(ex.Message);
         }
     }
@@ -733,13 +733,13 @@ public class RoomsController : ControllerBase
 
             await _unitOfWork.SaveChangesAsync();
 
-            _logger.LogInformation("Room {RoomId} updated by user {UserId}", id, userId);
+            _logger.LogDebug("Room {RoomId} updated by user {UserId}", id, userId);
 
             return Ok(new { message = "Room updated successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error updating room {RoomId}", id);
+            _logger.LogDebug(ex, "Error updating room {RoomId}", id);
             return BadRequest(ex.Message);
         }
     }

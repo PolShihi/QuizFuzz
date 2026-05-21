@@ -85,7 +85,7 @@ public class GetQuestionForModerationQueryHandler : IRequestHandler<GetQuestionF
         GetQuestionForModerationQuery request, 
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
+        _logger.LogDebug(
             "Fetching question details for moderation. QuestionId: {QuestionId}",
             request.QuestionId);
 
@@ -95,7 +95,7 @@ public class GetQuestionForModerationQueryHandler : IRequestHandler<GetQuestionF
             var question = await _unitOfWork.Questions.GetWithAllDetailsAsync(request.QuestionId, cancellationToken);
             if (question == null)
             {
-                _logger.LogWarning(
+                _logger.LogDebug(
                     "Question not found. QuestionId: {QuestionId}",
                     request.QuestionId);
 
@@ -116,7 +116,7 @@ public class GetQuestionForModerationQueryHandler : IRequestHandler<GetQuestionF
                 : null;
             var authorUsername = author?.Username ?? "Unknown";
 
-            _logger.LogTrace(
+            _logger.LogDebug(
                 "Author resolved. AuthorId: {AuthorId}, Username: {Username}",
                 question.AuthorUserId, authorUsername);
 
@@ -169,7 +169,7 @@ public class GetQuestionForModerationQueryHandler : IRequestHandler<GetQuestionF
                 FuzzyMatchThreshold = a.MinConfidence
             }).ToList() ?? new List<AnswerDto>();
 
-            _logger.LogTrace(
+            _logger.LogDebug(
                 "Prepared answers. QuestionId: {QuestionId}, AnswersCount: {Count}",
                 question.Id, answers.Count);
 
@@ -198,7 +198,7 @@ public class GetQuestionForModerationQueryHandler : IRequestHandler<GetQuestionF
                 MediaAsset = mediaAsset
             };
 
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Question details fetched successfully. QuestionId: {QuestionId}, HistoryCount: {HistoryCount}",
                 question.Id, history.Count);
 
@@ -211,7 +211,7 @@ public class GetQuestionForModerationQueryHandler : IRequestHandler<GetQuestionF
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
+            _logger.LogDebug(ex,
                 "Error fetching question for moderation. QuestionId: {QuestionId}",
                 request.QuestionId);
 
