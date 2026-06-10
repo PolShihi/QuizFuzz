@@ -4,6 +4,7 @@ using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
 using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
+using QuizFuzz.Web.Api.Services;
 
 namespace QuizFuzz.Web.Api.Hubs;
 
@@ -16,6 +17,7 @@ public class GameHub : Hub
     private readonly IUnitOfWork _unitOfWork;
     private readonly IFuzzyMatchingService _fuzzyMatchingService;
     private readonly ILogger<GameHub> _logger;
+    private readonly IHintRevealScheduler _hintRevealScheduler;
 
     // Group names format: "room:{roomId}"
     private const string RoomGroupPrefix = "room:";
@@ -23,11 +25,13 @@ public class GameHub : Hub
     public GameHub(
         IUnitOfWork unitOfWork,
         IFuzzyMatchingService fuzzyMatchingService,
-        ILogger<GameHub> logger)
+        ILogger<GameHub> logger,
+        IHintRevealScheduler hintRevealScheduler)
     {
         _unitOfWork = unitOfWork;
         _fuzzyMatchingService = fuzzyMatchingService;
         _logger = logger;
+        _hintRevealScheduler = hintRevealScheduler;
     }
 
     /// <summary>
@@ -113,6 +117,12 @@ public class GameHub : Hub
                 })
                 .ToList()
         });
+
+        if (session.CurrentRoundId.HasValue)
+        {
+            _hintRevealScheduler.EnsureHintsScheduled(room.Id, session.CurrentRoundId.Value);
+            _logger.LogDebug(" [GameHub] Ensured hint scheduler for active round {RoundId}", session.CurrentRoundId.Value);
+        }
         
         _logger.LogDebug(" [GameHub] Sent GameState to caller");
         _logger.LogDebug(" [GameHub] ========== JOIN GAME SUCCESS ==========");
@@ -329,16 +339,12 @@ public class GameHub : Hub
                 mediaUrl = mediaUrl,
                 timeLimit = round.TimeLimitSec,
                 startedAt = round.StartedAt,
-                hints = question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
-                {
-                    orderIndex = h.OrderIndex,
-                    text = h.HintText,
-                    revealTimeSeconds = h.RevealTimeSec
-                }).ToList()
+                hints = Array.Empty<object>()
             };
 
             var roundStartedJson = System.Text.Json.JsonSerializer.Serialize(roundStartedData);
             await Clients.Group(groupName).SendAsync("RoundStarted", roundStartedJson);
+            _hintRevealScheduler.ScheduleHints(room.Id, round.Id);
         }
         catch (Exception ex)
         {
@@ -663,6 +669,7 @@ public class GameHub : Hub
         try
         {
             session.EndRound(roundId);
+            _hintRevealScheduler.StopHints(roundId);
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogDebug("Round {RoundId} ended by owner", roundId);
@@ -865,6 +872,7 @@ public class GameHub : Hub
             
             // Завершаем раунд
             session.EndRound(roundId);
+            _hintRevealScheduler.StopHints(roundId);
             await _unitOfWork.SaveChangesAsync();
             
             _logger.LogDebug(" [AutoEnd] Round {RoundId} ended", roundId);
@@ -1105,12 +1113,7 @@ public class GameHub : Hub
                 startedAt = nextRound.StartedAt,
                 questionType = question.Type.ToString(),
                 mediaUrl = nextMediaUrl,  //  Отправляем ПОЛНЫЙ MediaUrl!
-                hints = question.Hints.OrderBy(h => h.OrderIndex).Select(h => new
-                {
-                    orderIndex = h.OrderIndex,
-                    text = h.HintText,  // Клиент ожидает "text"
-                    revealTimeSeconds = h.RevealTimeSec  // Клиент ожидает "revealTimeSeconds"
-                }).ToList()
+                hints = Array.Empty<object>()
             };
             
             var roundStartedJson = System.Text.Json.JsonSerializer.Serialize(roundStartedData);
@@ -1121,6 +1124,7 @@ public class GameHub : Hub
             
             // Отправляем в группу
             await Clients.Group(groupName).SendAsync("RoundStarted", roundStartedJson);
+            _hintRevealScheduler.ScheduleHints(room.Id, nextRound.Id);
             _logger.LogDebug(" [AutoEnd] RoundStarted sent to group");
             
             // ДОПОЛНИТЕЛЬНО: отправляем всем клиентам в Hub (на случай если кто-то не в группе)

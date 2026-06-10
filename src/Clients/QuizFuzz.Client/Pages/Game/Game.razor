@@ -77,20 +77,32 @@
                     }
 
                     <!-- Hints -->
-                    @if (visibleHints.Any())
-                    {
-                        <MudPaper Elevation="0" Class="qf-hints-panel pa-3 mb-4">
+                    <MudPaper Elevation="0" Class="qf-hints-panel pa-3 mb-4">
+                        @if (visibleHints.Any())
+                        {
                             <MudStack Spacing="2">
-                                @foreach (var hint in visibleHints)
+                                @foreach (var hint in visibleHints.OrderBy(h => h.OrderIndex))
                                 {
-                                    <MudText>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                         <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Size="Size.Small" Color="Color.Warning" />
-                                        Hint @(hint.OrderIndex + 1): @hint.Text
-                                    </MudText>
+                                        <MudText>@GetHintText(hint)</MudText>
+                                    </MudStack>
+
+                                    @if (!string.IsNullOrWhiteSpace(hint.MediaUrl))
+                                    {
+                                        <MudLink Href="@hint.MediaUrl" Target="_blank">@AppStrings.T("OpenHintMedia")</MudLink>
+                                    }
                                 }
                             </MudStack>
-                        </MudPaper>
-                    }
+                        }
+                        else
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" Color="Color.Default" />
+                                <MudText Typo="Typo.body2">@AppStrings.T("HintsWillAppear")</MudText>
+                            </MudStack>
+                        }
+                    </MudPaper>
 
                     <!-- Answer Input -->
                     <MudPaper Elevation="0" Class="qf-answer-panel pa-4">
@@ -200,14 +212,13 @@
     private bool? lastAnswerCorrect = null;
     private int lastScore = 0;
     private DateTime questionStartTime;
-    private System.Threading.Timer? hintTimer;
     private bool timeoutRequestInProgress = false;
+    private CancellationTokenSource? hintPollingCts;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadGameData();
         await InitializeSignalR();
-        StartHintTimer();
     }
 
     private async Task LoadGameData()
@@ -221,6 +232,11 @@
         {
             
             questionStartTime = currentQuestion.StartedAt;
+            visibleHints = currentQuestion.Hints
+                .OrderBy(h => h.OrderIndex)
+                .ToList();
+            await LoadRevealedHintsAsync();
+            StartHintPolling();
             
             // ПРОВЕРКА: Есть ли MediaUrl при первой загрузке?
             if (!string.IsNullOrEmpty(currentQuestion.MediaUrl))
@@ -257,6 +273,12 @@
             .Build();
         
 
+        hubConnection.Reconnected += async _ =>
+        {
+            await LoadRevealedHintsAsync();
+            await InvokeAsync(StateHasChanged);
+        };
+
         // Round Started - New Question
         hubConnection.On<string>("RoundStarted", async (questionJson) =>
         {
@@ -274,7 +296,7 @@
                 currentAnswer = string.Empty;
                 currentQuestion = null;
                 visibleHints.Clear();
-                DisposeHintTimer();
+                StopHintPolling();
 
                 scoreboard = await GameClient.GetScoreboardAsync(SessionId);
 
@@ -300,6 +322,16 @@
             {
                 // Перезагружаем scoreboard чтобы получить актуальные очки
                 scoreboard = await GameClient.GetScoreboardAsync(SessionId);
+                StateHasChanged();
+            });
+        });
+
+        // Hint revealed by server schedule
+        hubConnection.On<RevealedHintDto>("HintRevealed", async (hint) =>
+        {
+            await InvokeAsync(() =>
+            {
+                AddRevealedHint(hint);
                 StateHasChanged();
             });
         });
@@ -372,7 +404,7 @@
 
     private async Task HandleRoundStartedJson(string questionJson)
     {
-        await InvokeAsync(() =>
+        await InvokeAsync(async () =>
         {
 
             try
@@ -390,7 +422,11 @@
                 if (currentQuestion != null)
                 {
                     questionStartTime = currentQuestion.StartedAt;
-                    StartHintTimer();
+                    visibleHints = currentQuestion.Hints
+                        .OrderBy(h => h.OrderIndex)
+                        .ToList();
+                    await LoadRevealedHintsAsync();
+                    StartHintPolling();
                 }
                 else
                 {
@@ -407,6 +443,7 @@
 
     private void ResetRoundUiState()
     {
+        StopHintPolling();
         hasAnsweredCorrectly = false;
         timeExpired = false;
         timeoutRequestInProgress = false;
@@ -415,40 +452,100 @@
         visibleHints.Clear();
         lastAnswerCorrect = null;
         lastScore = 0;
-        DisposeHintTimer();
     }
 
-    private void StartHintTimer()
+    private async Task LoadRevealedHintsAsync()
     {
-        DisposeHintTimer();
+        if (currentQuestion == null)
+            return;
 
-        if (currentQuestion?.Hints == null) return;
-
-        hintTimer = new System.Threading.Timer(_ =>
+        try
         {
-            if (currentQuestion == null)
-                return;
-
-            var elapsed = (DateTime.UtcNow - questionStartTime).TotalSeconds;
-            var newHints = currentQuestion.Hints
-                .Where(h => h.RevealTimeSeconds <= elapsed && !visibleHints.Contains(h))
-                .ToList();
-
-            if (newHints.Any())
+            var beforeCount = visibleHints.Count;
+            var revealedHints = await GameClient.GetRevealedHintsAsync(currentQuestion.RoundId);
+            foreach (var hint in revealedHints)
             {
-                InvokeAsync(() =>
-                {
-                    visibleHints.AddRange(newHints);
-                    StateHasChanged();
-                });
+                AddRevealedHint(hint);
             }
-        }, null, 1000, 1000);
+
+            if (visibleHints.Count != beforeCount)
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch
+        {
+            // REST fallback must not break the game screen.
+        }
     }
 
-    private void DisposeHintTimer()
+    private void StartHintPolling()
     {
-        hintTimer?.Dispose();
-        hintTimer = null;
+        StopHintPolling();
+
+        if (currentQuestion == null || timeExpired)
+            return;
+
+        hintPollingCts = new CancellationTokenSource();
+        _ = PollRevealedHintsAsync(hintPollingCts.Token);
+    }
+
+    private void StopHintPolling()
+    {
+        if (hintPollingCts == null)
+            return;
+
+        try
+        {
+            hintPollingCts.Cancel();
+        }
+        finally
+        {
+            hintPollingCts.Dispose();
+            hintPollingCts = null;
+        }
+    }
+
+    private async Task PollRevealedHintsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                if (currentQuestion == null || timeExpired)
+                    return;
+
+                await LoadRevealedHintsAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected when the round ends or the component is disposed.
+        }
+        catch
+        {
+            // Hint polling is only a fallback; SignalR remains the primary path.
+        }
+    }
+
+    private void AddRevealedHint(RevealedHintDto hint)
+    {
+        if (visibleHints.Any(h => h.Id == hint.Id))
+            return;
+
+        visibleHints.Add(new HintDto
+        {
+            Id = hint.Id,
+            OrderIndex = hint.OrderIndex,
+            Text = hint.Text,
+            MediaUrl = hint.MediaUrl,
+            RevealTimeSeconds = hint.RevealTimeSeconds
+        });
+
+        visibleHints = visibleHints
+            .OrderBy(h => h.OrderIndex)
+            .ToList();
     }
 
     private async Task SubmitAnswer()
@@ -499,6 +596,12 @@
 
         attempt.IsCorrect = isCorrect;
         attempt.ScoreAwarded = isCorrect ? lastScore : 0;
+    }
+
+    private string GetHintText(HintDto hint)
+    {
+        var label = AppStrings.Tf("HintNumber", hint.OrderIndex + 1);
+        return string.IsNullOrWhiteSpace(hint.Text) ? label : $"{label}: {hint.Text}";
     }
 
     private string GetSubmitButtonIcon()
@@ -613,7 +716,7 @@
 
     public async ValueTask DisposeAsync()
     {
-        DisposeHintTimer();
+        StopHintPolling();
 
         if (hubConnection != null)
         {

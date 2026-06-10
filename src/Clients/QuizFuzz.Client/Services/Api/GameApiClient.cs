@@ -53,6 +53,19 @@ public class GameApiClient : IGameApiClient
         }
     }
 
+    public async Task<IReadOnlyList<RevealedHintDto>> GetRevealedHintsAsync(Guid roundId)
+    {
+        try
+        {
+            return await _httpClient.GetFromJsonAsync<List<RevealedHintDto>>($"api/game/rounds/{roundId}/revealed-hints")
+                ?? new List<RevealedHintDto>();
+        }
+        catch (Exception ex)
+        {
+            return Array.Empty<RevealedHintDto>();
+        }
+    }
+
     public async Task<bool> SubmitAnswerAsync(SubmitAnswerRequest request)
     {
         try

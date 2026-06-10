@@ -6,6 +6,7 @@ using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 using QuizFuzz.Domain.ValueObjects;
 using QuizFuzz.Shared.Dtos.Game;
+using QuizFuzz.Web.Api.Services;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -21,17 +22,20 @@ public class GameController : ControllerBase
     private readonly ICurrentUserService _currentUserService;
     private readonly IFuzzyMatchingService _fuzzyMatchingService;
     private readonly ILogger<GameController> _logger;
+    private readonly IHintRevealScheduler _hintRevealScheduler;
 
     public GameController(
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUserService,
         IFuzzyMatchingService fuzzyMatchingService,
-        ILogger<GameController> logger)
+        ILogger<GameController> logger,
+        IHintRevealScheduler hintRevealScheduler)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
         _fuzzyMatchingService = fuzzyMatchingService;
         _logger = logger;
+        _hintRevealScheduler = hintRevealScheduler;
     }
 
     /// <summary>
@@ -115,6 +119,7 @@ public class GameController : ControllerBase
             session.StartRound(round.Id);
 
             await _unitOfWork.SaveChangesAsync();
+            _hintRevealScheduler.ScheduleHints(room.Id, round.Id);
 
             _logger.LogDebug("Round {RoundId} started in session {SessionId}", round.Id, sessionId);
 
@@ -335,6 +340,13 @@ public class GameController : ControllerBase
         }
 
         _logger.LogDebug(" [GameController] Active round found: {RoundId}", round.Id);
+
+        var session = await _unitOfWork.GameSessions.GetWithDetailsAsync(sessionId);
+        if (session != null)
+        {
+            _hintRevealScheduler.EnsureHintsScheduled(session.RoomId, round.Id);
+        }
+
         _logger.LogDebug("    Question: {QuestionText}", round.Question.PromptText);
         _logger.LogDebug("    Type: {QuestionType}", round.Question.Type);
         _logger.LogDebug("    MediaAssets count: {MediaCount}", round.Question.MediaAssets.Count);
@@ -378,17 +390,98 @@ public class GameController : ControllerBase
             QuestionType = round.Question.Type.ToString(),
             TimeLimit = round.TimeLimitSec,
             StartedAt = round.StartedAt ?? DateTime.UtcNow,
-            Hints = round.Question.Hints.OrderBy(h => h.OrderIndex).Select(h => new Shared.Dtos.Game.HintDto
-            {
-                OrderIndex = h.OrderIndex,
-                Text = h.HintText,
-                RevealTimeSeconds = h.RevealTimeSec
-            }).ToList()
+            Hints = GetRevealedHints(round).Select(ToHintDto).ToList()
         };
 
         _logger.LogDebug(" [GameController] Returning question DTO with FULL MediaUrl: {MediaUrl}", result.MediaUrl);
 
         return Ok(result);
+    }
+
+
+    /// <summary>
+    /// Получить подсказки активного раунда, которые уже должны быть раскрыты.
+    /// Используется как REST fallback после перезагрузки страницы или переподключения SignalR.
+    /// </summary>
+    [HttpGet("rounds/{roundId}/revealed-hints")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetRevealedHints(Guid roundId)
+    {
+        var userId = _currentUserService.UserId;
+        if (!userId.HasValue)
+            return Unauthorized();
+
+        var round = await _unitOfWork.GameRounds.GetWithDetailsAsync(roundId);
+        if (round == null)
+            return NotFound($"Round with ID {roundId} not found");
+
+        var session = await _unitOfWork.GameSessions.GetWithDetailsAsync(round.SessionId);
+        if (session == null)
+            return NotFound("Session not found");
+
+        var isPlayer = session.Players.Any(p => p.UserId == userId.Value && p.IsActive);
+        if (!isPlayer)
+            return Forbid();
+
+        var hints = GetRevealedHints(round).Select(ToRevealedHintDto).ToList();
+        return Ok(hints);
+    }
+
+
+    private static IEnumerable<Hint> GetRevealedHints(GameRound round)
+    {
+        if (round.StartedAt == null)
+            return Enumerable.Empty<Hint>();
+
+        var elapsedSeconds = Math.Max(0, (DateTime.UtcNow - round.StartedAt.Value).TotalSeconds);
+        return round.Question.Hints
+            .Where(h => h.RevealTimeSec <= elapsedSeconds)
+            .OrderBy(h => h.OrderIndex);
+    }
+
+    private HintDto ToHintDto(Hint hint)
+    {
+        return new HintDto
+        {
+            Id = hint.Id,
+            OrderIndex = hint.OrderIndex,
+            Text = hint.HintText,
+            MediaUrl = ConvertToFullMediaUrl(hint.MediaAsset?.Url),
+            RevealTimeSeconds = hint.RevealTimeSec
+        };
+    }
+
+    private RevealedHintDto ToRevealedHintDto(Hint hint)
+    {
+        return new RevealedHintDto
+        {
+            Id = hint.Id,
+            OrderIndex = hint.OrderIndex,
+            Text = hint.HintText,
+            MediaUrl = ConvertToFullMediaUrl(hint.MediaAsset?.Url),
+            RevealTimeSeconds = hint.RevealTimeSec,
+            RevealedAtSeconds = hint.RevealTimeSec
+        };
+    }
+
+    private string? ConvertToFullMediaUrl(string? mediaUrl)
+    {
+        if (string.IsNullOrWhiteSpace(mediaUrl))
+            return null;
+
+        if (mediaUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            mediaUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            return mediaUrl;
+
+        if (!mediaUrl.StartsWith("/"))
+            return mediaUrl;
+
+        var request = HttpContext.Request;
+        var baseUrl = $"{request.Scheme}://{request.Host}";
+        return $"{baseUrl}{mediaUrl}";
     }
 
     private int CalculateScore(int answerTimeMs, int timeLimitSec)

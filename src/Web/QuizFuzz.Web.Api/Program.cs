@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Microsoft.Extensions.FileProviders;
 using QuizFuzz.Infrastructure;
+using QuizFuzz.Web.Api.Services;
 using System.Text;
 using Serilog;
 using Serilog.Events;
@@ -50,6 +51,9 @@ builder.Services.AddHttpContextAccessor();
 // Current User Service
 builder.Services.AddScoped<QuizFuzz.Application.Common.Interfaces.Services.ICurrentUserService, 
     QuizFuzz.Web.Api.Services.CurrentUserService>();
+
+// Round hint scheduling
+builder.Services.AddSingleton<IHintRevealScheduler, HintRevealScheduler>();
 
 // Infrastructure Layer
 builder.Services.AddInfrastructure(builder.Configuration);

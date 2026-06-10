@@ -20,6 +20,7 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
                     .ThenInclude(a => a.Aliases)
             .Include(gr => gr.Question)
                 .ThenInclude(q => q.Hints)
+                    .ThenInclude(h => h.MediaAsset)
             .Include(gr => gr.Question)
                 .ThenInclude(q => q.MediaAssets) //  КРИТИЧНО: загружаем MediaAssets!
             .Include(gr => gr.Answers)
@@ -58,6 +59,7 @@ public class GameRoundRepository : BaseRepository<GameRound>, IGameRoundReposito
                     .ThenInclude(a => a.Aliases)
             .Include(gr => gr.Question)
                 .ThenInclude(q => q.Hints)
+                    .ThenInclude(h => h.MediaAsset)
             .Include(gr => gr.Question)
                 .ThenInclude(q => q.MediaAssets) //  КРИТИЧНО: загружаем MediaAssets!
             .FirstOrDefaultAsync(

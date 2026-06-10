@@ -7,6 +7,7 @@ using QuizFuzz.Domain.Entities;
 using QuizFuzz.Domain.Enums;
 using QuizFuzz.Shared.Dtos.Rooms;
 using QuizFuzz.Web.Api.Hubs;
+using QuizFuzz.Web.Api.Services;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -23,19 +24,22 @@ public class RoomsController : ControllerBase
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<RoomsController> _logger;
     private readonly IHubContext<LobbyHub> _lobbyHubContext;
+    private readonly IHintRevealScheduler _hintRevealScheduler;
 
     public RoomsController(
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUserService,
         IPasswordHasher passwordHasher,
         ILogger<RoomsController> logger,
-        IHubContext<LobbyHub> lobbyHubContext)
+        IHubContext<LobbyHub> lobbyHubContext,
+        IHintRevealScheduler hintRevealScheduler)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
         _passwordHasher = passwordHasher;
         _logger = logger;
         _lobbyHubContext = lobbyHubContext;
+        _hintRevealScheduler = hintRevealScheduler;
     }
 
     /// <summary>
@@ -597,6 +601,9 @@ public class RoomsController : ControllerBase
             _logger.LogDebug(" [StartGame] Saving changes...");
             await _unitOfWork.SaveChangesAsync();
             _logger.LogDebug(" [StartGame] Changes saved!");
+
+            _hintRevealScheduler.ScheduleHints(room.Id, firstRound.Id);
+            _logger.LogDebug(" [StartGame] Hint reveal scheduler started for first round {RoundId}", firstRound.Id);
 
             _logger.LogDebug(" [StartGame] ========== GAME STARTED SUCCESSFULLY ==========");
             _logger.LogDebug("   Room: {RoomId}, Session: {SessionId}", id, session.Id);

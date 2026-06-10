@@ -14,7 +14,9 @@ public class GameQuestionDto
 
 public class HintDto
 {
+    public Guid Id { get; set; }
     public int OrderIndex { get; set; }
     public string? Text { get; set; }
+    public string? MediaUrl { get; set; }
     public int RevealTimeSeconds { get; set; }
 }
