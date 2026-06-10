@@ -13,7 +13,7 @@
         {
             <MudStack AlignItems="AlignItems.Center" Class="pa-6" Spacing="3">
                 <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-                <MudText Color="Color.Secondary">Loading…</MudText>
+                <MudText Color="Color.Secondary">@AppStrings.T("CommonLoading")</MudText>
             </MudStack>
         }
         else if (!string.IsNullOrWhiteSpace(error))
@@ -25,13 +25,13 @@
             <MudGrid>
                 <MudItem xs="12" md="8">
                     <MudStack Spacing="3">
-                        <MudTextField T="string" Label="Title"
+                        <MudTextField T="string" Label='@AppStrings.T("Title")'
                                       @bind-Value="question.Title"
                                       Variant="Variant.Outlined"
                                       Required="true"
                                       ReadOnly="@(!isEdit)" />
 
-                        <MudTextField T="string" Label="Question Text"
+                        <MudTextField T="string" Label='@AppStrings.T("QuestionText")'
                                       @bind-Value="question.PromptText"
                                       Lines="3"
                                       Variant="Variant.Outlined"
@@ -39,32 +39,32 @@
                                       ReadOnly="@(!isEdit)" />
 
                         <MudStack Row="true" Spacing="2">
-                            <MudSelect T="string" Label="Type" @bind-Value="question.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
-                                <MudSelectItem T="string" Value='@("TEXT")'>Text</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("IMAGE")'>Image</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("AUDIO")'>Audio</MudSelectItem>
+                            <MudSelect T="string" Label='@AppStrings.T("Type")' @bind-Value="question.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
+                                <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.T("QuestionTypeText")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.T("QuestionTypeImage")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.T("QuestionTypeAudio")</MudSelectItem>
                             </MudSelect>
 
-                            <MudSelect T="string" Label="Difficulty" @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
-                                <MudSelectItem T="string" Value='@("Easy")'>Easy</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("Medium")'>Medium</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("Hard")'>Hard</MudSelectItem>
+                            <MudSelect T="string" Label='@AppStrings.T("Difficulty")' @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
+                                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.T("DifficultyEasy")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.T("DifficultyMedium")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.T("DifficultyHard")</MudSelectItem>
                             </MudSelect>
                         </MudStack>
 
                         @if (!IsTextQuestion(question.QuestionType))
                         {
-                            <MudTextField T="string" Label="Media URL"
+                            <MudTextField T="string" Label='@AppStrings.T("MediaUrl")'
                                           @bind-Value="question.MediaUrl"
                                           Variant="Variant.Outlined"
                                           ReadOnly="@(!isEdit)" />
 
                             <MudPaper Elevation="1" Class="pa-3" Outlined="true">
-                                <MudText Typo="Typo.subtitle2" Class="mb-2">Media preview</MudText>
+                                <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("MediaPreview")</MudText>
                                 @if (string.IsNullOrWhiteSpace(question.MediaUrl))
                                 {
                                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-                                        This question has no media URL.
+                                        @AppStrings.T("NoMediaUrl")
                                     </MudAlert>
                                 }
                                 else if (IsImageQuestion(question.QuestionType, question.MediaUrl))
@@ -76,7 +76,7 @@
                                     @if (mediaPreviewFailed)
                                     {
                                         <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-2">
-                                            Browser could not load this image. Open the URL below and check that the API serves /uploads correctly.
+                                            @AppStrings.T("ImageLoadFailed")
                                         </MudAlert>
                                     }
                                 }
@@ -84,28 +84,28 @@
                                 {
                                     <audio controls style="width: 100%;">
                                         <source src="@question.MediaUrl" />
-                                        Your browser does not support audio preview.
+                                        @AppStrings.T("AudioNotSupported")
                                     </audio>
                                 }
                                 else
                                 {
                                     <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                                        Preview is not available for this media type.
+                                        @AppStrings.T("PreviewNotAvailable")
                                     </MudAlert>
                                 }
 
                                 @if (!string.IsNullOrWhiteSpace(question.MediaUrl))
                                 {
-                                    <MudLink Href="@question.MediaUrl" Target="_blank" Class="mt-2 d-inline-block">Open media in new tab</MudLink>
+                                    <MudLink Href="@question.MediaUrl" Target="_blank" Class="mt-2 d-inline-block">@AppStrings.T("OpenMediaNewTab")</MudLink>
                                 }
                             </MudPaper>
                         }
 
-                        <MudText Typo="Typo.h6" Class="mt-4">Answers (@question.Answers.Count)</MudText>
+                        <MudText Typo="Typo.h6" Class="mt-4">@AppStrings.T("Answers") (@question.Answers.Count)</MudText>
                         @if (question.Answers.Count == 0)
                         {
                             <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-                                No answers were returned by the API for this question.
+                                @AppStrings.T("NoAnswersFromApi")
                             </MudAlert>
                         }
 
@@ -118,12 +118,12 @@
                             <MudPaper @key="answerKey" Elevation="2" Class="pa-3">
                                 <MudStack Spacing="2">
                                     <MudStack Row="true" AlignItems="AlignItems.Center">
-                                        <MudTextField T="string" Label="@($"Answer {index + 1}")"
+                                        <MudTextField T="string" Label="@AppStrings.AnswerLabel(index + 1)"
                                                       @bind-Value="answer.AnswerText"
                                                       Variant="Variant.Outlined"
                                                       FullWidth="true"
                                                       ReadOnly="@(!isEdit)" />
-                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label="Primary" Disabled="@(!isEdit)" />
+                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label='@AppStrings.T("Primary")' Disabled="@(!isEdit)" />
                                         @if (isEdit)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -140,7 +140,7 @@
                             <MudButton Variant="Variant.Outlined"
                                        StartIcon="@Icons.Material.Filled.Add"
                                        OnClick="@AddAnswer">
-                                Add Answer
+                                @AppStrings.T("AddAnswer")
                             </MudButton>
                         }
                     </MudStack>
@@ -148,11 +148,11 @@
 
                 <MudItem xs="12" md="4">
                     <MudPaper Elevation="2" Class="pa-3">
-                        <MudText Typo="Typo.h6" Class="mb-3">Tags</MudText>
+                        <MudText Typo="Typo.h6" Class="mb-3">@AppStrings.T("Tags")</MudText>
                         @if (isEdit)
                         {
                             <MudSelect T="string"
-                                       Label="Select Tags"
+                                       Label='@AppStrings.T("SelectTags")'
                                        MultiSelection="true"
                                        SelectedValues="@selectedTagIds"
                                        SelectedValuesChanged="@OnSelectedTagsChanged"
@@ -166,7 +166,7 @@
                         }
                         else if (question.Tags.Count == 0)
                         {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">No tags</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@AppStrings.T("NoTags")</MudText>
                         }
                         else
                         {
@@ -178,10 +178,10 @@
                     </MudPaper>
 
                     <MudPaper Elevation="2" Class="pa-3 mt-3">
-                        <MudText Typo="Typo.subtitle2" Class="mb-2">Info</MudText>
-                        <MudText Typo="Typo.caption">Status: @question.Status</MudText><br />
-                        <MudText Typo="Typo.caption">Author: @(question.AuthorUsername ?? "System")</MudText><br />
-                        <MudText Typo="Typo.caption">Created: @question.CreatedAt.ToString("dd/MM/yyyy")</MudText>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("CommonInfo")</MudText>
+                        <MudText Typo="Typo.caption">@AppStrings.T("Status"): @AppStrings.QuestionStatus(question.Status)</MudText><br />
+                        <MudText Typo="Typo.caption">@AppStrings.T("Author"): @(question.AuthorUsername ?? AppStrings.T("CommonSystem"))</MudText><br />
+                        <MudText Typo="Typo.caption">@AppStrings.T("CommonCreated"): @question.CreatedAt.ToString("dd/MM/yyyy")</MudText>
                     </MudPaper>
                 </MudItem>
             </MudGrid>
@@ -195,7 +195,7 @@
                        Variant="Variant.Filled"
                        OnClick="@Save"
                        Disabled="@isSaving">
-                @(isSaving ? "Saving..." : "Save")
+                @(isSaving ? AppStrings.T("CommonSaving") : AppStrings.T("CommonSave"))
             </MudButton>
         }
     </DialogActions>
@@ -208,8 +208,8 @@
     [Parameter] public bool IsEdit { get; set; }
 
     private bool isEdit => IsEdit;
-    private string title => isEdit ? "Edit Question" : "View Question";
-    private string closeText => isEdit ? "Cancel" : "Close";
+    private string title => isEdit ? AppStrings.T("EditQuestion") : AppStrings.T("ViewQuestion");
+    private string closeText => isEdit ? AppStrings.T("CommonCancel") : AppStrings.T("CommonClose");
 
     private QuestionDto? question;
     private List<TagDto> availableTags = new();
@@ -232,7 +232,7 @@
 
             if (question == null)
             {
-                error = "Question not found or API request failed.";
+                error = AppStrings.T("QuestionLoadFailed");
                 return;
             }
 
@@ -322,7 +322,7 @@
 
             if (answers.Count == 0)
             {
-                error = "At least one non-empty answer is required.";
+                error = AppStrings.T("AtLeastOneAnswerRequired");
                 return;
             }
 
@@ -358,7 +358,7 @@
             var updated = await QuestionsClient.UpdateQuestionAsync(question.Id, request);
             if (updated == null)
             {
-                error = "Save failed. Check the API response in Network tab.";
+                error = AppStrings.T("QuestionUpdateFailed");
                 return;
             }
 

@@ -1,26 +1,26 @@
 <MudNavMenu>
     <AuthorizeView>
         <Authorized>
-            <MudNavLink Href="/lobby" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">Lobby</MudNavLink>
-            <MudNavLink Href="/suggest-question" Icon="@Icons.Material.Filled.Lightbulb">Suggest Question</MudNavLink>
-            <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">Profile</MudNavLink>
+            <MudNavLink Href="/lobby" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">@AppStrings.T("Lobby")</MudNavLink>
+            <MudNavLink Href="/suggest-question" Icon="@Icons.Material.Filled.Lightbulb">@AppStrings.T("SuggestQuestion")</MudNavLink>
+            <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">@AppStrings.T("Profile")</MudNavLink>
             
             <AuthorizeView Roles="Moderator,Admin" Context="modAdminContext">
                 <MudDivider Class="my-2" />
-                <MudNavGroup Title="Administration" Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
-                    <MudNavLink Href="/admin" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
-                    <MudNavLink Href="/admin/moderation" Icon="@Icons.Material.Filled.Gavel">Moderation Queue</MudNavLink>
-                    <MudNavLink Href="/admin/questions" Icon="@Icons.Material.Filled.Quiz">Questions</MudNavLink>
-                    <MudNavLink Href="/admin/tags" Icon="@Icons.Material.Filled.Label">Tags</MudNavLink>
+                <MudNavGroup Title='@AppStrings.T("Administration")' Icon="@Icons.Material.Filled.AdminPanelSettings" Expanded="false">
+                    <MudNavLink Href="/admin" Icon="@Icons.Material.Filled.Dashboard">@AppStrings.T("Dashboard")</MudNavLink>
+                    <MudNavLink Href="/admin/moderation" Icon="@Icons.Material.Filled.Gavel">@AppStrings.T("ModerationQueue")</MudNavLink>
+                    <MudNavLink Href="/admin/questions" Icon="@Icons.Material.Filled.Quiz">@AppStrings.T("Questions")</MudNavLink>
+                    <MudNavLink Href="/admin/tags" Icon="@Icons.Material.Filled.Label">@AppStrings.T("Tags")</MudNavLink>
                     <AuthorizeView Roles="Admin" Context="adminContext">
-                        <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">Users</MudNavLink>
+                        <MudNavLink Href="/admin/users" Icon="@Icons.Material.Filled.People">@AppStrings.T("Users")</MudNavLink>
                     </AuthorizeView>
                 </MudNavGroup>
             </AuthorizeView>
         </Authorized>
         <NotAuthorized>
-            <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">Login</MudNavLink>
-            <MudNavLink Href="/register" Icon="@Icons.Material.Filled.PersonAdd">Register</MudNavLink>
+            <MudNavLink Href="/login" Icon="@Icons.Material.Filled.Login">@AppStrings.T("Login")</MudNavLink>
+            <MudNavLink Href="/register" Icon="@Icons.Material.Filled.PersonAdd">@AppStrings.T("Register")</MudNavLink>
         </NotAuthorized>
     </AuthorizeView>
 </MudNavMenu>

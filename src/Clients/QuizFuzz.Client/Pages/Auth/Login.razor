@@ -6,7 +6,7 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 
-<PageTitle>Login - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("LoginPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="qf-auth-shell">
     <MudPaper Elevation="0" Class="qf-auth-card pa-8">
@@ -14,17 +14,17 @@
             <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Large" />
         </MudAvatar>
         <MudText Typo="Typo.h4" Align="Align.Center" Class="qf-section-title" GutterBottom="true">
-            Welcome back
+            @AppStrings.T("LoginHeading")
         </MudText>
         <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted mb-6">
-            Sign in to create rooms, compete in real time and manage your quiz content.
+            @AppStrings.T("LoginDescription")
         </MudText>
 
         <EditForm Model="@loginRequest" OnValidSubmit="@HandleLogin">
             <DataAnnotationsValidator />
 
             <MudTextField @bind-Value="loginRequest.EmailOrUsername"
-                          Label="Email or username"
+                          Label='@AppStrings.T("EmailOrUsername")'
                           Variant="Variant.Outlined"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.AlternateEmail"
@@ -32,7 +32,7 @@
                           For="@(() => loginRequest.EmailOrUsername)" />
 
             <MudTextField @bind-Value="loginRequest.Password"
-                          Label="Password"
+                          Label='@AppStrings.T("Password")'
                           Variant="Variant.Outlined"
                           InputType="InputType.Password"
                           Adornment="Adornment.Start"
@@ -52,16 +52,16 @@
                        Color="Color.Primary"
                        FullWidth="true"
                        Disabled="@isLoading"
-                       StartIcon=".Material.Filled.Login"
+                       StartIcon="@Icons.Material.Filled.Login"
                        Class="qf-submit-button mb-4">
                 @if (isLoading)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    <MudText>Signing in...</MudText>
+                    <MudText>@AppStrings.T("LoginInProgress")</MudText>
                 }
                 else
                 {
-                    <MudText>Sign in</MudText>
+                    <MudText>@AppStrings.T("LoginSubmit")</MudText>
                 }
             </MudButton>
         </EditForm>
@@ -69,8 +69,8 @@
         <MudDivider Class="my-4 qf-soft-divider" />
 
         <MudText Align="Align.Center" Class="qf-muted">
-            New to QuizFuzz?
-            <MudLink Href="/register" Color="Color.Primary">Create an account</MudLink>
+            @AppStrings.T("NewToQuizFuzz")
+            <MudLink Href="/register" Color="Color.Primary">@AppStrings.T("CreateAccountLink")</MudLink>
         </MudText>
     </MudPaper>
 </MudContainer>
@@ -100,12 +100,12 @@
             }
             else
             {
-                errorMessage = "Invalid email or password.";
+                errorMessage = AppStrings.T("LoginInvalidCredentials");
             }
         }
         catch
         {
-            errorMessage = "An error occurred during login. Please try again.";
+            errorMessage = AppStrings.T("LoginError");
         }
         finally
         {

@@ -10,14 +10,14 @@
 @inject ISnackbar Snackbar
 @implements IAsyncDisposable
 
-<PageTitle>Room - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("RoomPageTitle")</PageTitle>
 
 @if (room == null)
 {
     <MudContainer MaxWidth="MaxWidth.Large" Class="qf-page-shell">
         <MudPaper Elevation="0" Class="qf-empty-state">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-            <MudText Class="qf-muted">Loading room...</MudText>
+            <MudText Class="qf-muted">@AppStrings.T("LoadingRoom")</MudText>
         </MudPaper>
     </MudContainer>
 }
@@ -33,7 +33,7 @@ else
                         </MudAvatar>
                         <MudText Typo="Typo.h4" Class="qf-section-title">@room.Name</MudText>
                     </MudStack>
-                    <MudText Typo="Typo.body2" Class="qf-muted">Host: @room.OwnerUsername</MudText>
+                    <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.Tf("RoomOwner", room.OwnerUsername)</MudText>
                 </MudStack>
                 <MudStack Row="true" Spacing="2" Class="qf-action-row">
                     @if (isOwner && room.Status == "Lobby")
@@ -44,7 +44,7 @@ else
                                    Class="qf-choice-button"
                                    OnClick="@StartGame"
                                    Disabled="@(room.Players.Count < 2)">
-                            Start Game
+                            @AppStrings.T("StartGame")
                         </MudButton>
                     }
                     <MudButton Variant="Variant.Outlined"
@@ -52,7 +52,7 @@ else
                                StartIcon="@Icons.Material.Filled.ExitToApp"
                                Class="qf-choice-button"
                                OnClick="@LeaveRoom">
-                        Leave Room
+                        @AppStrings.T("LeaveRoom")
                     </MudButton>
                 </MudStack>
             </MudStack>
@@ -64,7 +64,7 @@ else
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
                         <MudText Typo="Typo.h6">
                             <MudIcon Icon="@Icons.Material.Filled.Groups" Class="mr-2" />
-                            Players
+                            @AppStrings.T("Players")
                         </MudText>
                         <MudChip T="string" Color="Color.Primary" Class="qf-status-chip">
                             @room.Players.Count / @room.MaxPlayers
@@ -75,8 +75,8 @@ else
                     {
                         <MudPaper Elevation="0" Class="qf-empty-state" Style="min-height: 240px;">
                             <MudIcon Icon="@Icons.Material.Filled.PersonSearch" Size="Size.Large" Color="Color.Secondary" />
-                            <MudText Typo="Typo.h6">Waiting for players</MudText>
-                            <MudText Class="qf-muted">Share the room and start when at least two players join.</MudText>
+                            <MudText Typo="Typo.h6">@AppStrings.T("WaitingForPlayers")</MudText>
+                            <MudText Class="qf-muted">@AppStrings.T("WaitingForPlayersDescription")</MudText>
                         </MudPaper>
                     }
                     else
@@ -94,7 +94,7 @@ else
                                             <MudSpacer />
                                             @if (player.IsOwner)
                                             {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.AdminPanelSettings">Host</MudChip>
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Icon="@Icons.Material.Filled.AdminPanelSettings">@AppStrings.T("Host")</MudChip>
                                             }
                                         </MudStack>
                                     </MudPaper>
@@ -110,22 +110,22 @@ else
                     <MudPaper Elevation="0" Class="qf-panel pa-5">
                         <MudText Typo="Typo.h6" Class="mb-4">
                             <MudIcon Icon="@Icons.Material.Filled.Settings" Class="mr-2" />
-                            Room Settings
+                            @AppStrings.T("RoomSettings")
                         </MudText>
                         <MudStack Spacing="3">
                             <MudStack Spacing="1">
-                                <MudText Typo="Typo.body2" Class="qf-muted">Status</MudText>
-                                <MudChip T="string" Color="@GetStatusColor(room.Status)" Class="qf-status-chip">@room.Status</MudChip>
+                                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("Status")</MudText>
+                                <MudChip T="string" Color="@GetStatusColor(room.Status)" Class="qf-status-chip">@GetStatusText(room.Status)</MudChip>
                             </MudStack>
                             <MudStack Spacing="1">
-                                <MudText Typo="Typo.body2" Class="qf-muted">Victory Condition</MudText>
-                                <MudText>@room.VictoryConditionType: @room.VictoryValue</MudText>
+                                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("VictoryCondition")</MudText>
+                                <MudText>@AppStrings.VictoryCondition(room.VictoryConditionType, room.VictoryValue)</MudText>
                             </MudStack>
                             <MudStack Spacing="1">
-                                <MudText Typo="Typo.body2" Class="qf-muted">Privacy</MudText>
+                                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("Access")</MudText>
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                     <MudIcon Icon="@(room.IsPrivate ? Icons.Material.Filled.Lock : Icons.Material.Filled.Public)" Size="Size.Small" Color="Color.Secondary" />
-                                    <MudText>@(room.IsPrivate ? "Private" : "Public")</MudText>
+                                    <MudText>@(room.IsPrivate ? AppStrings.T("Private") : AppStrings.T("Public"))</MudText>
                                 </MudStack>
                             </MudStack>
                         </MudStack>
@@ -134,7 +134,7 @@ else
                     @if (isOwner && room.Status == "Lobby" && room.Players.Count < 2)
                     {
                         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Info">
-                            At least two players are required to start the game.
+                            @AppStrings.T("NeedTwoPlayers")
                         </MudAlert>
                     }
                 </MudStack>
@@ -169,7 +169,7 @@ else
         }
         else
         {
-            Snackbar.Add("Failed to load room details.", Severity.Error);
+            Snackbar.Add(AppStrings.T("LoadRoomFailed"), Severity.Error);
         }
     }
 
@@ -194,7 +194,7 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Realtime connection failed: {ex.Message}", Severity.Error);
+            Snackbar.Add(AppStrings.Tf("RealtimeConnectFailed", ex.Message), Severity.Error);
         }
     }
 
@@ -203,7 +203,7 @@ else
         var success = await RoomsClient.StartGameAsync(RoomId);
         if (!success)
         {
-            Snackbar.Add("Could not start the game. Check player count and room status.", Severity.Error);
+            Snackbar.Add(AppStrings.T("StartGameFailed"), Severity.Error);
         }
     }
 
@@ -226,6 +226,18 @@ else
             "InProgress" => Color.Warning,
             "Finished" => Color.Default,
             _ => Color.Default
+        };
+    }
+
+
+    private string GetStatusText(string status)
+    {
+        return status switch
+        {
+            "Lobby" => AppStrings.T("RoomStatusLobby"),
+            "InProgress" => AppStrings.T("RoomStatusInProgress"),
+            "Finished" => AppStrings.T("RoomStatusFinished"),
+            _ => status
         };
     }
 

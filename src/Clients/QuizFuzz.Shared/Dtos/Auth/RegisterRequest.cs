@@ -1,23 +1,24 @@
 using System.ComponentModel.DataAnnotations;
+using QuizFuzz.Shared.Localization;
 
 namespace QuizFuzz.Shared.Dtos.Auth;
 
 public class RegisterRequest
 {
-    [Required(ErrorMessage = "Username is required")]
-    [MinLength(3, ErrorMessage = "Username must be at least 3 characters")]
-    [MaxLength(50, ErrorMessage = "Username cannot exceed 50 characters")]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.UsernameRequired))]
+    [MinLength(3, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.UsernameMinLength))]
+    [MaxLength(50, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.UsernameMaxLength))]
     public string Username { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Email is required")]
-    [EmailAddress(ErrorMessage = "Invalid email format")]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailRequired))]
+    [EmailAddress(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.InvalidEmailFormat))]
     public string Email { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Password is required")]
-    [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
+    [MinLength(6, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLength))]
     public string Password { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Confirm password is required")]
-    [Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.ConfirmPasswordRequired))]
+    [Compare(nameof(Password), ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordsDoNotMatch))]
     public string ConfirmPassword { get; set; } = string.Empty;
 }

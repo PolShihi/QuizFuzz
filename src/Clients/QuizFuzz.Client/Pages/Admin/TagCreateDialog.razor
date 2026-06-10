@@ -2,20 +2,20 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Create Tag</MudText>
+        <MudText Typo="Typo.h6">@AppStrings.T("CreateTagTitle")</MudText>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudTextField Label="Name"
+            <MudTextField Label='@AppStrings.T("Name")'
                           @bind-Value="name"
                           Variant="Variant.Outlined"
                           Required="true"
-                          RequiredError="Tag name is required."
+                          RequiredError='@AppStrings.T("TagNameRequired")'
                           Immediate="true"
                           MaxLength="50"
                           Counter="50"
-                          HelperText="Tag name is fixed after creation. Use 2-50 characters." />
-            <MudTextField Label="Description"
+                          HelperText='@AppStrings.T("TagNameHelper")' />
+            <MudTextField Label='@AppStrings.T("Description")'
                           @bind-Value="description"
                           Lines="3"
                           MaxLength="500"
@@ -29,8 +29,8 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@Submit">Create</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@Submit">@AppStrings.T("CommonCreate")</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -52,25 +52,25 @@
 
         if (string.IsNullOrWhiteSpace(trimmedName))
         {
-            validationError = "Tag name is required.";
+            validationError = AppStrings.T("TagNameRequired");
             return;
         }
 
         if (trimmedName.Length < 2)
         {
-            validationError = "Tag name must be at least 2 characters.";
+            validationError = AppStrings.T("TagNameMin");
             return;
         }
 
         if (trimmedName.Length > 50)
         {
-            validationError = "Tag name cannot exceed 50 characters.";
+            validationError = AppStrings.T("TagNameMax");
             return;
         }
 
         if (trimmedDescription.Length > 500)
         {
-            validationError = "Description cannot exceed 500 characters.";
+            validationError = AppStrings.T("DescriptionMax");
             return;
         }
 

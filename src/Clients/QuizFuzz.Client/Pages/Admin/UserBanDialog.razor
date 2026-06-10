@@ -3,12 +3,12 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Ban User - @User?.Username</MudText>
+        <MudText Typo="Typo.h6">@string.Format(AppStrings.T("BanUserTitle"), User?.Username)</MudText>
     </TitleContent>
     <DialogContent>
         @if (User == null)
         {
-            <MudAlert Severity="Severity.Error">User was not provided.</MudAlert>
+            <MudAlert Severity="Severity.Error">@AppStrings.T("UserNotProvided")</MudAlert>
         }
         else
         {
@@ -20,25 +20,25 @@
                     </MudStack>
                 </MudPaper>
 
-                <MudSelect T="string" Label="Ban duration" @bind-Value="banDuration" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@BanDurationOneHour">1 hour</MudSelectItem>
-                    <MudSelectItem T="string" Value="@BanDurationOneDay">1 day</MudSelectItem>
-                    <MudSelectItem T="string" Value="@BanDurationSevenDays">7 days</MudSelectItem>
-                    <MudSelectItem T="string" Value="@BanDurationThirtyDays">30 days</MudSelectItem>
-                    <MudSelectItem T="string" Value="@BanDurationCustomHours">Custom hours</MudSelectItem>
-                    <MudSelectItem T="string" Value="@BanDurationPermanent">Permanent</MudSelectItem>
+                <MudSelect T="string" Label='@AppStrings.T("BanDuration")' @bind-Value="banDuration" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@BanDurationOneHour">@AppStrings.T("BanDurationOneHour")</MudSelectItem>
+                    <MudSelectItem T="string" Value="@BanDurationOneDay">@AppStrings.T("BanDurationOneDay")</MudSelectItem>
+                    <MudSelectItem T="string" Value="@BanDurationSevenDays">@AppStrings.T("BanDurationSevenDays")</MudSelectItem>
+                    <MudSelectItem T="string" Value="@BanDurationThirtyDays">@AppStrings.T("BanDurationThirtyDays")</MudSelectItem>
+                    <MudSelectItem T="string" Value="@BanDurationCustomHours">@AppStrings.T("BanDurationCustomHours")</MudSelectItem>
+                    <MudSelectItem T="string" Value="@BanDurationPermanent">@AppStrings.T("Permanent")</MudSelectItem>
                 </MudSelect>
 
                 @if (banDuration == BanDurationCustomHours)
                 {
-                    <MudNumericField T="int" Label="Hours" @bind-Value="customBanHours" Min="1" Max="8760" Variant="Variant.Outlined" />
+                    <MudNumericField T="int" Label='@AppStrings.T("Hours")' @bind-Value="customBanHours" Min="1" Max="8760" Variant="Variant.Outlined" />
                 }
 
-                <MudTextField Label="Reason"
+                <MudTextField Label='@AppStrings.T("Reason")'
                               @bind-Value="banReason"
                               Lines="3"
                               Variant="Variant.Outlined"
-                              Placeholder="Optional moderation note" />
+                              Placeholder='@AppStrings.T("OptionalModerationNote")' />
 
                 @if (!string.IsNullOrWhiteSpace(validationError))
                 {
@@ -52,9 +52,9 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
         <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="@(User == null)" OnClick="@Submit">
-            Ban
+            @AppStrings.T("Ban")
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -84,13 +84,13 @@
 
         if (User == null)
         {
-            validationError = "User was not provided.";
+            validationError = AppStrings.T("UserNotProvided");
             return;
         }
 
         if (banDuration == BanDurationCustomHours && customBanHours < 1)
         {
-            validationError = "Custom ban duration must be at least 1 hour.";
+            validationError = AppStrings.T("CustomBanDurationMin");
             return;
         }
 
@@ -123,7 +123,7 @@
     {
         var bannedUntil = CalculateBannedUntil();
         return bannedUntil.HasValue
-            ? $"User will be banned until {bannedUntil.Value.ToLocalTime():dd/MM/yyyy HH:mm}."
-            : "User will be banned permanently.";
+            ? string.Format(AppStrings.T("BanPreviewUntil"), bannedUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
+            : AppStrings.T("BanPreviewPermanent");
     }
 }

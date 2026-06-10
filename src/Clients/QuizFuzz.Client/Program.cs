@@ -8,6 +8,8 @@ using QuizFuzz.Client.Services.Api;
 using Blazored.LocalStorage;
 using MudBlazor.Services;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
+using Microsoft.JSInterop;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
@@ -26,6 +28,9 @@ var apiBaseAddress = builder.Configuration["ApiBaseAddress"] ?? "https://localho
 
 // Blazored LocalStorage
 builder.Services.AddBlazoredLocalStorage();
+
+// Локализация
+builder.Services.AddLocalization();
 
 // MudBlazor
 builder.Services.AddMudServices();
@@ -141,4 +146,18 @@ builder.Services.AddScoped<IMediaApiClient>(sp =>
     return new MediaApiClient(httpClient, sp.GetRequiredService<ILogger<MediaApiClient>>());
 });
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+
+var jsRuntime = host.Services.GetRequiredService<IJSRuntime>();
+var cultureName = await jsRuntime.InvokeAsync<string?>("localStorage.getItem", "QuizFuzz.Culture") ?? "ru-RU";
+
+if (cultureName is not ("ru-RU" or "en-US"))
+{
+    cultureName = "ru-RU";
+}
+
+var culture = new CultureInfo(cultureName);
+CultureInfo.DefaultThreadCurrentCulture = culture;
+CultureInfo.DefaultThreadCurrentUICulture = culture;
+
+await host.RunAsync();

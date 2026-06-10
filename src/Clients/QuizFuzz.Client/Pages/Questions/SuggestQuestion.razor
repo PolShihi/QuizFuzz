@@ -13,7 +13,7 @@
 @inject ISnackbar Snackbar
 @inject ILogger<SuggestQuestion> Logger
 
-<PageTitle>Suggest a Question - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("SuggestQuestionPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="qf-page-shell">
     <MudPaper Elevation="0" Class="qf-hero mb-5">
@@ -22,8 +22,8 @@
                 <MudIcon Icon="@Icons.Material.Filled.Lightbulb" />
             </MudAvatar>
             <MudStack Spacing="0">
-                <MudText Typo="Typo.h4" Class="qf-section-title">Suggest a Question</MudText>
-                <MudText Typo="Typo.body2" Class="qf-muted">Submit content for moderation. Once approved, it becomes available in games.</MudText>
+                <MudText Typo="Typo.h4" Class="qf-section-title">@AppStrings.T("SuggestQuestionHeading")</MudText>
+                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("SuggestQuestionDescription")</MudText>
             </MudStack>
         </MudStack>
     </MudPaper>
@@ -38,7 +38,7 @@
         @if (validationErrors.Count > 0)
         {
             <MudAlert Severity="Severity.Warning" Class="mb-4">
-                <MudText Typo="Typo.subtitle2" Class="mb-2">Please fix the following issues:</MudText>
+                <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("FixErrors")</MudText>
                 <ul class="mb-0">
                     @foreach (var error in validationErrors)
                     {
@@ -53,26 +53,26 @@
                 <!-- Title -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="title"
-                                  Label="Title (Optional)"
+                                  Label='@AppStrings.T("QuestionTitleOptional")'
                                   Variant="Variant.Outlined"
                                   MaxLength="100"
                                   Counter="100"
                                   Immediate="true"
-                                  HelperText="Short descriptive title for your question" />
+                                  HelperText='@AppStrings.T("QuestionTitleHelper")' />
                 </MudItem>
 
                 <!-- Question Text -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="promptText"
-                                  Label="Question Text"
+                                  Label='@AppStrings.T("QuestionText")'
                                   Variant="Variant.Outlined"
                                   Lines="3"
                                   Required="true"
-                                  RequiredError="Question text is required"
+                                  RequiredError='@AppStrings.T("QuestionTextRequired")'
                                   MaxLength="2000"
                                   Counter="2000"
                                   Immediate="true"
-                                  HelperText="Enter your question here. Minimum 10 characters." />
+                                  HelperText='@AppStrings.T("QuestionTextHelper")' />
                 </MudItem>
 
                 <!-- Type -->
@@ -80,25 +80,25 @@
                     <MudSelect T="string"
                                Value="@questionType"
                                ValueChanged="@OnQuestionTypeChanged"
-                               Label="Question Type"
+                               Label='@AppStrings.T("QuestionType")'
                                Variant="Variant.Outlined"
                                Required="true">
-                        <MudSelectItem T="string" Value="@("Text")">Text</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Image")">Image</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Audio")">Audio</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Text")">@AppStrings.T("QuestionTypeText")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Image")">@AppStrings.T("QuestionTypeImage")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Audio")">@AppStrings.T("QuestionTypeAudio")</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
                 <!-- Difficulty -->
                 <MudItem xs="12" sm="6">
                     <MudSelect @bind-Value="difficulty"
-                               Label="Difficulty"
+                               Label='@AppStrings.T("QuestionDifficulty")'
                                Variant="Variant.Outlined"
                                Required="true">
-                        <MudSelectItem Value="@("Easy")">Easy</MudSelectItem>
-                        <MudSelectItem Value="@("Medium")">Medium</MudSelectItem>
-                        <MudSelectItem Value="@("Hard")">Hard</MudSelectItem>
-                        <MudSelectItem Value="@("Expert")">Expert</MudSelectItem>
+                        <MudSelectItem Value="@("Easy")">@AppStrings.T("DifficultyEasy")</MudSelectItem>
+                        <MudSelectItem Value="@("Medium")">@AppStrings.T("DifficultyMedium")</MudSelectItem>
+                        <MudSelectItem Value="@("Hard")">@AppStrings.T("DifficultyHard")</MudSelectItem>
+                        <MudSelectItem Value="@("Expert")">@AppStrings.T("DifficultyExpert")</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
@@ -130,7 +130,7 @@
                                 @if (isUploadingMedia)
                                 {
                                     <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-                                    <MudText Typo="Typo.caption">Uploading media...</MudText>
+                                    <MudText Typo="Typo.caption">@AppStrings.T("UploadingMedia")</MudText>
                                 }
 
                                 @if (!string.IsNullOrWhiteSpace(mediaUploadError))
@@ -140,7 +140,7 @@
 
                                 @if (!string.IsNullOrWhiteSpace(uploadedMediaUrl))
                                 {
-                                    <MudAlert Severity="Severity.Success" Dense="true">Media uploaded successfully.</MudAlert>
+                                    <MudAlert Severity="Severity.Success" Dense="true">@AppStrings.T("MediaUploaded")</MudAlert>
 
                                     @if (questionType == "Image")
                                     {
@@ -159,9 +159,9 @@
                     </MudItem>
                 }
 
-                <!-- Correct Answers -->
+                <!-- @AppStrings.T("CorrectAnswers") -->
                 <MudItem xs="12">
-                    <MudText Typo="Typo.h6" Class="mb-2">Correct Answers</MudText>
+                    <MudText Typo="Typo.h6" Class="mb-2">@AppStrings.T("CorrectAnswers")</MudText>
                     @for (int i = 0; i < correctAnswers.Count; i++)
                     {
                         var index = i;
@@ -170,10 +170,10 @@
                         <MudStack Class="mb-3" @key="@index">
                             <MudStack Row="true" AlignItems="AlignItems.Center">
                                 <MudTextField @bind-Value="answer.Text"
-                                              Label="Answer"
+                                              Label='@AppStrings.T("Answer")'
                                               Variant="Variant.Outlined"
                                               Required="true"
-                                              RequiredError="Answer is required"
+                                              RequiredError='@AppStrings.T("AnswerRequired")'
                                               MaxLength="200"
                                               Counter="200"
                                               Immediate="true"
@@ -184,14 +184,14 @@
                                                Disabled="@(correctAnswers.Count <= 1)" />
                             </MudStack>
                             
-                            <!-- Fuzzy Matching Settings -->
+                            <!-- @AppStrings.T("FuzzySettings") -->
                             <MudPaper Elevation="0" Class="qf-form-section mt-2">
-                                <MudText Typo="Typo.subtitle2" Class="mb-2"><MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-1" />Fuzzy Matching Settings</MudText>
+                                <MudText Typo="Typo.subtitle2" Class="mb-2"><MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-1" />@AppStrings.T("FuzzySettings")</MudText>
                                 <MudStack Spacing="2">
                                     <MudSwitch T="bool"
                                                @bind-Value="answer.AllowFuzzyMatch"
                                                Color="Color.Primary"
-                                               Label="Enable Fuzzy Matching" />
+                                               Label='@AppStrings.T("EnableFuzzy")' />
                                     
                                     @if (answer.AllowFuzzyMatch)
                                     {
@@ -229,12 +229,12 @@
                 <MudItem xs="12">
                     <MudSelect T="string"
                                @bind-SelectedValues="selectedTagIds"
-                               Label="Tags"
+                               Label='@AppStrings.T("Tags")'
                                Variant="Variant.Outlined"
                                MultiSelection="true"
                                ToStringFunc="@GetTagName"
                                MultiSelectionTextFunc="@GetSelectedTagsText"
-                               HelperText="Select relevant tags for your question">
+                               HelperText='@AppStrings.T("TagsHelper")'>
                         @foreach (var tag in availableTags)
                         {
                             <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
@@ -255,14 +255,14 @@
                             </MudText>
                             <MudStack Row="true" AlignItems="AlignItems.Start" Class="flex-wrap gap-2">
                                 <MudTextField @bind-Value="suggestedTagName"
-                                              Label="New tag name"
+                                              Label='@AppStrings.T("NewTagName")'
                                               Variant="Variant.Outlined"
                                               Immediate="true"
                                               MaxLength="50"
                                               Counter="50"
                                               Style="min-width: 220px; flex-grow: 1;" />
                                 <MudTextField @bind-Value="suggestedTagDescription"
-                                              Label="Description"
+                                              Label='@AppStrings.T("Description")'
                                               Variant="Variant.Outlined"
                                               MaxLength="500"
                                               Counter="500"
@@ -282,12 +282,12 @@
                 <!-- Explanation -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="explanation"
-                                  Label="Explanation (Optional)"
+                                  Label='@AppStrings.T("ExplanationOptional")'
                                   Variant="Variant.Outlined"
                                   Lines="3"
                                   MaxLength="1000"
                                   Counter="1000"
-                                  HelperText="Provide additional context or explanation for the answer" />
+                                  HelperText='@AppStrings.T("ExplanationHelper")' />
                 </MudItem>
 
                 <!-- Submit Button -->
@@ -296,7 +296,7 @@
                         <MudButton Variant="Variant.Outlined"
                                    StartIcon="@Icons.Material.Filled.ArrowBack"
                                    OnClick="@(() => Navigation.NavigateTo("/lobby"))">
-                            Cancel
+                            @AppStrings.T("Cancel")
                         </MudButton>
                         <MudButton Variant="Variant.Filled"
                                    Color="Color.Primary"
@@ -305,12 +305,12 @@
                             @if (isSubmitting)
                             {
                                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                <MudText Class="ml-2">Submitting...</MudText>
+                                <MudText Class="ml-2">@AppStrings.T("Sending")</MudText>
                             }
                             else
                             {
                                 <MudIcon Icon="@Icons.Material.Filled.Send" Class="mr-2" />
-                                <MudText>Submit for Review</MudText>
+                                <MudText>@AppStrings.T("SubmitForReview")</MudText>
                             }
                         </MudButton>
                     </MudStack>
@@ -429,7 +429,7 @@
             }
 
             uploadedMediaUrl = result.Url;
-            Snackbar.Add("Media uploaded successfully.", Severity.Success);
+            Snackbar.Add(AppStrings.T("MediaUploaded"), Severity.Success);
         }
         catch (Exception ex)
         {

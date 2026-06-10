@@ -8,16 +8,16 @@
 @inject NavigationManager Navigation
 @inject IDialogService DialogService
 
-<PageTitle>Moderation Queue - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("ModerationQueuePageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-page-shell">
     <MudPaper Elevation="0" Class="qf-hero mb-5">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
-                Moderation Queue
+                @AppStrings.T("ModerationQueue")
             </MudText>
-            <MudChip T="string" Color="Color.Warning">@pendingCount Under Review</MudChip>
+            <MudChip T="string" Color="Color.Warning">@string.Format(AppStrings.T("PendingCount"), pendingCount)</MudChip>
         </MudStack>
     </MudPaper>
 
@@ -26,27 +26,27 @@
             <MudButton Variant="@(selectedStatus == "UnderReview" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Warning"
                        OnClick="@(() => FilterByStatus("UnderReview"))">
-                Under Review (@pendingCount)
+                @string.Format(AppStrings.T("PendingWithCount"), pendingCount)
             </MudButton>
             <MudButton Variant="@(selectedStatus == "APPROVED" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Success"
                        OnClick="@(() => FilterByStatus("APPROVED"))">
-                Approved
+                @AppStrings.T("Approved")
             </MudButton>
             <MudButton Variant="@(selectedStatus == "REJECTED" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Error"
                        OnClick="@(() => FilterByStatus("REJECTED"))">
-                Rejected
+                @AppStrings.T("Rejected")
             </MudButton>
             <MudButton Variant="@(selectedStatus == null ? Variant.Filled : Variant.Outlined)"
                        OnClick="@(() => FilterByStatus(null))">
-                All
+                @AppStrings.T("CommonAll")
             </MudButton>
             <MudSpacer />
             <MudButton Variant="Variant.Text"
                        StartIcon="@Icons.Material.Filled.Refresh"
                        OnClick="@LoadQueue">
-                Refresh
+                @AppStrings.T("CommonRefresh")
             </MudButton>
         </MudStack>
     </MudPaper>
@@ -62,8 +62,8 @@
         <MudPaper Elevation="0" Class="qf-empty-state">
             <MudStack AlignItems="AlignItems.Center" Spacing="3">
                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
-                <MudText Typo="Typo.h6">No items in queue</MudText>
-                <MudText Color="Color.Secondary">All caught up!</MudText>
+                <MudText Typo="Typo.h6">@AppStrings.T("ModerationQueueEmptyTitle")</MudText>
+                <MudText Color="Color.Secondary">@AppStrings.T("ModerationQueueEmptyText")</MudText>
             </MudStack>
         </MudPaper>
     }
@@ -71,14 +71,14 @@
     {
         <MudPaper Elevation="0" Class="qf-table-panel"><MudTable Items="@queue" Hover="true" Breakpoint="Breakpoint.Sm">
             <HeaderContent>
-                <MudTh>Question</MudTh>
-                <MudTh>Submitted By</MudTh>
-                <MudTh>Status</MudTh>
-                <MudTh>Date</MudTh>
-                <MudTh>Actions</MudTh>
+                <MudTh>@AppStrings.T("Question")</MudTh>
+                <MudTh>@AppStrings.T("SubmittedBy")</MudTh>
+                <MudTh>@AppStrings.T("Status")</MudTh>
+                <MudTh>@AppStrings.T("CommonDate")</MudTh>
+                <MudTh>@AppStrings.T("CommonActions")</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Question">
+                <MudTd DataLabel='@AppStrings.T("Question")'>
                     <MudStack Spacing="1">
                         <MudText Typo="Typo.body1"><strong>@context.QuestionTitle</strong></MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -86,25 +86,25 @@
                         </MudText>
                     </MudStack>
                 </MudTd>
-                <MudTd DataLabel="Submitted By">
+                <MudTd DataLabel='@AppStrings.T("SubmittedBy")'>
                     <MudText>@context.SubmittedByUsername</MudText>
                 </MudTd>
-                <MudTd DataLabel="Status">
+                <MudTd DataLabel='@AppStrings.T("Status")'>
                     <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
-                        @context.Status
+                        @AppStrings.QuestionStatus(context.Status)
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel="Date">
+                <MudTd DataLabel='@AppStrings.T("CommonDate")'>
                     <MudText Typo="Typo.caption">@context.CreatedAt.ToString("dd/MM/yyyy HH:mm")</MudText>
                 </MudTd>
-                <MudTd DataLabel="Actions">
+                <MudTd DataLabel='@AppStrings.T("CommonActions")'>
                     <MudStack Row="true" Spacing="1">
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Filled"
                                    Color="Color.Info"
                                    StartIcon="@Icons.Material.Filled.RateReview"
                                    OnClick="@(async () => await ReviewQuestion(context))">
-                            Review
+                            @AppStrings.T("CommonReview")
                         </MudButton>
                         @if (context.Status == "UnderReview")
                         {
@@ -113,14 +113,14 @@
                                        Color="Color.Success"
                                        StartIcon="@Icons.Material.Filled.CheckCircle"
                                        OnClick="@(async () => await QuickApprove(context))">
-                                Approve
+                                @AppStrings.T("CommonApprove")
                             </MudButton>
                             <MudButton Size="Size.Small"
                                        Variant="Variant.Filled"
                                        Color="Color.Error"
                                        StartIcon="@Icons.Material.Filled.Cancel"
                                        OnClick="@(async () => await QuickReject(context))">
-                                Reject
+                                @AppStrings.T("CommonReject")
                             </MudButton>
                         }
                     </MudStack>
@@ -164,7 +164,7 @@
         };
 
         var options = new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true };
-        var dialog = DialogService.Show<ReviewQuestionDialog>("Review Question", parameters, options);
+        var dialog = DialogService.Show<ReviewQuestionDialog>(AppStrings.T("ReviewQuestion"), parameters, options);
         var result = await dialog.Result;
 
         if (!result.Canceled)
@@ -194,7 +194,7 @@
         {
             QueueId = item.Id,
             Action = "REJECT",
-            Reason = "Quick reject"
+            Reason = AppStrings.T("RejectedByModerator")
         };
 
         var success = await ModerationClient.RejectAsync(request);

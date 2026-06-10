@@ -3,7 +3,7 @@
 @attribute [Authorize(Roles = "Moderator,Admin")]
 @inject NavigationManager Navigation
 
-<PageTitle>Admin Dashboard - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("AdminDashboardPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="qf-page-shell">
     <MudPaper Elevation="0" Class="qf-hero mb-6">
@@ -12,8 +12,8 @@
                 <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" />
             </MudAvatar>
             <MudStack Spacing="0">
-                <MudText Typo="Typo.h4" Class="qf-section-title">Admin Dashboard</MudText>
-                <MudText Typo="Typo.body2" Class="qf-muted">Manage moderation, content and platform access from one place.</MudText>
+                <MudText Typo="Typo.h4" Class="qf-section-title">@AppStrings.T("AdminDashboardHeading")</MudText>
+                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("AdminDashboardDescription")</MudText>
             </MudStack>
         </MudStack>
     </MudPaper>
@@ -24,8 +24,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/moderation"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Large" Color="Color.Warning" />
-                        <MudText Typo="Typo.h5" Class="mt-4">Moderation Queue</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">Review submitted questions</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("ModerationCardTitle")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("ModerationCardDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -34,8 +34,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/questions"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Quiz" Size="Size.Large" Color="Color.Primary" />
-                        <MudText Typo="Typo.h5" Class="mt-4">Questions</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">Manage all questions</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("QuestionsCardTitle")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("QuestionsCardDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -44,8 +44,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/tags"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Label" Size="Size.Large" Color="Color.Success" />
-                        <MudText Typo="Typo.h5" Class="mt-4">Tags</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">Manage and approve question tags</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("TagsCardTitle")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("TagsCardDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -56,8 +56,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/users"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Info" />
-                        <MudText Typo="Typo.h5" Class="mt-4">Users</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">Manage users, roles and bans</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("UsersCardTitle")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("UsersCardDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -68,8 +68,8 @@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.Insights" Color="Color.Secondary" />
             <MudStack Spacing="0">
-                <MudText Typo="Typo.h6">Quick Stats</MudText>
-                <MudText Class="qf-muted">Dashboard statistics coming soon.</MudText>
+                <MudText Typo="Typo.h6">@AppStrings.T("ShortStatsTitle")</MudText>
+                <MudText Class="qf-muted">@AppStrings.T("ShortStatsComingSoon")</MudText>
             </MudStack>
         </MudStack>
     </MudPaper>

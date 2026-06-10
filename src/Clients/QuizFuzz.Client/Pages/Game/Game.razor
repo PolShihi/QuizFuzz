@@ -10,7 +10,7 @@
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
-<PageTitle>Game - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("GamePageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-game-shell">
     @if (isLoading)
@@ -24,7 +24,7 @@
         <MudPaper Elevation="0" Class="qf-empty-state">
             <MudStack AlignItems="AlignItems.Center" Spacing="4">
                 <MudIcon Icon="@Icons.Material.Filled.HourglassEmpty" Size="Size.Large" Color="Color.Secondary" />
-                <MudText Typo="Typo.h5">Waiting for next question...</MudText>
+                <MudText Typo="Typo.h5">@AppStrings.T("WaitingNextQuestion")</MudText>
             </MudStack>
         </MudPaper>
     }
@@ -49,7 +49,7 @@
                     <!-- Question -->
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
                         <MudIcon Icon="@Icons.Material.Filled.Quiz" Color="Color.Secondary" Size="Size.Small" />
-                        <MudText Typo="Typo.overline" Class="qf-question-label">Current question</MudText>
+                        <MudText Typo="Typo.overline" Class="qf-question-label">@AppStrings.T("CurrentQuestion")</MudText>
                     </MudStack>
                     <MudText Typo="Typo.h4" Class="mb-4">@currentQuestion.Text</MudText>
 
@@ -60,7 +60,7 @@
                             @if (currentQuestion.QuestionType?.Equals("Image", StringComparison.OrdinalIgnoreCase) == true)
                             {
                                 <MudImage Src="@currentQuestion.MediaUrl" 
-                                          Alt="Question Image" 
+                                          Alt='@AppStrings.T("QuestionImageAlt")' 
                                           Elevation="0" 
                                           Class="rounded-lg" 
                                           ObjectFit="ObjectFit.Contain"
@@ -97,8 +97,8 @@
                         @if (hasAnsweredCorrectly)
                         {
                             <MudAlert Severity="Severity.Success" Class="mb-4" Icon="@Icons.Material.Filled.CheckCircle">
-                                <MudText>Correct answer! +@lastScore points</MudText>
-                                <MudText Typo="Typo.caption">Waiting for round to end...</MudText>
+                                <MudText>@AppStrings.Tf("CorrectAnswerWithScore", lastScore)</MudText>
+                                <MudText Typo="Typo.caption">@AppStrings.T("WaitingRoundEnd")</MudText>
                             </MudAlert>
                         }
                         else if (isSubmitting || previousAnswers.Any(a => a.IsPending))
@@ -106,24 +106,24 @@
                             <MudAlert Severity="Severity.Info" Class="mb-4" Icon="@Icons.Material.Filled.HourglassTop">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                     <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                    <MudText>Checking your answer...</MudText>
+                                    <MudText>@AppStrings.T("CheckingAnswer")</MudText>
                                 </MudStack>
                             </MudAlert>
                         }
                         else if (lastAnswerCorrect == false && previousAnswers.Any())
                         {
                             <MudAlert Severity="Severity.Warning" Class="mb-4" Icon="@Icons.Material.Filled.Cancel">
-                                <MudText>Wrong answer. Try again!</MudText>
+                                <MudText>@AppStrings.T("WrongAnswerTryAgain")</MudText>
                             </MudAlert>
                         }
 
                         <MudTextField @bind-Value="@currentAnswer"
-                                      Label="Your Answer"
+                                      Label='@AppStrings.T("YourAnswer")'
                                       Variant="Variant.Outlined"
                                       Disabled="@(hasAnsweredCorrectly || timeExpired)"
                                       OnKeyDown="@OnKeyDown"
                                       Immediate="true"
-                                      HelperText="@(hasAnsweredCorrectly ? "Correct! Waiting for others..." : "Press Enter to submit. Multiple attempts allowed!")"
+                                      HelperText='@(hasAnsweredCorrectly ? AppStrings.T("CorrectWaitingOthers") : AppStrings.T("AnswerHelper"))'
                                       Class="qf-answer-input mb-4" />
 
                         <MudButton Variant="Variant.Filled"
@@ -137,19 +137,19 @@
                             @if (isSubmitting)
                             {
                                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                <span class="ml-2">Submitting...</span>
+                                <span class="ml-2">@AppStrings.T("Sending")</span>
                             }
                             else if (hasAnsweredCorrectly)
                             {
-                                <span>Correct! Waiting for others...</span>
+                                <span>@AppStrings.T("CorrectWaitingOthers")</span>
                             }
                             else if (timeExpired)
                             {
-                                <span>Time's Up!</span>
+                                <span>@AppStrings.T("TimeIsUp")</span>
                             }
                             else
                             {
-                                <span>Submit Answer (Attempt @(previousAnswers.Count + 1))</span>
+                                <span>@AppStrings.Tf("SubmitAnswerAttempt", previousAnswers.Count + 1)</span>
                             }
                         </MudButton>
                     </MudPaper>
@@ -158,7 +158,7 @@
                     @if (previousAnswers.Any())
                     {
                         <MudPaper Elevation="0" Class="qf-attempts-panel pa-3 mt-4">
-                            <MudText Typo="Typo.subtitle2" Class="mb-2">Your attempts this round:</MudText>
+                            <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("YourAttemptsThisRound")</MudText>
                             <MudStack Spacing="1">
                                 @foreach (var ans in previousAnswers)
                                 {
@@ -542,12 +542,12 @@
     private string GetAttemptStatusText(AnswerAttempt attempt)
     {
         if (attempt.IsPending)
-            return "Checking...";
+            return AppStrings.T("CheckingAnswer");
 
         if (attempt.IsCorrect == true)
-            return attempt.ScoreAwarded > 0 ? $"Correct · +{attempt.ScoreAwarded}" : "Correct";
+            return attempt.ScoreAwarded > 0 ? AppStrings.Tf("CorrectWithScoreShort", attempt.ScoreAwarded) : AppStrings.T("Correct");
 
-        return "Wrong";
+        return AppStrings.T("Wrong");
     }
 
     private string GetAttemptClass(AnswerAttempt attempt)

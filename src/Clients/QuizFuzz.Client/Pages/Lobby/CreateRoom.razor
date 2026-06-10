@@ -8,7 +8,7 @@
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
-<PageTitle>Create Room - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("CreateRoomPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="qf-page-shell">
     <MudPaper Elevation="0" Class="qf-hero mb-5">
@@ -17,8 +17,8 @@
                 <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" />
             </MudAvatar>
             <MudStack Spacing="0">
-                <MudText Typo="Typo.h4" Class="qf-section-title">Create Room</MudText>
-                <MudText Typo="Typo.body2" Class="qf-muted">Tune the rules, choose content filters and invite players.</MudText>
+                <MudText Typo="Typo.h4" Class="qf-section-title">@AppStrings.T("CreateRoom")</MudText>
+                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("CreateRoomDescription")</MudText>
             </MudStack>
         </MudStack>
     </MudPaper>
@@ -31,11 +31,11 @@
                 <MudPaper Elevation="0" Class="qf-form-section">
                     <MudText Typo="Typo.h6" Class="mb-4">
                         <MudIcon Icon="@Icons.Material.Filled.Tune" Class="mr-2" />
-                        Room setup
+                        @AppStrings.T("RoomSettings")
                     </MudText>
 
                     <MudTextField @bind-Value="request.Name"
-                                  Label="Room name"
+                                  Label='@AppStrings.T("RoomName")'
                                   Variant="Variant.Outlined"
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.MeetingRoom"
@@ -45,7 +45,7 @@
                     <MudGrid>
                         <MudItem xs="12" sm="6">
                             <MudNumericField @bind-Value="request.MaxPlayers"
-                                             Label="Max players"
+                                             Label='@AppStrings.T("MaxPlayers")'
                                              Variant="Variant.Outlined"
                                              Min="2" Max="50"
                                              Adornment="Adornment.Start"
@@ -53,12 +53,12 @@
                         </MudItem>
                         <MudItem xs="12" sm="6">
                             <MudSelect @bind-Value="request.Visibility"
-                                       Label="Visibility"
+                                       Label='@AppStrings.T("Access")'
                                        Variant="Variant.Outlined"
                                        Adornment="Adornment.Start"
                                        AdornmentIcon="@Icons.Material.Filled.Visibility">
-                                <MudSelectItem Value="@("Public")">Public - anyone can join</MudSelectItem>
-                                <MudSelectItem Value="@("Private")">Private - requires access code</MudSelectItem>
+                                <MudSelectItem Value="@("Public")">@AppStrings.T("Public")</MudSelectItem>
+                                <MudSelectItem Value="@("Private")">@AppStrings.T("Private")</MudSelectItem>
                             </MudSelect>
                         </MudItem>
                     </MudGrid>
@@ -66,15 +66,15 @@
                     @if (IsPrivateRoom)
                     {
                         <MudTextField @bind-Value="request.AccessCode"
-                                      Label="Access code"
+                                      Label='@AppStrings.T("AccessCode")'
                                       Variant="Variant.Outlined"
                                       InputType="InputType.Password"
                                       Immediate="true"
                                       MaxLength="32"
                                       Counter="32"
                                       Required="true"
-                                      RequiredError="Access code is required for private rooms."
-                                      HelperText="Players will need this code to join the private room. Use 4-32 characters."
+                                      RequiredError='@AppStrings.T("AccessCodeRequired")'
+                                      HelperText='@AppStrings.T("AccessCodeHelper")'
                                       Adornment="Adornment.Start"
                                       AdornmentIcon="@Icons.Material.Filled.Key"
                                       Class="mt-4" />
@@ -84,7 +84,7 @@
                 <MudPaper Elevation="0" Class="qf-form-section">
                     <MudText Typo="Typo.h6" Class="mb-4">
                         <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Class="mr-2" />
-                        Victory condition
+                        @AppStrings.T("VictoryCondition")
                     </MudText>
 
                     <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4">
@@ -93,37 +93,37 @@
                                    Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.EmojiEvents"
                                    Class="qf-choice-button">
-                            Points Mode
+                            @AppStrings.T("WinByPoints")
                         </MudButton>
                         <MudButton OnClick="@(() => SelectVictoryMode("Questions"))"
                                    Variant="@(selectedVictoryMode == "Questions" ? Variant.Filled : Variant.Outlined)"
                                    Color="Color.Primary"
                                    StartIcon="@Icons.Material.Filled.Quiz"
                                    Class="qf-choice-button">
-                            Questions Mode
+                            @AppStrings.T("WinByRounds")
                         </MudButton>
                     </MudButtonGroup>
 
                     @if (selectedVictoryMode == "Points")
                     {
                         <MudNumericField @bind-Value="request.VictoryValue"
-                                         Label="Target points to win"
+                                         Label='@AppStrings.T("WinValue")'
                                          Min="50"
                                          Max="10000"
                                          Step="50"
                                          Variant="Variant.Outlined"
-                                         HelperText="First player to reach this score wins the game."
+                                         HelperText='@AppStrings.T("WinByPoints")'
                                          Adornment="Adornment.Start"
                                          AdornmentIcon="@Icons.Material.Filled.Flag" />
                     }
                     else
                     {
                         <MudNumericField @bind-Value="request.NumberOfRounds"
-                                         Label="Number of questions"
+                                         Label='@AppStrings.T("Questions")'
                                          Min="3"
                                          Max="20"
                                          Variant="Variant.Outlined"
-                                         HelperText="After the final question, the highest score wins."
+                                         HelperText='@AppStrings.T("WinByRounds")'
                                          Adornment="Adornment.Start"
                                          AdornmentIcon="@Icons.Material.Filled.QuestionAnswer" />
                     }
@@ -132,17 +132,17 @@
                 <MudPaper Elevation="0" Class="qf-form-section">
                     <MudText Typo="Typo.h6" Class="mb-4">
                         <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Class="mr-2" />
-                        Question filters
+                        @AppStrings.T("DifficultyFilter")
                     </MudText>
 
                     <MudSelect T="string"
-                               Label="Select tags"
+                               Label='@AppStrings.T("SelectTags")'
                                MultiSelection="true"
                                @bind-SelectedValues="selectedTagIds"
                                Variant="Variant.Outlined"
                                ToStringFunc="@GetTagName"
                                MultiSelectionTextFunc="@GetSelectedTagsText"
-                               HelperText="Leave empty to include all tags."
+                               HelperText='@AppStrings.T("TagsHelper")'
                                Class="mb-4">
                         @foreach (var tag in availableTags)
                         {
@@ -151,14 +151,14 @@
                     </MudSelect>
 
                     <MudSelect T="string"
-                               Label="Select difficulty"
+                               Label='@AppStrings.T("QuestionDifficulty")'
                                MultiSelection="true"
                                @bind-SelectedValues="selectedDifficulties"
                                Variant="Variant.Outlined"
-                               HelperText="Leave empty to include all difficulty levels.">
-                        <MudSelectItem T="string" Value="@("Easy")">Easy</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Medium")">Medium</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Hard")">Hard</MudSelectItem>
+                               HelperText='@AppStrings.T("DifficultyFilter")'>
+                        <MudSelectItem T="string" Value="@("Easy")">@AppStrings.T("DifficultyEasy")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Medium")">@AppStrings.T("DifficultyMedium")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Hard")">@AppStrings.T("DifficultyHard")</MudSelectItem>
                     </MudSelect>
                 </MudPaper>
 
@@ -172,7 +172,7 @@
                 @if (validationErrors.Count > 0)
                 {
                     <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
-                        <MudText Typo="Typo.subtitle2" Class="mb-2">Please fix the following issues:</MudText>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("FixErrors")</MudText>
                         <ul class="mb-0">
                             @foreach (var error in validationErrors)
                             {
@@ -188,12 +188,12 @@
                                Color="Color.Primary"
                                Disabled="@isLoading"
                                StartIcon="@Icons.Material.Filled.Add">
-                        @(isLoading ? "Creating..." : "Create Room")
+                        @(isLoading ? AppStrings.T("CreatingRoom") : AppStrings.T("CreateRoom"))
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Filled.ArrowBack"
                                OnClick="@(() => Navigation.NavigateTo("/lobby"))">
-                        Cancel
+                        @AppStrings.T("Cancel")
                     </MudButton>
                 </MudStack>
             </MudStack>
@@ -231,8 +231,8 @@
         }
         catch (Exception ex)
         {
-            errorMessage = "Failed to load tags. Please refresh the page.";
-            Snackbar.Add($"Failed to load tags: {ex.Message}", Severity.Error);
+            errorMessage = AppStrings.T("TagsLoadFailed");
+            Snackbar.Add(AppStrings.Tf("TagsLoadFailedWithError", ex.Message), Severity.Error);
         }
     }
 
@@ -255,7 +255,7 @@
 
     private void HandleInvalidSubmit()
     {
-        validationErrors = new List<string> { "Please fix the highlighted validation errors before creating the room." };
+        validationErrors = new List<string> { AppStrings.T("FixRoomValidationErrors") };
         errorMessage = string.Empty;
     }
 
@@ -264,50 +264,50 @@
         var errors = new List<string>();
 
         if (string.IsNullOrWhiteSpace(request.Name))
-            errors.Add("Room name is required.");
+            errors.Add(AppStrings.T("RoomNameRequired"));
         else
         {
             var nameLength = request.Name.Trim().Length;
-            if (nameLength < 3) errors.Add("Room name must be at least 3 characters.");
-            if (nameLength > 100) errors.Add("Room name cannot exceed 100 characters.");
+            if (nameLength < 3) errors.Add(AppStrings.T("RoomNameMinLength"));
+            if (nameLength > 100) errors.Add(AppStrings.T("RoomNameMaxLength"));
         }
 
         if (request.MaxPlayers is < 2 or > 50)
-            errors.Add("Max players must be between 2 and 50.");
+            errors.Add(AppStrings.T("MaxPlayersRange"));
 
         if (IsPrivateRoom)
         {
             var accessCode = request.AccessCode?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(accessCode))
-                errors.Add("Access code is required for private rooms.");
+                errors.Add(AppStrings.T("AccessCodeRequired"));
             else
             {
-                if (accessCode.Length < 4) errors.Add("Access code must be at least 4 characters.");
-                if (accessCode.Length > 32) errors.Add("Access code cannot exceed 32 characters.");
+                if (accessCode.Length < 4) errors.Add(AppStrings.T("AccessCodeMinLength"));
+                if (accessCode.Length > 32) errors.Add(AppStrings.T("AccessCodeMaxLength"));
             }
         }
 
         if (selectedVictoryMode == "Points")
         {
             if (request.VictoryValue is < 50 or > 10000)
-                errors.Add("Target points must be between 50 and 10000.");
+                errors.Add(AppStrings.T("VictoryPointsRange"));
         }
         else if (selectedVictoryMode == "Questions")
         {
             if (request.NumberOfRounds is < 3 or > 20)
-                errors.Add("Number of questions must be between 3 and 20.");
+                errors.Add(AppStrings.T("QuestionCountRange"));
         }
         else
         {
-            errors.Add("Select a valid victory condition.");
+            errors.Add(AppStrings.T("InvalidVictoryCondition"));
         }
 
         if (selectedTagIds.Any(id => !Guid.TryParse(id, out _)))
-            errors.Add("One or more selected tags are invalid. Please reselect tags.");
+            errors.Add(AppStrings.T("InvalidTagsSelected"));
 
         var allowedDifficulties = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Easy", "Medium", "Hard" };
         if (selectedDifficulties.Any(d => !allowedDifficulties.Contains(d)))
-            errors.Add("One or more selected difficulties are invalid.");
+            errors.Add(AppStrings.T("InvalidDifficultySelected"));
 
         return errors;
     }
@@ -343,12 +343,12 @@
             }
             else
             {
-                errorMessage = "Failed to create room. Please try again.";
+                errorMessage = AppStrings.T("RoomCreateFailed");
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred: {ex.Message}";
+            errorMessage = AppStrings.Tf("GenericErrorWithMessage", ex.Message);
         }
         finally
         {

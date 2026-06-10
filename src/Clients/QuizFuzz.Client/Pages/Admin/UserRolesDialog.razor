@@ -3,18 +3,18 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Manage Roles - @User?.Username</MudText>
+        <MudText Typo="Typo.h6">@string.Format(AppStrings.T("ManageRolesTitle"), User?.Username)</MudText>
     </TitleContent>
     <DialogContent>
         @if (User == null)
         {
-            <MudAlert Severity="Severity.Error">User was not provided.</MudAlert>
+            <MudAlert Severity="Severity.Error">@AppStrings.T("UserNotProvided")</MudAlert>
         }
         else
         {
             <MudStack Spacing="3">
                 <MudAlert Severity="Severity.Info" Dense="true">
-                    The base User role is required and will always be kept.
+                    @AppStrings.T("BaseUserRoleRequired")
                 </MudAlert>
 
                 <MudPaper Elevation="0" Class="pa-3 mud-background-gray">
@@ -25,24 +25,24 @@
                 </MudPaper>
 
                 <MudStack Spacing="2">
-                    <MudCheckBox T="bool" Value="true" Disabled="true" Label="User" Color="Color.Primary" />
-                    <MudCheckBox T="bool" @bind-Value="hasModeratorRole" Label="Moderator" Color="Color.Warning" />
-                    <MudCheckBox T="bool" @bind-Value="hasAdminRole" Label="Admin" Color="Color.Error" />
+                    <MudCheckBox T="bool" Value="true" Disabled="true" Label='@AppStrings.T("RoleUser")' Color="Color.Primary" />
+                    <MudCheckBox T="bool" @bind-Value="hasModeratorRole" Label='@AppStrings.T("RoleModerator")' Color="Color.Warning" />
+                    <MudCheckBox T="bool" @bind-Value="hasAdminRole" Label='@AppStrings.T("RoleAdmin")' Color="Color.Error" />
                 </MudStack>
 
                 @if (hasAdminRole)
                 {
                     <MudAlert Severity="Severity.Warning" Dense="true">
-                        Admin users can manage roles and bans. Grant this role only to trusted users.
+                        @AppStrings.T("AdminRoleWarning")
                     </MudAlert>
                 }
             </MudStack>
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(User == null)" OnClick="@Submit">
-            Save
+            @AppStrings.T("CommonSave")
         </MudButton>
     </DialogActions>
 </MudDialog>

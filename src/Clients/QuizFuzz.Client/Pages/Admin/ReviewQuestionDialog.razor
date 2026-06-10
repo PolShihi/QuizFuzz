@@ -5,14 +5,14 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Review Question</MudText>
+        <MudText Typo="Typo.h6">@AppStrings.T("ReviewQuestion")</MudText>
     </TitleContent>
     <DialogContent>
         @if (isLoading)
         {
             <MudStack AlignItems="AlignItems.Center" Class="pa-6" Spacing="3">
                 <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-                <MudText Color="Color.Secondary">Loading…</MudText>
+                <MudText Color="Color.Secondary">@AppStrings.T("CommonLoading")</MudText>
             </MudStack>
         }
         else if (!string.IsNullOrWhiteSpace(error))
@@ -22,43 +22,43 @@
         else if (question != null)
         {
             <MudStack Spacing="3">
-                <MudTextField Label="Title" @bind-Value="question.Title" ReadOnly="true" Variant="Variant.Outlined" />
-                <MudTextField Label="Question Text"
+                <MudTextField Label='@AppStrings.T("Title")' @bind-Value="question.Title" ReadOnly="true" Variant="Variant.Outlined" />
+                <MudTextField Label='@AppStrings.T("QuestionText")'
                               @bind-Value="question.PromptText"
                               Lines="3"
                               ReadOnly="true"
                               Variant="Variant.Outlined" />
 
                 <MudStack Row="true" Spacing="2">
-                    <MudChip T="string" Size="Size.Small">@question.Type</MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary">@question.Difficulty</MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@question.Status</MudChip>
+                    <MudChip T="string" Size="Size.Small">@AppStrings.QuestionType(question.Type)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary">@AppStrings.QuestionDifficulty(question.Difficulty)</MudChip>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@AppStrings.QuestionStatus(question.Status)</MudChip>
                 </MudStack>
 
 
                 @if (!string.IsNullOrWhiteSpace(question.MediaUrl))
                 {
                     <MudPaper Class="pa-3" Outlined="true">
-                        <MudText Typo="Typo.subtitle2" Class="mb-2">Media preview</MudText>
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("MediaPreview")</MudText>
                         @if (question.Type.Equals("Image", StringComparison.OrdinalIgnoreCase))
                         {
-                            <MudImage Src="@question.MediaUrl" Alt="Question image" Class="rounded-lg" Style="max-height: 260px; max-width: 100%; object-fit: contain;" />
+                            <MudImage Src="@question.MediaUrl" Alt='@AppStrings.T("QuestionTypeImage")' Class="rounded-lg" Style="max-height: 260px; max-width: 100%; object-fit: contain;" />
                         }
                         else if (question.Type.Equals("Audio", StringComparison.OrdinalIgnoreCase))
                         {
                             <audio controls style="width: 100%;">
                                 <source src="@question.MediaUrl" />
-                                Your browser does not support the audio element.
+                                @AppStrings.T("AudioNotSupported")
                             </audio>
                         }
                         else
                         {
-                            <MudLink Href="@question.MediaUrl" Target="_blank">Open media</MudLink>
+                            <MudLink Href="@question.MediaUrl" Target="_blank">@AppStrings.T("OpenMedia")</MudLink>
                         }
                     </MudPaper>
                 }
 
-                <MudText Typo="Typo.h6">Answers</MudText>
+                <MudText Typo="Typo.h6">@AppStrings.T("Answers")</MudText>
                 @foreach (var answer in question.Answers)
                 {
                     <MudPaper Elevation="1" Class="pa-3">
@@ -67,20 +67,20 @@
                                 <MudText><strong>@answer.AnswerText</strong></MudText>
                                 @if (answer.IsPrimary)
                                 {
-                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">Primary</MudChip>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary">@AppStrings.T("Primary")</MudChip>
                                 }
                             </MudStack>
                             @if (answer.Aliases?.Any() == true)
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    Aliases: @string.Join(", ", answer.Aliases.Select(a => a.AliasText))
+                                    @AppStrings.T("Aliases"): @string.Join(", ", answer.Aliases.Select(a => a.AliasText))
                                 </MudText>
                             }
                         </MudStack>
                     </MudPaper>
                 }
 
-                <MudTextField Label="Comment (optional)"
+                <MudTextField Label='@AppStrings.T("CommentOptional")'
                               @bind-Value="comment"
                               Lines="2"
                               Variant="Variant.Outlined" />
@@ -88,18 +88,18 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton Disabled="@isSubmitting" OnClick="@Cancel">Cancel</MudButton>
+        <MudButton Disabled="@isSubmitting" OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
         <MudButton Disabled="@isSubmitting"
                    Color="Color.Error"
                    Variant="Variant.Filled"
                    OnClick="@Reject">
-            Reject
+            @AppStrings.T("CommonReject")
         </MudButton>
         <MudButton Disabled="@isSubmitting"
                    Color="Color.Success"
                    Variant="Variant.Filled"
                    OnClick="@Approve">
-            Approve
+            @AppStrings.T("CommonApprove")
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -123,7 +123,7 @@
             question = await ModerationClient.GetQuestionForModerationAsync(QuestionId);
             if (question == null)
             {
-                error = "Failed to load question details (null response).";
+                error = AppStrings.T("QuestionLoadFailed");
             }
         }
         catch (Exception ex)
@@ -153,7 +153,7 @@
             });
             if (!ok)
             {
-                error = "Approve failed (non-success status).";
+                error = AppStrings.T("ApproveFailed");
                 return;
             }
 
@@ -176,7 +176,7 @@
         error = null;
         try
         {
-            var reason = string.IsNullOrWhiteSpace(comment) ? "Rejected by moderator" : comment;
+            var reason = string.IsNullOrWhiteSpace(comment) ? AppStrings.T("RejectedByModerator") : comment;
             var ok = await ModerationClient.RejectAsync(new ModerationActionRequest
             {
                 QueueId = QuestionId,
@@ -186,7 +186,7 @@
             });
             if (!ok)
             {
-                error = "Reject failed (non-success status).";
+                error = AppStrings.T("RejectFailed");
                 return;
             }
 

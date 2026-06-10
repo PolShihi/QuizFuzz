@@ -3,22 +3,22 @@
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">Edit Tag Description</MudText>
+        <MudText Typo="Typo.h6">@AppStrings.T("EditTagTitle")</MudText>
     </TitleContent>
     <DialogContent>
         @if (Tag == null)
         {
-            <MudAlert Severity="Severity.Error">Tag was not provided.</MudAlert>
+            <MudAlert Severity="Severity.Error">@AppStrings.T("TagNotProvided")</MudAlert>
         }
         else
         {
             <MudStack Spacing="3">
-                <MudTextField Label="Name"
+                <MudTextField Label='@AppStrings.T("Name")'
                               Value="@Tag.Name"
                               Variant="Variant.Outlined"
                               Disabled="true"
-                              HelperText="Tag name cannot be changed after creation." />
-                <MudTextField Label="Description"
+                              HelperText='@AppStrings.T("TagNameFixedHelper")' />
+                <MudTextField Label='@AppStrings.T("Description")'
                               @bind-Value="description"
                               Lines="4"
                               MaxLength="500"
@@ -32,8 +32,8 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">Cancel</MudButton>
-        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(Tag == null)" OnClick="@Submit">Save</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(Tag == null)" OnClick="@Submit">@AppStrings.T("CommonSave")</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -56,7 +56,7 @@
         var trimmedDescription = description?.Trim() ?? string.Empty;
         if (trimmedDescription.Length > 500)
         {
-            validationError = "Description cannot exceed 500 characters.";
+            validationError = AppStrings.T("DescriptionMax");
             return;
         }
 

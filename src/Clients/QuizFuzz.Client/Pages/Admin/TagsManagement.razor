@@ -8,27 +8,27 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<PageTitle>Tags Management - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("TagsManagementPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="qf-page-shell">
     <MudPaper Elevation="0" Class="qf-hero mb-5">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.Label" Class="mr-2" />
-                Tags Management
+                @AppStrings.T("TagsManagementHeading")
             </MudText>
             <MudStack Row="true" Spacing="2">
                 <MudButton Variant="Variant.Outlined"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Refresh"
                            OnClick="@LoadTags">
-                    Refresh
+                    @AppStrings.T("Refresh")
                 </MudButton>
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="@OpenCreateDialog">
-                    Create Tag
+                    @AppStrings.T("CreateTag")
                 </MudButton>
             </MudStack>
         </MudStack>
@@ -45,7 +45,7 @@
         <MudPaper Elevation="0" Class="qf-table-panel"><MudTable Items="@tags" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm" Filter="new Func<TagDto, bool>(FilterFunc)">
             <ToolBarContent>
                 <MudTextField @bind-Value="searchString"
-                              Placeholder="Search by tag name, description or status..."
+                              Placeholder='@AppStrings.T("TagsSearchPlaceholder")'
                               Adornment="Adornment.Start"
                               AdornmentIcon="@Icons.Material.Filled.Search"
                               IconSize="Size.Medium"
@@ -53,40 +53,40 @@
                               Class="mt-0" />
             </ToolBarContent>
             <HeaderContent>
-                <MudTh>Name</MudTh>
-                <MudTh>Description</MudTh>
-                <MudTh>Status</MudTh>
-                <MudTh>Actions</MudTh>
+                <MudTh>@AppStrings.T("Name")</MudTh>
+                <MudTh>@AppStrings.T("Description")</MudTh>
+                <MudTh>@AppStrings.T("Status")</MudTh>
+                <MudTh>@AppStrings.T("CommonActions")</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Name">
+                <MudTd DataLabel='@AppStrings.T("Name")'>
                     <MudText Typo="Typo.body2"><b>@context.Name</b></MudText>
                 </MudTd>
-                <MudTd DataLabel="Description">
-                    <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Description) ? "—" : context.Description)</MudText>
+                <MudTd DataLabel='@AppStrings.T("Description")'>
+                    <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Description) ? AppStrings.T("NoDescription") : context.Description)</MudText>
                 </MudTd>
-                <MudTd DataLabel="Status">
+                <MudTd DataLabel='@AppStrings.T("Status")'>
                     <MudChip T="string" Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Warning)">
-                        @(context.IsActive ? "Active" : "Suggested / Inactive")
+                        @(context.IsActive ? AppStrings.T("Active") : AppStrings.T("SuggestedInactive"))
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel="Actions">
+                <MudTd DataLabel='@AppStrings.T("CommonActions")'>
                     <MudStack Row="true" Spacing="1">
                         <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                       Title="Edit description"
+                                       Title='@AppStrings.T("EditDescription")'
                                        Size="Size.Small"
                                        Color="Color.Primary"
                                        OnClick="@(() => OpenEditDialog(context))" />
                         @if (!context.IsActive)
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
-                                           Title="Approve / activate tag"
+                                           Title='@AppStrings.T("ApproveActivateTag")'
                                            Size="Size.Small"
                                            Color="Color.Success"
                                            OnClick="@(() => ActivateTag(context))" />
                         }
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                       Title="Delete / deactivate tag"
+                                       Title='@AppStrings.T("DeleteDeactivateTag")'
                                        Size="Size.Small"
                                        Color="Color.Error"
                                        OnClick="@(() => DeleteTag(context))" />
@@ -94,7 +94,7 @@
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Class="pa-4">No tags found.</MudText>
+                <MudText Class="pa-4">@AppStrings.T("NoTagsFound")</MudText>
             </NoRecordsContent>
         </MudTable></MudPaper>
     }
@@ -120,7 +120,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to load tags: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(AppStrings.T("FailedLoadTags"), ex.Message), Severity.Error);
             tags = new List<TagDto>();
         }
         finally
@@ -139,7 +139,7 @@
             BackdropClick = false
         };
 
-        var dialog = await DialogService.ShowAsync<TagCreateDialog>("Create Tag", options);
+        var dialog = await DialogService.ShowAsync<TagCreateDialog>(AppStrings.T("CreateTag"), options);
         var result = await dialog.Result;
 
         if (result.Canceled || result.Data is not TagEditModel model)
@@ -163,7 +163,7 @@
             BackdropClick = false
         };
 
-        var dialog = await DialogService.ShowAsync<TagEditDialog>($"Edit Tag - {tag.Name}", parameters, options);
+        var dialog = await DialogService.ShowAsync<TagEditDialog>(string.Format(AppStrings.T("EditTagTitle") + " — {0}", tag.Name), parameters, options);
         var result = await dialog.Result;
 
         if (result.Canceled || result.Data is not string description)
@@ -183,11 +183,11 @@
             var created = await AdminClient.CreateTagAsync(model.Name, model.Description);
             if (created == null)
             {
-                Snackbar.Add("Failed to create tag. Check if a tag with this name already exists.", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedCreateTag"), Severity.Error);
                 return;
             }
 
-            Snackbar.Add($"Tag '{created.Name}' created.", Severity.Success);
+            Snackbar.Add(AppStrings.T("TagCreated"), Severity.Success);
             await LoadTags();
         }
         finally
@@ -207,11 +207,11 @@
             var updated = await AdminClient.UpdateTagDescriptionAsync(tag.Id, description);
             if (updated == null)
             {
-                Snackbar.Add("Failed to update tag description.", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedUpdateTag"), Severity.Error);
                 return;
             }
 
-            Snackbar.Add($"Description for '{updated.Name}' updated.", Severity.Success);
+            Snackbar.Add(AppStrings.T("TagUpdated"), Severity.Success);
             await LoadTags();
         }
         finally
@@ -231,11 +231,11 @@
             var success = await AdminClient.ActivateTagAsync(tag.Id);
             if (!success)
             {
-                Snackbar.Add("Failed to activate tag.", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedActivateTag"), Severity.Error);
                 return;
             }
 
-            Snackbar.Add($"Tag '{tag.Name}' activated.", Severity.Success);
+            Snackbar.Add(AppStrings.T("TagActivated"), Severity.Success);
             await LoadTags();
         }
         finally
@@ -250,10 +250,10 @@
             return;
 
         var confirm = await DialogService.ShowMessageBox(
-            "Delete tag",
-            $"Delete/deactivate tag '{tag.Name}'? Existing questions keep their links, but the tag will disappear from normal user tag lists.",
-            yesText: "Delete",
-            cancelText: "Cancel");
+            AppStrings.T("DeleteTagTitle"),
+            string.Format(AppStrings.T("DeleteTagMessage"), tag.Name),
+            yesText: AppStrings.T("CommonDelete"),
+            cancelText: AppStrings.T("CommonCancel"));
 
         if (confirm != true)
             return;
@@ -264,11 +264,11 @@
             var success = await AdminClient.DeleteTagAsync(tag.Id);
             if (!success)
             {
-                Snackbar.Add("Failed to delete tag.", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedDeleteTag"), Severity.Error);
                 return;
             }
 
-            Snackbar.Add($"Tag '{tag.Name}' deactivated.", Severity.Success);
+            Snackbar.Add(AppStrings.T("TagDeleted"), Severity.Success);
             await LoadTags();
         }
         finally

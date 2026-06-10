@@ -4,16 +4,16 @@
     <TitleContent>
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.Lock" Color="Color.Warning" />
-            <MudText Typo="Typo.h6">Private Room</MudText>
+            <MudText Typo="Typo.h6">@AppStrings.T("PrivateRoom")</MudText>
         </MudStack>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
             <MudText Typo="Typo.body2" Class="qf-muted">
-                Enter the access code to join @(string.IsNullOrWhiteSpace(RoomName) ? "this room" : RoomName).
+                @AppStrings.Tf("JoinPrivateRoomDescription", string.IsNullOrWhiteSpace(RoomName) ? AppStrings.T("PrivateRoom") : RoomName)
             </MudText>
 
-            <MudTextField Label="Access code"
+            <MudTextField Label='@AppStrings.T("AccessCodeInput")'
                           @bind-Value="accessCode"
                           Variant="Variant.Outlined"
                           InputType="InputType.Password"
@@ -22,7 +22,7 @@
                           MaxLength="32"
                           Counter="32"
                           Required="true"
-                          RequiredError="Access code is required."
+                          RequiredError='@AppStrings.T("AccessCodeInputRequired")'
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Key"
                           OnKeyDown="@HandleKeyDown" />
@@ -34,12 +34,12 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">Cancel</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("Cancel")</MudButton>
         <MudButton Color="Color.Primary"
                    Variant="Variant.Filled"
                    StartIcon="@Icons.Material.Filled.Login"
                    OnClick="@Submit">
-            Join
+            @AppStrings.T("Join")
         </MudButton>
     </DialogActions>
 </MudDialog>
@@ -61,19 +61,19 @@
 
         if (string.IsNullOrWhiteSpace(code))
         {
-            validationError = "Access code is required.";
+            validationError = AppStrings.T("AccessCodeInputRequired");
             return;
         }
 
         if (code.Length < 4)
         {
-            validationError = "Access code must be at least 4 characters.";
+            validationError = AppStrings.T("AccessCodeMinLength");
             return;
         }
 
         if (code.Length > 32)
         {
-            validationError = "Access code cannot exceed 32 characters.";
+            validationError = AppStrings.T("AccessCodeMaxLength");
             return;
         }
 

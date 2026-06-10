@@ -6,7 +6,7 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 
-<PageTitle>Register - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("RegisterPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="qf-auth-shell">
     <MudPaper Elevation="0" Class="qf-auth-card pa-8">
@@ -14,17 +14,17 @@
             <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Size="Size.Large" />
         </MudAvatar>
         <MudText Typo="Typo.h4" Align="Align.Center" Class="qf-section-title" GutterBottom="true">
-            Create your account
+            @AppStrings.T("RegisterHeading")
         </MudText>
         <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted mb-6">
-            Join rooms, submit answers and build your own fuzzy quiz content.
+            @AppStrings.T("RegisterDescription")
         </MudText>
 
         <EditForm Model="@registerRequest" OnValidSubmit="@HandleRegister">
             <DataAnnotationsValidator />
 
             <MudTextField @bind-Value="registerRequest.Username"
-                          Label="Username"
+                          Label='@AppStrings.T("Username")'
                           Variant="Variant.Outlined"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Person"
@@ -32,7 +32,7 @@
                           For="@(() => registerRequest.Username)" />
 
             <MudTextField @bind-Value="registerRequest.Email"
-                          Label="Email"
+                          Label='@AppStrings.T("Email")'
                           Variant="Variant.Outlined"
                           InputType="InputType.Email"
                           Adornment="Adornment.Start"
@@ -41,7 +41,7 @@
                           For="@(() => registerRequest.Email)" />
 
             <MudTextField @bind-Value="registerRequest.Password"
-                          Label="Password"
+                          Label='@AppStrings.T("Password")'
                           Variant="Variant.Outlined"
                           InputType="InputType.Password"
                           Adornment="Adornment.Start"
@@ -50,7 +50,7 @@
                           For="@(() => registerRequest.Password)" />
 
             <MudTextField @bind-Value="registerRequest.ConfirmPassword"
-                          Label="Confirm password"
+                          Label='@AppStrings.T("ConfirmPassword")'
                           Variant="Variant.Outlined"
                           InputType="InputType.Password"
                           Adornment="Adornment.Start"
@@ -70,16 +70,16 @@
                        Color="Color.Primary"
                        FullWidth="true"
                        Disabled="@isLoading"
-                       StartIcon=".Material.Filled.PersonAdd"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
                        Class="qf-submit-button mb-4">
                 @if (isLoading)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    <MudText>Creating account...</MudText>
+                    <MudText>@AppStrings.T("RegisterInProgress")</MudText>
                 }
                 else
                 {
-                    <MudText>Create account</MudText>
+                    <MudText>@AppStrings.T("RegisterSubmit")</MudText>
                 }
             </MudButton>
         </EditForm>
@@ -87,8 +87,8 @@
         <MudDivider Class="my-4 qf-soft-divider" />
 
         <MudText Align="Align.Center" Class="qf-muted">
-            Already have an account?
-            <MudLink Href="/login" Color="Color.Primary">Sign in</MudLink>
+            @AppStrings.T("AlreadyHaveAccount")
+            <MudLink Href="/login" Color="Color.Primary">@AppStrings.T("Login")</MudLink>
         </MudText>
     </MudPaper>
 </MudContainer>
@@ -118,12 +118,12 @@
             }
             else
             {
-                errorMessage = "Registration failed. Email or username may already exist.";
+                errorMessage = AppStrings.T("RegisterFailed");
             }
         }
         catch
         {
-            errorMessage = "An error occurred during registration. Please try again.";
+            errorMessage = AppStrings.T("RegisterError");
         }
         finally
         {

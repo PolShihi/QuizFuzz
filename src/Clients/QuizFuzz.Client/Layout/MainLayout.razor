@@ -1,7 +1,10 @@
+@using System.Globalization
 @using QuizFuzz.Client.Services
 @inherits LayoutComponentBase
 @implements IDisposable
 @inject AppThemeService ThemeService
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
 
 <MudLayout Class="@LayoutClass">
     <MudAppBar Elevation="0" Class="qf-appbar">
@@ -12,22 +15,33 @@
             </MudAvatar>
             <div class="qf-brand-copy">
                 <MudText Typo="Typo.h6" Class="qf-brand-title">QuizFuzz</MudText>
-                <MudText Typo="Typo.caption" Class="qf-brand-subtitle">Real-time fuzzy quiz platform</MudText>
+                <MudText Typo="Typo.caption" Class="qf-brand-subtitle">@AppStrings.T("AppSubtitle")</MudText>
             </div>
         </MudStack>
         <MudSpacer />
+        <MudSelect T="string"
+                   Value="@CurrentCulture"
+                   ValueChanged="@ChangeLanguageAsync"
+                   Dense="true"
+                   Margin="Margin.Dense"
+                   Variant="Variant.Outlined"
+                   Label='@AppStrings.T("Language")'
+                   Class="qf-language-selector mr-2">
+            <MudSelectItem T="string" Value='@("ru-RU")'>@AppStrings.T("Russian")</MudSelectItem>
+            <MudSelectItem T="string" Value='@("en-US")'>@AppStrings.T("English")</MudSelectItem>
+        </MudSelect>
         <MudTooltip Text="@ThemeToggleTooltip">
             <MudIconButton Icon="@ThemeToggleIcon" Color="Color.Inherit" OnClick="@ToggleThemeAsync" Class="qf-theme-toggle" />
         </MudTooltip>
         <AuthorizeView>
             <Authorized>
                 <MudButton Href="/suggest-question" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Lightbulb" Class="qf-appbar-action">
-                    Suggest
+                    @AppStrings.T("Suggest")
                 </MudButton>
                 <MudIconButton Href="/profile" Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" />
             </Authorized>
             <NotAuthorized>
-                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">Login</MudButton>
+                <MudButton Href="/login" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Login">@AppStrings.T("Login")</MudButton>
             </NotAuthorized>
         </AuthorizeView>
     </MudAppBar>
@@ -40,7 +54,7 @@
                 </MudAvatar>
                 <div>
                     <MudText Typo="Typo.h6" Class="qf-brand-title">QuizFuzz</MudText>
-                    <MudText Typo="Typo.caption" Class="qf-brand-subtitle">Play, guess, compete</MudText>
+                    <MudText Typo="Typo.caption" Class="qf-brand-subtitle">@AppStrings.T("DrawerSubtitle")</MudText>
                 </div>
             </MudStack>
         </MudDrawerHeader>
@@ -66,8 +80,12 @@
         : Icons.Material.Filled.DarkMode;
 
     private string ThemeToggleTooltip => ThemeService.IsDarkMode
-        ? "Switch to light theme"
-        : "Switch to dark theme";
+        ? AppStrings.T("SwitchToLightTheme")
+        : AppStrings.T("SwitchToDarkTheme");
+
+    private string CurrentCulture => CultureInfo.CurrentUICulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase)
+        ? "ru-RU"
+        : "en-US";
 
     protected override void OnInitialized()
     {
@@ -82,6 +100,15 @@
     private async Task ToggleThemeAsync()
     {
         await ThemeService.ToggleAsync();
+    }
+
+    private async Task ChangeLanguageAsync(string cultureName)
+    {
+        if (cultureName is not ("ru-RU" or "en-US") || cultureName == CurrentCulture)
+            return;
+
+        await JSRuntime.InvokeVoidAsync("localStorage.setItem", "QuizFuzz.Culture", cultureName);
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
     }
 
     private void HandleThemeChanged()

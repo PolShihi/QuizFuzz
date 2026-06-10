@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using QuizFuzz.Shared.Localization;
 
 namespace QuizFuzz.Shared.Dtos.Auth;
 
 public class LoginRequest
 {
-    [Required(ErrorMessage = "Email or Username is required")]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.EmailOrUsernameRequired))]
     public string EmailOrUsername { get; set; } = string.Empty;
 
-    [Required(ErrorMessage = "Password is required")]
-    [MinLength(6, ErrorMessage = "Password must be at least 6 characters")]
+    [Required(ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordRequired))]
+    [MinLength(6, ErrorMessageResourceType = typeof(ValidationMessages), ErrorMessageResourceName = nameof(ValidationMessages.PasswordMinLength))]
     public string Password { get; set; } = string.Empty;
 }

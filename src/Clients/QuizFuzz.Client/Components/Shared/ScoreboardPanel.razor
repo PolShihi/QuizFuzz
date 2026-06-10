@@ -3,14 +3,14 @@
 <MudPaper Elevation="0" Class="qf-panel pa-4">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
         <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Warning" />
-        <MudText Typo="Typo.h6">Scoreboard</MudText>
+        <MudText Typo="Typo.h6">@AppStrings.T("Scoreboard")</MudText>
     </MudStack>
 
     @if (Scoreboard == null || !Scoreboard.Players.Any())
     {
         <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="py-4">
             <MudIcon Icon="@Icons.Material.Filled.Leaderboard" Color="Color.Secondary" />
-            <MudText Typo="Typo.body2" Class="qf-muted">No scores yet</MudText>
+            <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("NoScoresYet")</MudText>
         </MudStack>
     }
     else
@@ -26,9 +26,9 @@
                         </MudStack>
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="qf-status-chip">
-                                @item.player.TotalScore pts
+                                @item.player.TotalScore @AppStrings.T("PointsShort")
                             </MudChip>
-                            <MudText Typo="Typo.caption" Class="qf-muted">@item.player.CorrectAnswers correct</MudText>
+                            <MudText Typo="Typo.caption" Class="qf-muted">@item.player.CorrectAnswers @AppStrings.T("CorrectShort")</MudText>
                         </MudStack>
                     </MudStack>
                 </MudPaper>

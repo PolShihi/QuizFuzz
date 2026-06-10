@@ -7,20 +7,20 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
-<PageTitle>Users Management - QuizFuzz</PageTitle>
+<PageTitle>@AppStrings.T("UsersManagementPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="qf-page-shell">
     <MudPaper Elevation="0" Class="qf-hero mb-5">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap gap-2">
             <MudText Typo="Typo.h4">
                 <MudIcon Icon="@Icons.Material.Filled.People" Class="mr-2" />
-                Users Management
+                @AppStrings.T("UsersManagementHeading")
             </MudText>
             <MudButton Variant="Variant.Outlined"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Filled.Refresh"
                        OnClick="@LoadUsers">
-                Refresh
+                @AppStrings.T("Refresh")
             </MudButton>
         </MudStack>
     </MudPaper>
@@ -36,7 +36,7 @@
         <MudPaper Elevation="0" Class="qf-table-panel"><MudTable Items="@users" Hover="true" Dense="true" Breakpoint="Breakpoint.Sm" Filter="new Func<UserManagementDto, bool>(FilterFunc)">
             <ToolBarContent>
                 <MudTextField @bind-Value="searchString"
-                              Placeholder="Search by username, email, role or status..."
+                              Placeholder='@AppStrings.T("UsersSearchPlaceholder")'
                               Adornment="Adornment.Start"
                               AdornmentIcon="@Icons.Material.Filled.Search"
                               IconSize="Size.Medium"
@@ -44,57 +44,57 @@
                               Class="mt-0" />
             </ToolBarContent>
             <HeaderContent>
-                <MudTh>Username</MudTh>
+                <MudTh>@AppStrings.T("UsernameColumn")</MudTh>
                 <MudTh>Email</MudTh>
-                <MudTh>Roles</MudTh>
-                <MudTh>Status</MudTh>
-                <MudTh>Joined</MudTh>
-                <MudTh>Last Login</MudTh>
-                <MudTh>Actions</MudTh>
+                <MudTh>@AppStrings.T("Roles")</MudTh>
+                <MudTh>@AppStrings.T("Status")</MudTh>
+                <MudTh>@AppStrings.T("Registration")</MudTh>
+                <MudTh>@AppStrings.T("LastLogin")</MudTh>
+                <MudTh>@AppStrings.T("CommonActions")</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Username">
+                <MudTd DataLabel='@AppStrings.T("UsernameColumn")'>
                     <MudText Typo="Typo.body2"><b>@context.Username</b></MudText>
                 </MudTd>
                 <MudTd DataLabel="Email">@context.Email</MudTd>
-                <MudTd DataLabel="Roles">
+                <MudTd DataLabel='@AppStrings.T("Roles")'>
                     <MudStack Row="true" Spacing="1" Class="flex-wrap">
                         @foreach (var role in context.Roles.OrderBy(GetRoleSortOrder))
                         {
-                            <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(role)">@role</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="@GetRoleColor(role)">@AppStrings.Role(role)</MudChip>
                         }
                     </MudStack>
                 </MudTd>
-                <MudTd DataLabel="Status">
+                <MudTd DataLabel='@AppStrings.T("Status")'>
                     @if (context.IsBanned)
                     {
                         <MudStack Spacing="0">
-                            <MudChip T="string" Size="Size.Small" Color="Color.Error">Banned</MudChip>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error">@AppStrings.T("UserBanned")</MudChip>
                             <MudText Typo="Typo.caption">@GetBanCaption(context)</MudText>
                         </MudStack>
                     }
                     else
                     {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Success">Active</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success">@AppStrings.T("UserActive")</MudChip>
                     }
                 </MudTd>
-                <MudTd DataLabel="Joined">
+                <MudTd DataLabel='@AppStrings.T("Registration")'>
                     <MudText Typo="Typo.caption">@context.CreatedAt.ToString("dd/MM/yyyy")</MudText>
                 </MudTd>
-                <MudTd DataLabel="Last Login">
-                    <MudText Typo="Typo.caption">@(context.LastLoginAt?.ToString("dd/MM/yyyy HH:mm") ?? "Never")</MudText>
+                <MudTd DataLabel='@AppStrings.T("LastLogin")'>
+                    <MudText Typo="Typo.caption">@(context.LastLoginAt?.ToString("dd/MM/yyyy HH:mm") ?? AppStrings.T("Never"))</MudText>
                 </MudTd>
-                <MudTd DataLabel="Actions">
+                <MudTd DataLabel='@AppStrings.T("CommonActions")'>
                     <MudStack Row="true" Spacing="1">
                         <MudIconButton Icon="@Icons.Material.Filled.ManageAccounts"
-                                       Title="Change roles"
+                                       Title='@AppStrings.T("ChangeRoles")'
                                        Size="Size.Small"
                                        Color="Color.Primary"
                                        OnClick="@(() => OpenRolesDialog(context))" />
                         @if (!context.IsBanned)
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.Block"
-                                           Title="Ban user"
+                                           Title='@AppStrings.T("BanUser")'
                                            Size="Size.Small"
                                            Color="Color.Error"
                                            OnClick="@(() => OpenBanDialog(context))" />
@@ -102,7 +102,7 @@
                         else
                         {
                             <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
-                                           Title="Unban user"
+                                           Title='@AppStrings.T("UnbanUser")'
                                            Size="Size.Small"
                                            Color="Color.Success"
                                            OnClick="@(() => UnbanUser(context))" />
@@ -111,7 +111,7 @@
                 </MudTd>
             </RowTemplate>
             <NoRecordsContent>
-                <MudText Class="pa-4">No users found.</MudText>
+                <MudText Class="pa-4">@AppStrings.T("NoUsersFound")</MudText>
             </NoRecordsContent>
         </MudTable></MudPaper>
     }
@@ -137,7 +137,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to load users: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(AppStrings.T("FailedLoadUsers"), ex.Message), Severity.Error);
             users = new List<UserManagementDto>();
         }
         finally
@@ -161,7 +161,7 @@
             BackdropClick = false
         };
 
-        var dialog = await DialogService.ShowAsync<UserRolesDialog>($"Manage Roles - {user.Username}", parameters, options);
+        var dialog = await DialogService.ShowAsync<UserRolesDialog>(string.Format(AppStrings.T("ManageRolesTitle"), user.Username), parameters, options);
         var result = await dialog.Result;
 
         if (result.Canceled || result.Data is not List<string> roles)
@@ -196,17 +196,17 @@
             var success = await AdminClient.UpdateUserRolesAsync(request);
             if (success)
             {
-                Snackbar.Add("User roles updated", Severity.Success);
+                Snackbar.Add(AppStrings.T("UserRolesUpdated"), Severity.Success);
                 await LoadUsers();
             }
             else
             {
-                Snackbar.Add("Failed to update user roles", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedUpdateUserRoles"), Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to update user roles: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(AppStrings.T("FailedUpdateUserRoles") + ": {0}", ex.Message), Severity.Error);
         }
         finally
         {
@@ -229,7 +229,7 @@
             BackdropClick = false
         };
 
-        var dialog = await DialogService.ShowAsync<UserBanDialog>($"Ban User - {user.Username}", parameters, options);
+        var dialog = await DialogService.ShowAsync<UserBanDialog>(string.Format(AppStrings.T("BanUserTitle"), user.Username), parameters, options);
         var result = await dialog.Result;
 
         if (result.Canceled || result.Data is not BanUserRequest request)
@@ -249,17 +249,17 @@
             var success = await AdminClient.BanUserAsync(request);
             if (success)
             {
-                Snackbar.Add("User banned", Severity.Success);
+                Snackbar.Add(AppStrings.T("UserBannedMessage"), Severity.Success);
                 await LoadUsers();
             }
             else
             {
-                Snackbar.Add("Failed to ban user", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedBanUser"), Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to ban user: {ex.Message}", Severity.Error);
+            Snackbar.Add(string.Format(AppStrings.T("FailedBanUser") + ": {0}", ex.Message), Severity.Error);
         }
         finally
         {
@@ -278,12 +278,12 @@
             var success = await AdminClient.UnbanUserAsync(user.Id);
             if (success)
             {
-                Snackbar.Add("User unbanned", Severity.Success);
+                Snackbar.Add(AppStrings.T("UserUnbannedMessage"), Severity.Success);
                 await LoadUsers();
             }
             else
             {
-                Snackbar.Add("Failed to unban user", Severity.Error);
+                Snackbar.Add(AppStrings.T("FailedUnbanUser"), Severity.Error);
             }
         }
         finally
@@ -292,11 +292,11 @@
         }
     }
 
-    private static string GetBanCaption(UserManagementDto user)
+    private string GetBanCaption(UserManagementDto user)
     {
         return user.BannedUntil.HasValue
-            ? $"until {user.BannedUntil.Value.ToLocalTime():dd/MM/yyyy HH:mm}"
-            : "permanent";
+            ? string.Format(AppStrings.T("UntilDate"), user.BannedUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
+            : AppStrings.T("Permanent");
     }
 
     private bool FilterFunc(UserManagementDto user)
