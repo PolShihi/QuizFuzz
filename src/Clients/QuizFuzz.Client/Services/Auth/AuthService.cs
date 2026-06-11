@@ -44,9 +44,32 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request)
     {
+        var startResult = await StartRegistrationAsync(request);
+        return startResult == null ? null : null;
+    }
+
+    public async Task<StartRegistrationResponse?> StartRegistrationAsync(RegisterRequest request)
+    {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("api/auth/register", request);
+            var response = await _httpClient.PostAsJsonAsync("api/auth/register/start", request);
+
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadFromJsonAsync<StartRegistrationResponse>();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<AuthResponse?> ConfirmRegistrationAsync(ConfirmRegistrationRequest request)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/auth/register/confirm", request);
 
             if (!response.IsSuccessStatusCode)
                 return null;
@@ -57,6 +80,23 @@ public class AuthService : IAuthService
                 await StoreAuthResponseAsync(authResponse);
 
             return authResponse;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<StartRegistrationResponse?> ResendRegistrationCodeAsync(ResendRegistrationCodeRequest request)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/auth/register/resend-code", request);
+
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadFromJsonAsync<StartRegistrationResponse>();
         }
         catch
         {

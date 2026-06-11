@@ -6,84 +6,158 @@
 @inject IAuthService AuthService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@implements IDisposable
 
 <PageTitle>@AppStrings.T("RegisterPageTitle")</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.False" Class="qf-auth-shell">
     <MudPaper Elevation="0" Class="qf-auth-card pa-8">
         <MudAvatar Class="qf-auth-mark">
-            <MudIcon Icon="@Icons.Material.Filled.PersonAdd" Size="Size.Large" />
+            <MudIcon Icon="@(isCodeStep ? Icons.Material.Filled.Email : Icons.Material.Filled.PersonAdd)" Size="Size.Large" />
         </MudAvatar>
         <MudText Typo="Typo.h4" Align="Align.Center" Class="qf-section-title" GutterBottom="true">
-            @AppStrings.T("RegisterHeading")
+            @(isCodeStep ? AppStrings.T("EmailVerificationHeading") : AppStrings.T("RegisterHeading"))
         </MudText>
         <MudText Typo="Typo.body1" Align="Align.Center" Class="qf-muted mb-6">
-            @AppStrings.T("RegisterDescription")
+            @(isCodeStep ? AppStrings.Tf("EmailVerificationDescription", pendingEmail) : AppStrings.T("RegisterDescription"))
         </MudText>
 
-        <EditForm Model="@registerRequest" OnValidSubmit="@HandleRegister">
-            <DataAnnotationsValidator />
+        @if (!isCodeStep)
+        {
+            <EditForm Model="@registerRequest" OnValidSubmit="@HandleStartRegistration">
+                <DataAnnotationsValidator />
 
-            <MudTextField @bind-Value="registerRequest.Username"
-                          Label="@AppStrings.T("Username")"
-                          Variant="Variant.Outlined"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Person"
-                          Class="mb-4"
-                          For="@(() => registerRequest.Username)" />
+                <MudTextField @bind-Value="registerRequest.Username"
+                              Label="@AppStrings.T("Username")"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              Class="mb-4"
+                              For="@(() => registerRequest.Username)" />
 
-            <MudTextField @bind-Value="registerRequest.Email"
-                          Label="@AppStrings.T("Email")"
-                          Variant="Variant.Outlined"
-                          InputType="InputType.Email"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Email"
-                          Class="mb-4"
-                          For="@(() => registerRequest.Email)" />
+                <MudTextField @bind-Value="registerRequest.Email"
+                              Label="@AppStrings.T("Email")"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Email"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Email"
+                              Class="mb-4"
+                              For="@(() => registerRequest.Email)" />
 
-            <MudTextField @bind-Value="registerRequest.Password"
-                          Label="@AppStrings.T("Password")"
-                          Variant="Variant.Outlined"
-                          InputType="InputType.Password"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Lock"
-                          Class="mb-4"
-                          For="@(() => registerRequest.Password)" />
+                <MudTextField @bind-Value="registerRequest.Password"
+                              Label="@AppStrings.T("Password")"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Lock"
+                              Class="mb-4"
+                              For="@(() => registerRequest.Password)" />
 
-            <MudTextField @bind-Value="registerRequest.ConfirmPassword"
-                          Label="@AppStrings.T("ConfirmPassword")"
-                          Variant="Variant.Outlined"
-                          InputType="InputType.Password"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.VerifiedUser"
-                          Class="mb-4"
-                          For="@(() => registerRequest.ConfirmPassword)" />
+                <MudTextField @bind-Value="registerRequest.ConfirmPassword"
+                              Label="@AppStrings.T("ConfirmPassword")"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Password"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.VerifiedUser"
+                              Class="mb-4"
+                              For="@(() => registerRequest.ConfirmPassword)" />
 
-            @if (!string.IsNullOrEmpty(errorMessage))
-            {
-                <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
-                    @errorMessage
-                </MudAlert>
-            }
-
-            <MudButton ButtonType="ButtonType.Submit"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary"
-                       FullWidth="true"
-                       Disabled="@isLoading"
-                       StartIcon="@Icons.Material.Filled.PersonAdd"
-                       Class="qf-submit-button mb-4">
-                @if (isLoading)
+                @if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    <MudText>@AppStrings.T("RegisterInProgress")</MudText>
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
+                        @errorMessage
+                    </MudAlert>
                 }
-                else
+
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Disabled="@isLoading"
+                           StartIcon="@Icons.Material.Filled.Send"
+                           Class="qf-submit-button mb-4">
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <MudText>@AppStrings.T("SendingVerificationCode")</MudText>
+                    }
+                    else
+                    {
+                        <MudText>@AppStrings.T("SendVerificationCode")</MudText>
+                    }
+                </MudButton>
+            </EditForm>
+        }
+        else
+        {
+            <EditForm Model="@confirmRequest" OnValidSubmit="@HandleConfirmRegistration">
+                <DataAnnotationsValidator />
+
+                <MudTextField @bind-Value="confirmRequest.Code"
+                              Label="@AppStrings.T("VerificationCode")"
+                              Placeholder="000000"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Text"
+                              MaxLength="6"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Lock"
+                              Class="mb-2"
+                              For="@(() => confirmRequest.Code)" />
+
+                <MudText Typo="Typo.caption" Class="qf-muted d-block mb-4">
+                    @AppStrings.Tf("VerificationCodeExpires", verificationExpiresInSeconds / 60)
+                </MudText>
+
+                @if (!string.IsNullOrEmpty(errorMessage))
                 {
-                    <MudText>@AppStrings.T("RegisterSubmit")</MudText>
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Class="mb-4">
+                        @errorMessage
+                    </MudAlert>
                 }
-            </MudButton>
-        </EditForm>
+
+                @if (!string.IsNullOrEmpty(successMessage))
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Filled" Class="mb-4">
+                        @successMessage
+                    </MudAlert>
+                }
+
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Disabled="@isLoading"
+                           StartIcon="@Icons.Material.Filled.CheckCircle"
+                           Class="qf-submit-button mb-3">
+                    @if (isLoading)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        <MudText>@AppStrings.T("Confirming")</MudText>
+                    }
+                    else
+                    {
+                        <MudText>@AppStrings.T("ConfirmRegistration")</MudText>
+                    }
+                </MudButton>
+
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Default"
+                               Disabled="@isLoading"
+                               OnClick="@BackToRegistration">
+                        @AppStrings.T("Back")
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Primary"
+                               Disabled="@(isLoading || resendCooldownRemaining > 0)"
+                               OnClick="@HandleResendCode">
+                        @(resendCooldownRemaining > 0
+                            ? AppStrings.Tf("ResendCodeCooldown", resendCooldownRemaining)
+                            : AppStrings.T("ResendCode"))
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+        }
 
         <MudDivider Class="my-4 qf-soft-divider" />
 
@@ -96,26 +170,37 @@
 
 @code {
     private RegisterRequest registerRequest = new();
+    private ConfirmRegistrationRequest confirmRequest = new();
+    private string pendingEmail = string.Empty;
     private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
     private bool isLoading = false;
+    private bool isCodeStep = false;
+    private int verificationExpiresInSeconds = 600;
+    private int resendCooldownRemaining = 0;
+    private CancellationTokenSource? resendCooldownCts;
 
-    private async Task HandleRegister()
+    private async Task HandleStartRegistration()
     {
         isLoading = true;
         errorMessage = string.Empty;
+        successMessage = string.Empty;
 
         try
         {
-            var result = await AuthService.RegisterAsync(registerRequest);
+            var result = await AuthService.StartRegistrationAsync(registerRequest);
 
             if (result != null)
             {
-                if (AuthStateProvider is CustomAuthStateProvider customProvider)
+                pendingEmail = result.Email;
+                verificationExpiresInSeconds = result.ExpiresInSeconds;
+                confirmRequest = new ConfirmRegistrationRequest
                 {
-                    customProvider.NotifyAuthStateChanged();
-                }
-
-                Navigation.NavigateTo("/lobby");
+                    Email = result.Email
+                };
+                isCodeStep = true;
+                successMessage = AppStrings.T("VerificationCodeSent");
+                StartResendCooldown(result.ResendCooldownSeconds);
             }
             else
             {
@@ -130,5 +215,117 @@
         {
             isLoading = false;
         }
+    }
+
+    private async Task HandleConfirmRegistration()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        confirmRequest.Email = pendingEmail;
+
+        try
+        {
+            var result = await AuthService.ConfirmRegistrationAsync(confirmRequest);
+
+            if (result != null)
+            {
+                if (AuthStateProvider is CustomAuthStateProvider customProvider)
+                {
+                    customProvider.NotifyAuthStateChanged();
+                }
+
+                Navigation.NavigateTo("/lobby");
+            }
+            else
+            {
+                errorMessage = AppStrings.T("VerificationCodeInvalid");
+            }
+        }
+        catch
+        {
+            errorMessage = AppStrings.T("VerificationCodeConfirmError");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleResendCode()
+    {
+        if (string.IsNullOrWhiteSpace(pendingEmail))
+            return;
+
+        isLoading = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            var result = await AuthService.ResendRegistrationCodeAsync(new ResendRegistrationCodeRequest
+            {
+                Email = pendingEmail
+            });
+
+            if (result != null)
+            {
+                verificationExpiresInSeconds = result.ExpiresInSeconds;
+                successMessage = AppStrings.T("VerificationCodeResent");
+                StartResendCooldown(result.ResendCooldownSeconds);
+            }
+            else
+            {
+                errorMessage = AppStrings.T("VerificationCodeResendFailed");
+            }
+        }
+        catch
+        {
+            errorMessage = AppStrings.T("VerificationCodeResendFailed");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void BackToRegistration()
+    {
+        isCodeStep = false;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        confirmRequest = new ConfirmRegistrationRequest();
+        resendCooldownCts?.Cancel();
+        resendCooldownRemaining = 0;
+    }
+
+    private void StartResendCooldown(int seconds)
+    {
+        resendCooldownCts?.Cancel();
+        resendCooldownCts = new CancellationTokenSource();
+        resendCooldownRemaining = Math.Max(0, seconds);
+        _ = RunResendCooldownAsync(resendCooldownCts.Token);
+    }
+
+    private async Task RunResendCooldownAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (resendCooldownRemaining > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000, cancellationToken);
+                resendCooldownRemaining--;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        resendCooldownCts?.Cancel();
+        resendCooldownCts?.Dispose();
     }
 }

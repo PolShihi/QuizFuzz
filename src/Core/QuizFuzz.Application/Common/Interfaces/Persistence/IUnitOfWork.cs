@@ -19,6 +19,7 @@ public interface IUnitOfWork : IDisposable
     IInvitationRepository Invitations { get; }
     IModerationActionRepository ModerationActions { get; }
     IRefreshTokenRepository RefreshTokens { get; }
+    IEmailVerificationCodeRepository EmailVerificationCodes { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
