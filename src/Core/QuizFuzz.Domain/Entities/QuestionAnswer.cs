@@ -29,11 +29,17 @@ public class QuestionAnswer : BaseEntity
     public int? MaxEditDistance { get; private set; }
     
     /// <summary>
-    /// Минимальная confidence (0.0 - 1.0) для считывания ответа правильным.
-    /// Если null - используется значение по умолчанию (0.75).
-    /// Для точных ответов должно быть >= 0.95.
+    /// Индивидуальный порог принятия ответа (0.5 - 1.0).
+    /// Ответ считается правильным только если фактическая уверенность fuzzy-сравнения
+    /// больше либо равна этому порогу. Если null - используется значение по умолчанию.
     /// </summary>
     public decimal? MinConfidence { get; private set; }
+
+    /// <summary>
+    /// Алиас для бизнес-смысла поля MinConfidence: порог принятия ответа.
+    /// Оставляем MinConfidence для совместимости с существующей БД и DTO.
+    /// </summary>
+    public decimal? AcceptanceThreshold => MinConfidence;
 
     // Navigation properties
     public Question Question { get; private set; } = null!;
@@ -59,8 +65,8 @@ public class QuestionAnswer : BaseEntity
         if (maxEditDistance.HasValue && maxEditDistance.Value < 0)
             throw new ArgumentException("MaxEditDistance cannot be negative", nameof(maxEditDistance));
             
-        if (minConfidence.HasValue && (minConfidence.Value < 0 || minConfidence.Value > 1))
-            throw new ArgumentException("MinConfidence must be between 0 and 1", nameof(minConfidence));
+        if (minConfidence.HasValue && (minConfidence.Value < 0.5m || minConfidence.Value > 1))
+            throw new ArgumentException("MinConfidence must be between 0.5 and 1", nameof(minConfidence));
 
         QuestionId = questionId;
         AnswerText = answerText.Trim();
@@ -105,7 +111,7 @@ public class QuestionAnswer : BaseEntity
     }
     
     /// <summary>
-    /// Обновить настройки fuzzy matching для этого ответа
+    /// Обновить настройки fuzzy matching для этого ответа, включая индивидуальный порог принятия.
     /// </summary>
     public void UpdateFuzzyMatchSettings(
         bool allowFuzzyMatch,
@@ -116,8 +122,8 @@ public class QuestionAnswer : BaseEntity
         if (maxEditDistance.HasValue && maxEditDistance.Value < 0)
             throw new ArgumentException("MaxEditDistance cannot be negative", nameof(maxEditDistance));
             
-        if (minConfidence.HasValue && (minConfidence.Value < 0 || minConfidence.Value > 1))
-            throw new ArgumentException("MinConfidence must be between 0 and 1", nameof(minConfidence));
+        if (minConfidence.HasValue && (minConfidence.Value < 0.5m || minConfidence.Value > 1))
+            throw new ArgumentException("MinConfidence must be between 0.5 and 1", nameof(minConfidence));
         
         AllowFuzzyMatch = allowFuzzyMatch;
         MaxEditDistance = maxEditDistance;
@@ -142,8 +148,8 @@ public class QuestionAnswer : BaseEntity
         if (maxEditDistance < 0)
             throw new ArgumentException("MaxEditDistance cannot be negative", nameof(maxEditDistance));
             
-        if (minConfidence < 0 || minConfidence > 1)
-            throw new ArgumentException("MinConfidence must be between 0 and 1", nameof(minConfidence));
+        if (minConfidence < 0.5m || minConfidence > 1)
+            throw new ArgumentException("MinConfidence must be between 0.5 and 1", nameof(minConfidence));
         
         AllowFuzzyMatch = true;
         MaxEditDistance = maxEditDistance;

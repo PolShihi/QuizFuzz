@@ -3,6 +3,7 @@
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Client.Services.Auth
 @using QuizFuzz.Shared.Dtos.Rooms
+@using QuizFuzz.Client.Localization
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
 @inject IRoomsApiClient RoomsClient
@@ -84,7 +85,7 @@
                                 </MudStack>
                                 @if (room.IsPrivate)
                                 {
-                                    <MudTooltip Text='@AppStrings.T("PrivateRoomTooltip")'>
+                                    <MudTooltip Text="@AppStrings.T("PrivateRoomTooltip")">
                                         <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Small" Color="Color.Warning" />
                                     </MudTooltip>
                                 }
@@ -92,7 +93,7 @@
 
                             <MudStack Spacing="3" Class="flex-grow-1">
                                 <MudChip T="string" Size="Size.Small" Color="GetStatusColor(room.Status)" Class="qf-status-chip" Icon="@GetStatusIcon(room.Status)">
-                                    @GetStatusText(room.Status)
+                                    @AppStrings.Status(room.Status)
                                 </MudChip>
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                     <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Secondary" />
@@ -100,7 +101,7 @@
                                 </MudStack>
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                     <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Color="Color.Secondary" />
-                                    <MudText Typo="Typo.caption" Class="qf-muted">@AppStrings.Tf("CreatedAt", AppStrings.RelativeTime(room.CreatedAt))</MudText>
+                                    <MudText Typo="Typo.caption" Class="qf-muted">@AppStrings.Tf("CreatedAt", GetRelativeTime(room.CreatedAt))</MudText>
                                 </MudStack>
                             </MudStack>
 
@@ -212,16 +213,5 @@
         };
     }
 
-
-    private string GetStatusText(string status)
-    {
-        return status switch
-        {
-            "Lobby" => AppStrings.T("RoomStatusLobby"),
-            "InProgress" => AppStrings.T("RoomStatusInProgress"),
-            "Finished" => AppStrings.T("RoomStatusFinished"),
-            _ => status
-        };
-    }
-
+    private string GetRelativeTime(DateTime createdAt) => AppStrings.RelativeTime(createdAt);
 }

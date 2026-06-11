@@ -1,6 +1,7 @@
 @using MudBlazor
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
+@using QuizFuzz.Client.Localization
 @inject IQuestionsApiClient QuestionsClient
 @inject IAdminApiClient AdminClient
 
@@ -25,13 +26,13 @@
             <MudGrid>
                 <MudItem xs="12" md="8">
                     <MudStack Spacing="3">
-                        <MudTextField T="string" Label='@AppStrings.T("Title")'
+                        <MudTextField T="string" Label="@AppStrings.T("Title")"
                                       @bind-Value="question.Title"
                                       Variant="Variant.Outlined"
                                       Required="true"
                                       ReadOnly="@(!isEdit)" />
 
-                        <MudTextField T="string" Label='@AppStrings.T("QuestionText")'
+                        <MudTextField T="string" Label="@AppStrings.T("QuestionText")"
                                       @bind-Value="question.PromptText"
                                       Lines="3"
                                       Variant="Variant.Outlined"
@@ -39,22 +40,22 @@
                                       ReadOnly="@(!isEdit)" />
 
                         <MudStack Row="true" Spacing="2">
-                            <MudSelect T="string" Label='@AppStrings.T("Type")' @bind-Value="question.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
-                                <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.T("QuestionTypeText")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.T("QuestionTypeImage")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.T("QuestionTypeAudio")</MudSelectItem>
+                            <MudSelect T="string" Label="@AppStrings.T("Type")" @bind-Value="question.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
+                                <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.QuestionType("Text")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.QuestionType("Image")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.QuestionType("Audio")</MudSelectItem>
                             </MudSelect>
 
-                            <MudSelect T="string" Label='@AppStrings.T("Difficulty")' @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
-                                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.T("DifficultyEasy")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.T("DifficultyMedium")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.T("DifficultyHard")</MudSelectItem>
+                            <MudSelect T="string" Label="@AppStrings.T("Difficulty")" @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
+                                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.Difficulty("Easy")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.Difficulty("Medium")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.Difficulty("Hard")</MudSelectItem>
                             </MudSelect>
                         </MudStack>
 
                         @if (!IsTextQuestion(question.QuestionType))
                         {
-                            <MudTextField T="string" Label='@AppStrings.T("MediaUrl")'
+                            <MudTextField T="string" Label="@AppStrings.T("MediaUrl")"
                                           @bind-Value="question.MediaUrl"
                                           Variant="Variant.Outlined"
                                           ReadOnly="@(!isEdit)" />
@@ -70,7 +71,7 @@
                                 else if (IsImageQuestion(question.QuestionType, question.MediaUrl))
                                 {
                                     <img src="@question.MediaUrl"
-                                         alt="Question media preview"
+                                         alt="@AppStrings.T("QuestionMediaPreviewAlt")"
                                          style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px; display: block;"
                                          @onerror="OnMediaPreviewError" />
                                     @if (mediaPreviewFailed)
@@ -123,7 +124,7 @@
                                                       Variant="Variant.Outlined"
                                                       FullWidth="true"
                                                       ReadOnly="@(!isEdit)" />
-                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label='@AppStrings.T("Primary")' Disabled="@(!isEdit)" />
+                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label="@AppStrings.T("Primary")" Disabled="@(!isEdit)" />
                                         @if (isEdit)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -132,6 +133,26 @@
                                                            OnClick="@(() => RemoveAnswer(index))" />
                                         }
                                     </MudStack>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
+                                        <MudSwitch T="bool"
+                                                   @bind-Value="answer.AllowFuzzyMatch"
+                                                   Color="Color.Primary"
+                                                   Label="@AppStrings.T("EnableFuzzy")"
+                                                   Disabled="@(!isEdit)" />
+                                        <MudNumericField T="decimal?"
+                                                         @bind-Value="answer.MinConfidence"
+                                                         Label="@AppStrings.T("AcceptanceThreshold")"
+                                                         Variant="Variant.Outlined"
+                                                         Min="0.5m"
+                                                         Max="1.0m"
+                                                         Step="0.05m"
+                                                         Format="P0"
+                                                         Disabled="@(!isEdit || !answer.AllowFuzzyMatch)"
+                                                         Style="width: 220px;" />
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @AppStrings.T("AcceptanceThresholdHelp")
+                                    </MudText>
                                 </MudStack>
                             </MudPaper>
                         }
@@ -143,6 +164,55 @@
                                 @AppStrings.T("AddAnswer")
                             </MudButton>
                         }
+
+                        <MudText Typo="Typo.h6" Class="mt-4">@AppStrings.T("Hints") (@question.Hints.Count)</MudText>
+                        @if (question.Hints.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                                @AppStrings.T("NoHints")
+                            </MudAlert>
+                        }
+
+                        @for (var i = 0; i < question.Hints.Count; i++)
+                        {
+                            var index = i;
+                            var hint = question.Hints[index];
+                            var hintKey = hint.Id == Guid.Empty ? $"new-hint-{index}" : hint.Id.ToString();
+
+                            <MudPaper @key="hintKey" Elevation="2" Class="pa-3">
+                                <MudStack Row="true" AlignItems="AlignItems.Start" Class="flex-wrap gap-2">
+                                    <MudTextField T="string" Label="@AppStrings.Tf("HintNumber", index + 1)"
+                                                  @bind-Value="hint.HintText"
+                                                  Variant="Variant.Outlined"
+                                                  FullWidth="true"
+                                                  ReadOnly="@(!isEdit)" />
+                                    <MudNumericField T="int"
+                                                     @bind-Value="hint.RevealTimeSeconds"
+                                                     Label="@AppStrings.T("RevealAtSeconds")"
+                                                     Variant="Variant.Outlined"
+                                                     Min="0"
+                                                     Max="300"
+                                                     ReadOnly="@(!isEdit)"
+                                                     Style="width: 160px;" />
+                                    @if (isEdit)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Color="Color.Error"
+                                                       Size="Size.Small"
+                                                       OnClick="@(() => RemoveHint(index))" />
+                                    }
+                                </MudStack>
+                            </MudPaper>
+                        }
+                        @if (isEdit)
+                        {
+                            <MudButton Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Add"
+                                       OnClick="@AddHint">
+                                @AppStrings.T("AddHint")
+                            </MudButton>
+                        }
+
                     </MudStack>
                 </MudItem>
 
@@ -152,7 +222,7 @@
                         @if (isEdit)
                         {
                             <MudSelect T="string"
-                                       Label='@AppStrings.T("SelectTags")'
+                                       Label="@AppStrings.T("SelectTags")"
                                        MultiSelection="true"
                                        SelectedValues="@selectedTagIds"
                                        SelectedValuesChanged="@OnSelectedTagsChanged"
@@ -209,7 +279,7 @@
 
     private bool isEdit => IsEdit;
     private string title => isEdit ? AppStrings.T("EditQuestion") : AppStrings.T("ViewQuestion");
-    private string closeText => isEdit ? AppStrings.T("CommonCancel") : AppStrings.T("CommonClose");
+    private string closeText => isEdit ? AppStrings.T("Cancel") : AppStrings.T("CommonClose");
 
     private QuestionDto? question;
     private List<TagDto> availableTags = new();
@@ -237,6 +307,8 @@
             }
 
             question.Answers ??= new List<QuestionAnswerDto>();
+            question.Hints ??= new List<HintDto>();
+            question.Hints = question.Hints.OrderBy(h => h.OrderIndex).ThenBy(h => h.RevealTimeSeconds).ToList();
             question.Tags ??= new List<TagDto>();
             mediaPreviewFailed = false;
             selectedTagIds = question.Tags.Select(t => t.Id.ToString()).ToArray();
@@ -292,6 +364,7 @@
             IsPrimary = question.Answers.Count == 0,
             IsActive = true,
             AllowFuzzyMatch = true,
+            MinConfidence = 0.75m,
             Aliases = new List<FuzzyAliasDto>()
         });
     }
@@ -305,6 +378,33 @@
             {
                 question.Answers[0].IsPrimary = true;
             }
+        }
+    }
+
+    private void AddHint()
+    {
+        if (question == null) return;
+
+        var revealTime = question.Hints.Count == 0
+            ? 15
+            : Math.Min(300, question.Hints.Max(h => h.RevealTimeSeconds) + 15);
+
+        question.Hints.Add(new HintDto
+        {
+            OrderIndex = question.Hints.Count,
+            HintText = string.Empty,
+            RevealTimeSeconds = revealTime
+        });
+    }
+
+    private void RemoveHint(int index)
+    {
+        if (question == null || index < 0 || index >= question.Hints.Count) return;
+
+        question.Hints.RemoveAt(index);
+        for (var i = 0; i < question.Hints.Count; i++)
+        {
+            question.Hints[i].OrderIndex = i;
         }
     }
 
@@ -331,6 +431,18 @@
                 answers[0].IsPrimary = true;
             }
 
+            var hints = question.Hints
+                .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+                .OrderBy(h => h.RevealTimeSeconds)
+                .Select((h, index) => new { Hint = h, Index = index })
+                .ToList();
+
+            if (hints.Any(h => h.Hint.RevealTimeSeconds < 0 || h.Hint.RevealTimeSeconds > 300))
+            {
+                error = AppStrings.T("HintRevealTimeRange");
+                return;
+            }
+
             var request = new UpdateQuestionFullRequest
             {
                 Title = question.Title,
@@ -345,20 +457,27 @@
                     IsPrimary = a.IsPrimary,
                     AllowFuzzyMatch = a.AllowFuzzyMatch,
                     MaxEditDistance = a.MaxEditDistance,
-                    MinConfidence = a.MinConfidence,
+                    MinConfidence = a.AcceptanceThreshold,
                     Aliases = (a.Aliases ?? new List<FuzzyAliasDto>()).Where(al => !string.IsNullOrWhiteSpace(al.AliasText)).Select(al => new UpdateAliasRequest
                     {
                         Id = al.Id == Guid.Empty ? null : al.Id,
                         AliasText = al.AliasText,
                         Kind = al.Kind
                     }).ToList()
+                }).ToList(),
+                Hints = hints.Select(h => new UpdateHintRequest
+                {
+                    Id = h.Hint.Id == Guid.Empty ? null : h.Hint.Id,
+                    OrderIndex = h.Index,
+                    HintText = h.Hint.HintText?.Trim() ?? string.Empty,
+                    RevealTimeSeconds = h.Hint.RevealTimeSeconds
                 }).ToList()
             };
 
             var updated = await QuestionsClient.UpdateQuestionAsync(question.Id, request);
             if (updated == null)
             {
-                error = AppStrings.T("QuestionUpdateFailed");
+                error = AppStrings.T("QuestionSaveFailedCheckApi");
                 return;
             }
 

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace QuizFuzz.Shared.Dtos.Moderation;
 
 public class ModerationQuestionDetailsDto
@@ -17,8 +19,18 @@ public class ModerationQuestionDetailsDto
     public DateTime UpdatedAt { get; set; }
 
     public List<ModerationAnswerDto> Answers { get; set; } = new();
+    public List<ModerationHintDto> Hints { get; set; } = new();
     public List<string> Tags { get; set; } = new();
     public List<ModerationHistoryItemDto> ModerationHistory { get; set; } = new();
+}
+
+
+public class ModerationHintDto
+{
+    public Guid Id { get; set; }
+    public int OrderIndex { get; set; }
+    public string? HintText { get; set; }
+    public int RevealTimeSeconds { get; set; }
 }
 
 public class ModerationAnswerDto
@@ -28,6 +40,14 @@ public class ModerationAnswerDto
     public bool IsPrimary { get; set; }
     public bool AllowFuzzyMatch { get; set; }
     public decimal? MinConfidence { get; set; }
+
+    [JsonIgnore]
+    public decimal? AcceptanceThreshold
+    {
+        get => MinConfidence;
+        set => MinConfidence = value;
+    }
+
     public int? MaxEditDistance { get; set; }
     public List<ModerationAliasDto> Aliases { get; set; } = new();
 }

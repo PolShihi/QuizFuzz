@@ -1,3 +1,4 @@
+@using QuizFuzz.Client.Localization
 @using QuizFuzz.Client.Services
 @using QuizFuzz.Client.Components.Shared
 @implements IDisposable
@@ -144,5 +145,15 @@
     public void Dispose()
     {
         ThemeService.Changed -= HandleThemeChanged;
+    }
+
+    private class RedirectToLogin : ComponentBase
+    {
+        [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+        protected override void OnInitialized()
+        {
+            Navigation.NavigateTo("/login");
+        }
     }
 }

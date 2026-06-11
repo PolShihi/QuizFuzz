@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace QuizFuzz.Shared.Dtos.Questions;
 
 public class QuestionDto
@@ -32,6 +34,13 @@ public class QuestionAnswerDto
     public bool AllowFuzzyMatch { get; set; } = true;
     public int? MaxEditDistance { get; set; }
     public decimal? MinConfidence { get; set; }
+
+    [JsonIgnore]
+    public decimal? AcceptanceThreshold
+    {
+        get => MinConfidence;
+        set => MinConfidence = value;
+    }
 }
 
 public class FuzzyAliasDto

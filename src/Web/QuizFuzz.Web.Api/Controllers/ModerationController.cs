@@ -234,7 +234,16 @@ public class ModerationController : ControllerBase
             TagIds = request.TagIds,
             MediaUrl = request.MediaUrl,
             Title = request.Title,
-            Explanation = request.Explanation
+            Explanation = request.Explanation,
+            Hints = (request.Hints ?? new List<QuizFuzz.Shared.Dtos.Questions.CreateHintRequest>())
+                .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+                .Select((h, index) => new HintSuggestionData
+                {
+                    OrderIndex = index,
+                    HintText = h.HintText.Trim(),
+                    RevealTimeSeconds = h.RevealTimeSeconds
+                })
+                .ToList()
         };
 
         var result = await _mediator.Send(command);
@@ -289,6 +298,17 @@ public class ModerationController : ControllerBase
         if (questionWithAliases != null)
         {
             dto.MediaUrl = ToPublicMediaUrl(questionWithAliases.MediaAssets.FirstOrDefault()?.Url);
+
+            dto.Hints = questionWithAliases.Hints
+                .OrderBy(h => h.OrderIndex)
+                .Select(h => new ModerationHintDto
+                {
+                    Id = h.Id,
+                    OrderIndex = h.OrderIndex,
+                    HintText = h.HintText,
+                    RevealTimeSeconds = h.RevealTimeSec
+                })
+                .ToList();
 
             dto.Answers = questionWithAliases.Answers.Select(a => new ModerationAnswerDto
             {
@@ -366,6 +386,7 @@ public record SuggestQuestionRequest
     public string? MediaUrl { get; init; }
     public string? Title { get; init; }
     public string? Explanation { get; init; }
+    public List<QuizFuzz.Shared.Dtos.Questions.CreateHintRequest> Hints { get; init; } = new();
 }
 
 public record AnswerWithFuzzySettings

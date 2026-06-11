@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 using QuizFuzz.Shared.Enums;
+using QuizFuzz.Shared.Dtos.Questions;
 
 namespace QuizFuzz.Shared.Dtos.Moderation;
 
@@ -26,6 +28,9 @@ public class SuggestQuestionRequest
 
     [MaxLength(1000, ErrorMessage = "Explanation cannot exceed 1000 characters")]
     public string? Explanation { get; set; }
+
+    [MaxLength(6, ErrorMessage = "A question can have at most 6 hints")]
+    public List<CreateHintRequest> Hints { get; set; } = new();
 }
 
 public class AnswerWithSettings
@@ -36,6 +41,13 @@ public class AnswerWithSettings
 
     public bool AllowFuzzyMatch { get; set; } = true;
 
-    [Range(0.0, 1.0, ErrorMessage = "Min confidence must be between 0 and 1")]
+    [Range(0.5, 1.0, ErrorMessage = "Acceptance threshold must be between 0.5 and 1")]
     public double MinConfidence { get; set; } = 0.7;
+
+    [JsonIgnore]
+    public double AcceptanceThreshold
+    {
+        get => MinConfidence;
+        set => MinConfidence = value;
+    }
 }

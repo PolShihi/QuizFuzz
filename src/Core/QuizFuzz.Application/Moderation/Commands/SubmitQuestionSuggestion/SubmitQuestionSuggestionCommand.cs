@@ -22,6 +22,7 @@ public record SubmitQuestionSuggestionCommand : IRequest<SubmitQuestionSuggestio
     public string? MediaUrl { get; init; }
     public string? Title { get; init; }
     public string? Explanation { get; init; }
+    public List<HintSuggestionData> Hints { get; init; } = new();
 }
 
 public record AnswerWithFuzzySettings
@@ -29,6 +30,13 @@ public record AnswerWithFuzzySettings
     public string Text { get; init; } = string.Empty;
     public bool AllowFuzzyMatch { get; init; } = true;
     public double MinConfidence { get; init; } = 0.7;
+}
+
+public record HintSuggestionData
+{
+    public int OrderIndex { get; init; }
+    public string HintText { get; init; } = string.Empty;
+    public int RevealTimeSeconds { get; init; }
 }
 
 public record SubmitQuestionSuggestionResult
@@ -148,6 +156,19 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
             _logger.LogDebug(
                 "Question entity created. QuestionId: {QuestionId}, Status: {Status}",
                 question.Id, question.Status);
+
+            // Добавляем подсказки до отправки на модерацию.
+            foreach (var hintData in request.Hints
+                .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+                .OrderBy(h => h.RevealTimeSeconds)
+                .ThenBy(h => h.OrderIndex)
+                .Select((h, index) => new { Hint = h, Index = index }))
+            {
+                question.AddHint(
+                    hintData.Index,
+                    hintData.Hint.HintText.Trim(),
+                    hintData.Hint.RevealTimeSeconds);
+            }
 
             // Добавляем теги
             if (request.TagIds.Any())

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace QuizFuzz.Shared.Dtos.Questions;
 
@@ -19,6 +20,8 @@ public class UpdateQuestionFullRequest
     public List<UpdateAnswerRequest> Answers { get; set; } = new();
 
     public List<Guid> TagIds { get; set; } = new();
+
+    public List<UpdateHintRequest> Hints { get; set; } = new();
 }
 
 public class UpdateAnswerRequest
@@ -35,6 +38,13 @@ public class UpdateAnswerRequest
     public int? MaxEditDistance { get; set; }
     public decimal? MinConfidence { get; set; }
 
+    [JsonIgnore]
+    public decimal? AcceptanceThreshold
+    {
+        get => MinConfidence;
+        set => MinConfidence = value;
+    }
+
     public List<UpdateAliasRequest> Aliases { get; set; } = new();
 }
 
@@ -49,3 +59,18 @@ public class UpdateAliasRequest
     public string Kind { get; set; } = "SYNONYM";
 }
 
+
+
+public class UpdateHintRequest
+{
+    public Guid? Id { get; set; }
+
+    public int OrderIndex { get; set; }
+
+    [Required]
+    [MinLength(1)]
+    public string HintText { get; set; } = string.Empty;
+
+    [Range(0, 300)]
+    public int RevealTimeSeconds { get; set; }
+}

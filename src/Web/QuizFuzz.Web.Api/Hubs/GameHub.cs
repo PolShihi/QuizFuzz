@@ -429,7 +429,7 @@ public class GameHub : Hub
 
             _logger.LogDebug(" [SubmitAnswer] Creating AnswerEvaluation...");
             var confidence = Domain.ValueObjects.Confidence.Create(matchResult.Confidence);
-            var scoreAwarded = matchResult.IsCorrect ? CalculateScore(answerTimeMs, round.TimeLimitSec) : 0;
+            var scoreAwarded = matchResult.IsCorrect ? CalculateScore(answerTimeMs, round.TimeLimitSec, GetRevealedHintsCount(round, answerTimeMs)) : 0;
             
             _logger.LogDebug(" [SubmitAnswer] Score calculated: {Score} points (IsCorrect: {IsCorrect})", scoreAwarded, matchResult.IsCorrect);
 
@@ -783,7 +783,13 @@ public class GameHub : Hub
         return mediaUrl;
     }
 
-    private int CalculateScore(int answerTimeMs, int timeLimitSec)
+    private static int GetRevealedHintsCount(GameRound round, int answerTimeMs)
+    {
+        var elapsedSec = Math.Max(0, answerTimeMs / 1000);
+        return round.Question?.Hints?.Count(h => h.RevealTimeSec <= elapsedSec) ?? 0;
+    }
+
+    private int CalculateScore(int answerTimeMs, int timeLimitSec, int revealedHintsCount = 0)
     {
         const int baseScore = 100;
         const int timeBonus = 50;
@@ -793,7 +799,8 @@ public class GameHub : Hub
         var speedRatio = 1.0 - ((double)answerTimeMs / timeLimitMs);
         score += (int)(timeBonus * Math.Max(0, speedRatio));
 
-        return score;
+        var hintPenalty = Math.Max(0.6, 1.0 - revealedHintsCount * 0.1);
+        return (int)Math.Round(score * hintPenalty);
     }
     
     /// <summary>

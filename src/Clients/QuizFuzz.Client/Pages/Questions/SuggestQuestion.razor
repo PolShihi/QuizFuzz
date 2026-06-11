@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.AspNetCore.Components.Forms
 @using QuizFuzz.Shared.Enums
+@using QuizFuzz.Client.Localization
 @attribute [Authorize]
 @inject IQuestionsApiClient QuestionsClient
 @inject ITagsApiClient TagsClient
@@ -53,26 +54,26 @@
                 <!-- Title -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="title"
-                                  Label='@AppStrings.T("QuestionTitleOptional")'
+                                  Label="@AppStrings.T("QuestionTitleOptional")"
                                   Variant="Variant.Outlined"
                                   MaxLength="100"
                                   Counter="100"
                                   Immediate="true"
-                                  HelperText='@AppStrings.T("QuestionTitleHelper")' />
+                                  HelperText="@AppStrings.T("QuestionTitleHelper")" />
                 </MudItem>
 
                 <!-- Question Text -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="promptText"
-                                  Label='@AppStrings.T("QuestionText")'
+                                  Label="@AppStrings.T("QuestionText")"
                                   Variant="Variant.Outlined"
                                   Lines="3"
                                   Required="true"
-                                  RequiredError='@AppStrings.T("QuestionTextRequired")'
+                                  RequiredError="@AppStrings.T("QuestionTextRequired")"
                                   MaxLength="2000"
                                   Counter="2000"
                                   Immediate="true"
-                                  HelperText='@AppStrings.T("QuestionTextHelper")' />
+                                  HelperText="@AppStrings.T("QuestionTextHelper")" />
                 </MudItem>
 
                 <!-- Type -->
@@ -80,25 +81,25 @@
                     <MudSelect T="string"
                                Value="@questionType"
                                ValueChanged="@OnQuestionTypeChanged"
-                               Label='@AppStrings.T("QuestionType")'
+                               Label="@AppStrings.T("QuestionType")"
                                Variant="Variant.Outlined"
                                Required="true">
-                        <MudSelectItem T="string" Value="@("Text")">@AppStrings.T("QuestionTypeText")</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Image")">@AppStrings.T("QuestionTypeImage")</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Audio")">@AppStrings.T("QuestionTypeAudio")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Text")">@AppStrings.QuestionType("Text")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Image")">@AppStrings.QuestionType("Image")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Audio")">@AppStrings.QuestionType("Audio")</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
                 <!-- Difficulty -->
                 <MudItem xs="12" sm="6">
                     <MudSelect @bind-Value="difficulty"
-                               Label='@AppStrings.T("QuestionDifficulty")'
+                               Label="@AppStrings.T("Difficulty")"
                                Variant="Variant.Outlined"
                                Required="true">
-                        <MudSelectItem Value="@("Easy")">@AppStrings.T("DifficultyEasy")</MudSelectItem>
-                        <MudSelectItem Value="@("Medium")">@AppStrings.T("DifficultyMedium")</MudSelectItem>
-                        <MudSelectItem Value="@("Hard")">@AppStrings.T("DifficultyHard")</MudSelectItem>
-                        <MudSelectItem Value="@("Expert")">@AppStrings.T("DifficultyExpert")</MudSelectItem>
+                        <MudSelectItem Value="@("Easy")">@AppStrings.Difficulty("Easy")</MudSelectItem>
+                        <MudSelectItem Value="@("Medium")">@AppStrings.Difficulty("Medium")</MudSelectItem>
+                        <MudSelectItem Value="@("Hard")">@AppStrings.Difficulty("Hard")</MudSelectItem>
+                        <MudSelectItem Value="@("Expert")">@AppStrings.Difficulty("Expert")</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
@@ -109,13 +110,13 @@
                             <MudStack Spacing="2">
                                 <MudText Typo="Typo.h6">
                                     <MudIcon Icon="@MediaIcon" Class="mr-2" />
-                                    @(questionType == "Image" ? "Image file" : "Audio file")
+                                    @(questionType == "Image" ? AppStrings.T("ImageFile") : AppStrings.T("AudioFile"))
                                 </MudText>
 
                                 <MudText Typo="Typo.body2" Color="Color.Secondary">
                                     @(questionType == "Image"
-                                        ? "Upload JPG, PNG, GIF or WEBP up to 10 MB."
-                                        : "Upload MP3, WAV, OGG or M4A up to 20 MB.")
+                                        ? AppStrings.T("UploadImageHelp")
+                                        : AppStrings.T("UploadAudioHelp"))
                                 </MudText>
 
                                 <InputFile OnChange="OnMediaFileSelected" accept="@MediaAccept" />
@@ -123,7 +124,7 @@
                                 @if (selectedMediaFile is not null)
                                 {
                                     <MudText Typo="Typo.caption">
-                                        Selected: @selectedMediaFile.Name (@FormatFileSize(selectedMediaFile.Size))
+                                        @AppStrings.Tf("SelectedFile", selectedMediaFile.Name, FormatFileSize(selectedMediaFile.Size))
                                     </MudText>
                                 }
 
@@ -144,13 +145,13 @@
 
                                     @if (questionType == "Image")
                                     {
-                                        <MudImage Src="@uploadedMediaUrl" Alt="Uploaded question image preview" Class="rounded-lg" Style="max-height: 240px; max-width: 100%; object-fit: contain;" />
+                                        <MudImage Src="@uploadedMediaUrl" Alt="@AppStrings.T("UploadedImagePreviewAlt")" Class="rounded-lg" Style="max-height: 240px; max-width: 100%; object-fit: contain;" />
                                     }
                                     else if (questionType == "Audio")
                                     {
                                         <audio controls style="width: 100%;">
                                             <source src="@uploadedMediaUrl" />
-                                            Your browser does not support the audio element.
+                                            @AppStrings.T("AudioElementNotSupported")
                                         </audio>
                                     }
                                 }
@@ -159,7 +160,7 @@
                     </MudItem>
                 }
 
-                <!-- @AppStrings.T("CorrectAnswers") -->
+                <!-- Correct Answers -->
                 <MudItem xs="12">
                     <MudText Typo="Typo.h6" Class="mb-2">@AppStrings.T("CorrectAnswers")</MudText>
                     @for (int i = 0; i < correctAnswers.Count; i++)
@@ -170,10 +171,10 @@
                         <MudStack Class="mb-3" @key="@index">
                             <MudStack Row="true" AlignItems="AlignItems.Center">
                                 <MudTextField @bind-Value="answer.Text"
-                                              Label='@AppStrings.T("Answer")'
+                                              Label="@AppStrings.T("Answer")"
                                               Variant="Variant.Outlined"
                                               Required="true"
-                                              RequiredError='@AppStrings.T("AnswerRequired")'
+                                              RequiredError="@AppStrings.T("AnswerRequired")"
                                               MaxLength="200"
                                               Counter="200"
                                               Immediate="true"
@@ -184,30 +185,30 @@
                                                Disabled="@(correctAnswers.Count <= 1)" />
                             </MudStack>
                             
-                            <!-- @AppStrings.T("FuzzySettings") -->
+                            <!-- Fuzzy Matching Settings -->
                             <MudPaper Elevation="0" Class="qf-form-section mt-2">
                                 <MudText Typo="Typo.subtitle2" Class="mb-2"><MudIcon Icon="@Icons.Material.Filled.Tune" Size="Size.Small" Class="mr-1" />@AppStrings.T("FuzzySettings")</MudText>
                                 <MudStack Spacing="2">
                                     <MudSwitch T="bool"
                                                @bind-Value="answer.AllowFuzzyMatch"
                                                Color="Color.Primary"
-                                               Label='@AppStrings.T("EnableFuzzy")' />
+                                               Label="@AppStrings.T("EnableFuzzy")" />
                                     
                                     @if (answer.AllowFuzzyMatch)
                                     {
                                         <MudStack>
                                             <MudText Typo="Typo.caption">
-                                                Min Confidence: @answer.MinConfidence.ToString("P0")
+                                                @AppStrings.Tf("AcceptanceThresholdValue", answer.AcceptanceThreshold.ToString("P0"))
                                             </MudText>
                                             <MudSlider T="double"
-                                                       @bind-Value="answer.MinConfidence"
-                                                       Min="0.0"
+                                                       @bind-Value="answer.AcceptanceThreshold"
+                                                       Min="0.5"
                                                        Max="1.0"
                                                        Step="0.05"
                                                        Color="Color.Info" />
                                             
                                             <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                                @GetConfidenceDescription(answer.MinConfidence)
+                                                @GetAcceptanceThresholdDescription(answer.AcceptanceThreshold)
                                             </MudText>
                                         </MudStack>
                                     }
@@ -221,20 +222,81 @@
                                OnClick="AddAnswer"
                                Disabled="@(correctAnswers.Count >= MaxAnswers)"
                                Class="mt-2">
-                        Add Answer
+                        @AppStrings.T("AddAnswer")
                     </MudButton>
+                </MudItem>
+
+
+
+                <!-- Hints -->
+                <MudItem xs="12">
+                    <MudPaper Elevation="0" Class="qf-form-section">
+                        <MudStack Spacing="2">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.h6">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Class="mr-1" />
+                                        @AppStrings.T("Hints")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @AppStrings.T("HintsDescription")
+                                    </MudText>
+                                </MudStack>
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="AddHint"
+                                           Disabled="@(hints.Count >= MaxHints)">
+                                    @AppStrings.T("AddHint")
+                                </MudButton>
+                            </MudStack>
+
+                            @if (hints.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@AppStrings.T("NoHintsAdded")</MudText>
+                            }
+
+                            @for (var i = 0; i < hints.Count; i++)
+                            {
+                                var index = i;
+                                var hint = hints[index];
+
+                                <MudPaper @key="index" Elevation="1" Class="pa-3">
+                                    <MudStack Row="true" AlignItems="AlignItems.Start" Class="flex-wrap gap-2">
+                                        <MudTextField @bind-Value="hint.HintText"
+                                                      Label="@AppStrings.Tf("HintNumber", index + 1)"
+                                                      Variant="Variant.Outlined"
+                                                      MaxLength="300"
+                                                      Counter="300"
+                                                      Immediate="true"
+                                                      Style="min-width: 260px; flex-grow: 1;" />
+                                        <MudNumericField T="int"
+                                                         @bind-Value="hint.RevealTimeSeconds"
+                                                         Label="@AppStrings.T("RevealAtSeconds")"
+                                                         Variant="Variant.Outlined"
+                                                         Min="0"
+                                                         Max="300"
+                                                         Style="width: 160px;" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                                                       Color="Color.Error"
+                                                       OnClick="@(() => RemoveHintAtIndex(index))" />
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    </MudPaper>
                 </MudItem>
 
                 <!-- Tags -->
                 <MudItem xs="12">
                     <MudSelect T="string"
                                @bind-SelectedValues="selectedTagIds"
-                               Label='@AppStrings.T("Tags")'
+                               Label="@AppStrings.T("Tags")"
                                Variant="Variant.Outlined"
                                MultiSelection="true"
                                ToStringFunc="@GetTagName"
                                MultiSelectionTextFunc="@GetSelectedTagsText"
-                               HelperText='@AppStrings.T("TagsHelper")'>
+                               HelperText="@AppStrings.T("TagsHelper")">
                         @foreach (var tag in availableTags)
                         {
                             <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
@@ -248,21 +310,21 @@
                         <MudStack Spacing="2">
                             <MudText Typo="Typo.subtitle2">
                                 <MudIcon Icon="@Icons.Material.Filled.NewLabel" Class="mr-1" />
-                                Missing a tag?
+                                @AppStrings.T("MissingTag")
                             </MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                Suggest a new tag. It will appear for moderators/admins in Tags Management and can be approved later.
+                                @AppStrings.T("SuggestTagDescription")
                             </MudText>
                             <MudStack Row="true" AlignItems="AlignItems.Start" Class="flex-wrap gap-2">
                                 <MudTextField @bind-Value="suggestedTagName"
-                                              Label='@AppStrings.T("NewTagName")'
+                                              Label="@AppStrings.T("NewTagName")"
                                               Variant="Variant.Outlined"
                                               Immediate="true"
                                               MaxLength="50"
                                               Counter="50"
                                               Style="min-width: 220px; flex-grow: 1;" />
                                 <MudTextField @bind-Value="suggestedTagDescription"
-                                              Label='@AppStrings.T("Description")'
+                                              Label="@AppStrings.T("Description")"
                                               Variant="Variant.Outlined"
                                               MaxLength="500"
                                               Counter="500"
@@ -272,7 +334,7 @@
                                            StartIcon="@Icons.Material.Filled.Send"
                                            Disabled="@(isSuggestingTag || string.IsNullOrWhiteSpace(suggestedTagName))"
                                            OnClick="@SuggestTag">
-                                    Suggest Tag
+                                    @AppStrings.T("SuggestTag")
                                 </MudButton>
                             </MudStack>
                         </MudStack>
@@ -282,12 +344,12 @@
                 <!-- Explanation -->
                 <MudItem xs="12">
                     <MudTextField @bind-Value="explanation"
-                                  Label='@AppStrings.T("ExplanationOptional")'
+                                  Label="@AppStrings.T("ExplanationOptional")"
                                   Variant="Variant.Outlined"
                                   Lines="3"
                                   MaxLength="1000"
                                   Counter="1000"
-                                  HelperText='@AppStrings.T("ExplanationHelper")' />
+                                  HelperText="@AppStrings.T("ExplanationHelper")" />
                 </MudItem>
 
                 <!-- Submit Button -->
@@ -305,7 +367,7 @@
                             @if (isSubmitting)
                             {
                                 <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                <MudText Class="ml-2">@AppStrings.T("Sending")</MudText>
+                                <MudText Class="ml-2">@AppStrings.T("Submitting")</MudText>
                             }
                             else
                             {
@@ -338,11 +400,13 @@
     private string? mediaUploadError;
 
     private const int MaxAnswers = 10;
+    private const int MaxHints = 6;
     private const int MaxSelectedTags = 8;
 
     private bool isUploadingMedia;
     private List<string> validationErrors = new();
     private List<AnswerItem> correctAnswers = new() { new AnswerItem() };
+    private List<HintItem> hints = new();
     private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private List<QuizFuzz.Shared.Dtos.Questions.TagDto> availableTags = new();
 
@@ -358,7 +422,13 @@
     {
         public string Text { get; set; } = string.Empty;
         public bool AllowFuzzyMatch { get; set; } = true;
-        public double MinConfidence { get; set; } = 0.7;
+        public double AcceptanceThreshold { get; set; } = 0.7;
+    }
+
+    private class HintItem
+    {
+        public string HintText { get; set; } = string.Empty;
+        public int RevealTimeSeconds { get; set; } = 15;
     }
 
     protected override async Task OnInitializedAsync()
@@ -378,7 +448,7 @@
         catch (Exception ex)
         {
             Logger.LogDebug(ex, "[SuggestQuestion] Error loading tags");
-            Snackbar.Add($"Error loading tags: {ex.Message}", Severity.Error);
+            Snackbar.Add(AppStrings.Tf("TagsLoadFailedWithError", ex.Message), Severity.Error);
         }
     }
 
@@ -408,8 +478,8 @@
         if (selectedMediaFile.Size > maxSize)
         {
             mediaUploadError = questionType == "Image"
-                ? "Image file size must not exceed 10 MB."
-                : "Audio file size must not exceed 20 MB.";
+                ? AppStrings.T("ImageFileTooLarge")
+                : AppStrings.T("AudioFileTooLarge");
             Snackbar.Add(mediaUploadError, Severity.Error);
             return;
         }
@@ -423,7 +493,7 @@
 
             if (result is null || string.IsNullOrWhiteSpace(result.Url))
             {
-                mediaUploadError = "Media upload failed. Please try another file.";
+                mediaUploadError = AppStrings.T("MediaUploadFailed");
                 Snackbar.Add(mediaUploadError, Severity.Error);
                 return;
             }
@@ -434,7 +504,7 @@
         catch (Exception ex)
         {
             Logger.LogDebug(ex, "[SuggestQuestion] Error uploading media");
-            mediaUploadError = $"Media upload failed: {ex.Message}";
+            mediaUploadError = AppStrings.Tf("MediaUploadFailedWithError", ex.Message);
             Snackbar.Add(mediaUploadError, Severity.Error);
         }
         finally
@@ -468,15 +538,15 @@
         return $"{bytes / 1024d:0.##} KB";
     }
 
-    private string GetConfidenceDescription(double confidence)
+    private string GetAcceptanceThresholdDescription(double threshold)
     {
-        return confidence switch
+        return threshold switch
         {
-            >= 0.9 => "Very strict - only near-exact matches",
-            >= 0.8 => "Strict - minor typos allowed",
-            >= 0.7 => "Moderate - common typos and variations",
-            >= 0.6 => "Lenient - more variations allowed",
-            _ => "Very lenient - accepts many variations"
+            >= 0.9 => AppStrings.T("AcceptanceThresholdVeryStrict"),
+            >= 0.8 => AppStrings.T("AcceptanceThresholdStrict"),
+            >= 0.7 => AppStrings.T("AcceptanceThresholdModerate"),
+            >= 0.6 => AppStrings.T("AcceptanceThresholdLenient"),
+            _ => AppStrings.T("AcceptanceThresholdVeryLenient")
         };
     }
 
@@ -484,7 +554,7 @@
     {
         if (correctAnswers.Count >= MaxAnswers)
         {
-            Snackbar.Add($"You can add up to {MaxAnswers} correct answers.", Severity.Info);
+            Snackbar.Add(AppStrings.Tf("MaxAnswersInfo", MaxAnswers), Severity.Info);
             return;
         }
 
@@ -497,6 +567,28 @@
         if (correctAnswers.Count > 1 && index >= 0 && index < correctAnswers.Count)
         {
             correctAnswers.RemoveAt(index);
+            StateHasChanged();
+        }
+    }
+
+    private void AddHint()
+    {
+        if (hints.Count >= MaxHints)
+        {
+            Snackbar.Add(AppStrings.Tf("MaxHintsInfo", MaxHints), Severity.Info);
+            return;
+        }
+
+        var revealTime = hints.Count == 0 ? 15 : Math.Min(300, hints.Max(h => h.RevealTimeSeconds) + 15);
+        hints.Add(new HintItem { RevealTimeSeconds = revealTime });
+        StateHasChanged();
+    }
+
+    private void RemoveHintAtIndex(int index)
+    {
+        if (index >= 0 && index < hints.Count)
+        {
+            hints.RemoveAt(index);
             StateHasChanged();
         }
     }
@@ -521,11 +613,11 @@
             var suggested = await TagsClient.SuggestTagAsync(suggestedTagName.Trim(), suggestedTagDescription.Trim());
             if (suggested == null)
             {
-                Snackbar.Add("Failed to suggest tag. It may already exist or be pending review.", Severity.Error);
+                Snackbar.Add(AppStrings.T("SuggestTagFailed"), Severity.Error);
                 return;
             }
 
-            Snackbar.Add($"Tag '{suggested.Name}' suggested for moderation.", Severity.Success);
+            Snackbar.Add(AppStrings.Tf("TagSuggestedForModeration", suggested.Name), Severity.Success);
             suggestedTagName = string.Empty;
             suggestedTagDescription = string.Empty;
             await LoadTags();
@@ -533,7 +625,7 @@
         catch (Exception ex)
         {
             Logger.LogDebug(ex, "[SuggestQuestion] Error suggesting tag");
-            Snackbar.Add($"Error suggesting tag: {ex.Message}", Severity.Error);
+            Snackbar.Add(AppStrings.Tf("SuggestTagError", ex.Message), Severity.Error);
         }
         finally
         {
@@ -545,24 +637,24 @@
         var errors = new List<string>();
 
         if (!string.IsNullOrWhiteSpace(title) && title.Trim().Length > 100)
-            errors.Add("Title cannot exceed 100 characters.");
+            errors.Add(AppStrings.T("QuestionTitleMaxLength"));
 
         if (string.IsNullOrWhiteSpace(promptText))
-            errors.Add("Question text is required.");
+            errors.Add(AppStrings.T("QuestionTextRequired"));
         else
         {
             var promptLength = promptText.Trim().Length;
             if (promptLength < 10)
-                errors.Add("Question text must be at least 10 characters.");
+                errors.Add(AppStrings.T("QuestionTextMinLength"));
             if (promptLength > 2000)
-                errors.Add("Question text cannot exceed 2000 characters.");
+                errors.Add(AppStrings.T("QuestionTextMaxLength"));
         }
 
         if (questionType is not ("Text" or "Image" or "Audio"))
-            errors.Add("Select a valid question type.");
+            errors.Add(AppStrings.T("InvalidQuestionType"));
 
         if (difficulty is not ("Easy" or "Medium" or "Hard" or "Expert"))
-            errors.Add("Select a valid difficulty.");
+            errors.Add(AppStrings.T("InvalidQuestionDifficulty"));
 
         var nonEmptyAnswers = correctAnswers
             .Select(a => a.Text?.Trim() ?? string.Empty)
@@ -570,29 +662,47 @@
             .ToList();
 
         if (nonEmptyAnswers.Count == 0)
-            errors.Add("Add at least one correct answer.");
+            errors.Add(AppStrings.T("AtLeastOneAnswerRequired"));
 
         if (correctAnswers.Count > MaxAnswers)
-            errors.Add($"A question can have at most {MaxAnswers} correct answers.");
+            errors.Add(AppStrings.Tf("MaxAnswersValidation", MaxAnswers));
 
         var tooLongAnswer = nonEmptyAnswers.FirstOrDefault(a => a.Length > 200);
         if (tooLongAnswer is not null)
-            errors.Add("Each answer must be 200 characters or fewer.");
+            errors.Add(AppStrings.T("AnswerMaxLength"));
 
         var duplicateAnswer = nonEmptyAnswers
             .GroupBy(NormalizeForDuplicateCheck)
             .FirstOrDefault(g => g.Count() > 1);
         if (duplicateAnswer is not null)
-            errors.Add($"Duplicate answer: '{duplicateAnswer.First()}'.");
+            errors.Add(AppStrings.Tf("DuplicateAnswer", duplicateAnswer.First()));
+
+        var nonEmptyHints = hints
+            .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+            .ToList();
+
+        if (hints.Count > MaxHints)
+            errors.Add(AppStrings.Tf("MaxHintsValidation", MaxHints));
+
+        if (hints.Any(h => !string.IsNullOrWhiteSpace(h.HintText) && h.HintText.Trim().Length > 300))
+            errors.Add(AppStrings.T("HintMaxLength"));
+
+
+        if (nonEmptyHints.Any(h => h.RevealTimeSeconds < 0 || h.RevealTimeSeconds > 300))
+            errors.Add(AppStrings.T("HintRevealTimeRange"));
+
+        var duplicateHintTime = nonEmptyHints.GroupBy(h => h.RevealTimeSeconds).FirstOrDefault(g => g.Count() > 1);
+        if (duplicateHintTime is not null)
+            errors.Add(AppStrings.Tf("DuplicateHintRevealTime", duplicateHintTime.Key));
 
         if (RequiresMedia)
         {
             if (isUploadingMedia)
-                errors.Add("Wait until the media upload finishes.");
+                errors.Add(AppStrings.T("WaitMediaUpload"));
             else if (string.IsNullOrWhiteSpace(uploadedMediaUrl))
                 errors.Add(questionType == "Image"
-                    ? "Upload an image file for this question."
-                    : "Upload an audio file for this question.");
+                    ? AppStrings.T("UploadImageRequired")
+                    : AppStrings.T("UploadAudioRequired"));
         }
 
         var validTagIds = selectedTagIds
@@ -600,10 +710,10 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (validTagIds.Count > MaxSelectedTags)
-            errors.Add($"Select at most {MaxSelectedTags} tags.");
+            errors.Add(AppStrings.Tf("MaxTagsValidation", MaxSelectedTags));
 
         if (!string.IsNullOrWhiteSpace(explanation) && explanation.Trim().Length > 1000)
-            errors.Add("Explanation cannot exceed 1000 characters.");
+            errors.Add(AppStrings.T("ExplanationMaxLength"));
 
         return errors;
     }
@@ -612,15 +722,15 @@
     {
         var name = suggestedTagName.Trim();
         if (string.IsNullOrWhiteSpace(name))
-            return "Enter a tag name first.";
+            return AppStrings.T("EnterTagNameFirst");
         if (name.Length < 2)
-            return "Tag name must be at least 2 characters.";
+            return AppStrings.T("TagNameMin");
         if (name.Length > 50)
-            return "Tag name cannot exceed 50 characters.";
+            return AppStrings.T("TagNameMax");
         if (availableTags.Any(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)))
-            return "A tag with this name already exists or is pending moderation.";
+            return AppStrings.T("TagAlreadyExistsOrPending");
         if (!string.IsNullOrWhiteSpace(suggestedTagDescription) && suggestedTagDescription.Trim().Length > 500)
-            return "Tag description cannot exceed 500 characters.";
+            return AppStrings.T("DescriptionMax");
 
         return null;
     }
@@ -639,7 +749,7 @@
         if (!isValid || validationErrors.Count > 0)
         {
             Logger.LogDebug("[SuggestQuestion] Form validation failed: {Errors}", string.Join("; ", validationErrors));
-            Snackbar.Add("Please fix the validation errors before submitting.", Severity.Warning);
+            Snackbar.Add(AppStrings.T("FixValidationErrorsBeforeSubmit"), Severity.Warning);
             StateHasChanged();
             return;
         }
@@ -663,7 +773,7 @@
                     { 
                         Text = a.Text.Trim(),
                         AllowFuzzyMatch = a.AllowFuzzyMatch,
-                        MinConfidence = a.MinConfidence
+                        MinConfidence = a.AcceptanceThreshold
                     })
                     .ToList(),
                 TagIds = selectedTagIds
@@ -671,7 +781,17 @@
                     .Where(id => id != Guid.Empty)
                     .ToList(),
                 MediaUrl = RequiresMedia ? uploadedMediaUrl : null,
-                Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation.Trim()
+                Explanation = string.IsNullOrWhiteSpace(explanation) ? null : explanation.Trim(),
+                Hints = hints
+                    .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+                    .OrderBy(h => h.RevealTimeSeconds)
+                    .Select((h, index) => new CreateHintRequest
+                    {
+                        OrderIndex = index,
+                        HintText = h.HintText.Trim(),
+                        RevealTimeSeconds = h.RevealTimeSeconds
+                    })
+                    .ToList()
             };
 
             Logger.LogDebug("[SuggestQuestion] Sending request to API...");
@@ -680,19 +800,19 @@
             if (success)
             {
                 Logger.LogDebug("[SuggestQuestion] Question submitted successfully.");
-                Snackbar.Add("Question submitted successfully! It will be reviewed by moderators.", Severity.Success);
+                Snackbar.Add(AppStrings.T("QuestionSubmittedSuccess"), Severity.Success);
                 Navigation.NavigateTo("/lobby");
             }
             else
             {
                 Logger.LogDebug("[SuggestQuestion] API returned failure");
-                Snackbar.Add("Failed to submit question. Please try again.", Severity.Error);
+                Snackbar.Add(AppStrings.T("QuestionSubmitFailed"), Severity.Error);
             }
         }
         catch (Exception ex)
         {
             Logger.LogDebug(ex, "[SuggestQuestion] Exception during submission");
-            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+            Snackbar.Add(AppStrings.Tf("GenericErrorWithMessage", ex.Message), Severity.Error);
         }
         finally
         {

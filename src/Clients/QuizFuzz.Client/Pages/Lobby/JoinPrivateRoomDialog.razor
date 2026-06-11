@@ -1,3 +1,4 @@
+@using QuizFuzz.Client.Localization
 @using MudBlazor
 
 <MudDialog>
@@ -13,7 +14,7 @@
                 @AppStrings.Tf("JoinPrivateRoomDescription", string.IsNullOrWhiteSpace(RoomName) ? AppStrings.T("PrivateRoom") : RoomName)
             </MudText>
 
-            <MudTextField Label='@AppStrings.T("AccessCodeInput")'
+            <MudTextField Label="@AppStrings.T("AccessCodeInput")"
                           @bind-Value="accessCode"
                           Variant="Variant.Outlined"
                           InputType="InputType.Password"
@@ -22,7 +23,7 @@
                           MaxLength="32"
                           Counter="32"
                           Required="true"
-                          RequiredError='@AppStrings.T("AccessCodeInputRequired")'
+                          RequiredError="@AppStrings.T("AccessCodeInputRequired")"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Key"
                           OnKeyDown="@HandleKeyDown" />

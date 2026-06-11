@@ -1,6 +1,7 @@
 @page "/admin/questions"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
+@using QuizFuzz.Client.Localization
 @using MudBlazor
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Moderator,Admin")]
@@ -28,19 +29,35 @@
 
     <MudPaper Elevation="0" Class="qf-toolbar pa-4 mb-5">
         <MudStack Row="true" Spacing="2">
-            <MudSelect T="string" Label='@AppStrings.T("FilterStatus")' @bind-Value="filterStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelect T="string" Label="@AppStrings.T("FilterStatus")" @bind-Value="filterStatus" Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@(null)">@AppStrings.T("CommonAll")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("Draft")'>@AppStrings.T("StatusDraft")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("UnderReview")'>@AppStrings.T("StatusUnderReview")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("Approved")'>@AppStrings.T("StatusApproved")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("Rejected")'>@AppStrings.T("StatusRejected")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("Draft")'>@AppStrings.QuestionStatus("Draft")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("UnderReview")'>@AppStrings.QuestionStatus("UnderReview")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("Approved")'>@AppStrings.QuestionStatus("Approved")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("Rejected")'>@AppStrings.QuestionStatus("Rejected")</MudSelectItem>
             </MudSelect>
             
-            <MudSelect T="string" Label='@AppStrings.T("FilterDifficulty")' @bind-Value="filterDifficulty" Variant="Variant.Outlined" Margin="Margin.Dense">
+            <MudSelect T="string" Label="@AppStrings.T("FilterDifficulty")" @bind-Value="filterDifficulty" Variant="Variant.Outlined" Margin="Margin.Dense">
                 <MudSelectItem T="string" Value="@(null)">@AppStrings.T("CommonAll")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.T("DifficultyEasy")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.T("DifficultyMedium")</MudSelectItem>
-                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.T("DifficultyHard")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.Difficulty("Easy")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.Difficulty("Medium")</MudSelectItem>
+                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.Difficulty("Hard")</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="string"
+                       Label="@AppStrings.T("Tags")"
+                       MultiSelection="true"
+                       SelectedValues="@selectedFilterTagIds"
+                       SelectedValuesChanged="@OnSelectedFilterTagsChanged"
+                       ToStringFunc="@GetTagName"
+                       MultiSelectionTextFunc="@GetSelectedFilterTagsText"
+                       Variant="Variant.Outlined"
+                       Margin="Margin.Dense"
+                       Clearable="true">
+                @foreach (var tag in availableTags)
+                {
+                    <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
+                }
             </MudSelect>
 
             <MudButton Variant="Variant.Filled"
@@ -75,13 +92,14 @@
                 <MudTh>@AppStrings.T("Title")</MudTh>
                 <MudTh>@AppStrings.T("Type")</MudTh>
                 <MudTh>@AppStrings.T("Difficulty")</MudTh>
+                <MudTh>@AppStrings.T("Tags")</MudTh>
                 <MudTh>@AppStrings.T("Status")</MudTh>
                 <MudTh>@AppStrings.T("Author")</MudTh>
                 <MudTh>@AppStrings.T("Answers")</MudTh>
-                <MudTh>@AppStrings.T("CommonActions")</MudTh>
+                <MudTh>@AppStrings.T("Actions")</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel='@AppStrings.T("Title")'>
+                <MudTd DataLabel="@AppStrings.T("Title")">
                     <MudStack Spacing="1">
                         <MudText><strong>@context.Title</strong></MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -89,39 +107,49 @@
                         </MudText>
                     </MudStack>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("Type")'>
+                <MudTd DataLabel="@AppStrings.T("Type")">
                     <MudChip T="string" Size="Size.Small">@AppStrings.QuestionType(context.QuestionType)</MudChip>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("FilterDifficulty")'>
+                <MudTd DataLabel="@AppStrings.T("FilterDifficulty")">
                     <MudChip T="string" Size="Size.Small" Color="@GetDifficultyColor(context.Difficulty)">
                         @AppStrings.QuestionDifficulty(context.Difficulty)
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("FilterStatus")'>
+                <MudTd DataLabel="@AppStrings.T("Tags")">
+                    @if (context.Tags.Any())
+                    {
+                        @foreach (var tag in context.Tags)
+                        {
+                            <MudChip T="string" Size="Size.Small" Class="ma-1">@tag.Name</MudChip>
+                        }
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">—</MudText>
+                    }
+                </MudTd>
+                <MudTd DataLabel="@AppStrings.T("FilterStatus")">
                     <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
                         @AppStrings.QuestionStatus(context.Status)
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("Author")'>
+                <MudTd DataLabel="@AppStrings.T("Author")">
                     <MudText Typo="Typo.caption">@(context.AuthorUsername ?? AppStrings.T("CommonSystem"))</MudText>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("Answers")'>
+                <MudTd DataLabel="@AppStrings.T("Answers")">
                     <MudText>@context.AnswersCount</MudText>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("CommonActions")'>
+                <MudTd DataLabel="@AppStrings.T("Actions")">
                     <MudStack Row="true" Spacing="1">
                         <MudIconButton Icon="@Icons.Material.Filled.Visibility"
-                                       Title='@AppStrings.T("ViewQuestion")'
                                        Size="Size.Small"
                                        Color="Color.Info"
                                        OnClick="@(async () => await ViewQuestion(context))" />
                         <MudIconButton Icon="@Icons.Material.Filled.Edit"
-                                       Title='@AppStrings.T("EditQuestion")'
                                        Size="Size.Small"
                                        Color="Color.Primary"
                                        OnClick="@(async () => await EditQuestion(context))" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete"
-                                       Title='@AppStrings.T("DeleteQuestion")'
                                        Size="Size.Small"
                                        Color="Color.Error"
                                        OnClick="@(async () => await DeleteQuestion(context))" />
@@ -143,13 +171,13 @@
             <MudGrid>
                 <MudItem xs="12" md="8">
                     <MudStack Spacing="3">
-                        <MudTextField T="string" Label='@AppStrings.T("Title")'
+                        <MudTextField T="string" Label="@AppStrings.T("Title")"
                                       @bind-Value="currentQuestion.Title"
                                       Variant="Variant.Outlined"
                                       Required="true"
                                       ReadOnly="@(!isEditMode && !isCreateMode)" />
 
-                        <MudTextField T="string" Label='@AppStrings.T("QuestionText")'
+                        <MudTextField T="string" Label="@AppStrings.T("QuestionText")"
                                       @bind-Value="currentQuestion.PromptText"
                                       Lines="3"
                                       Variant="Variant.Outlined"
@@ -157,22 +185,22 @@
                                       ReadOnly="@(!isEditMode && !isCreateMode)" />
 
                         <MudStack Row="true" Spacing="2">
-                            <MudSelect T="string" Label='@AppStrings.T("Type")' @bind-Value="currentQuestion.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
-                                <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.T("QuestionTypeText")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.T("QuestionTypeImage")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.T("QuestionTypeAudio")</MudSelectItem>
+                            <MudSelect T="string" Label="@AppStrings.T("Type")" @bind-Value="currentQuestion.QuestionType" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
+                                <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.QuestionType("Text")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.QuestionType("Image")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.QuestionType("Audio")</MudSelectItem>
                             </MudSelect>
 
-                            <MudSelect T="string" Label='@AppStrings.T("FilterDifficulty")' @bind-Value="currentQuestion.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
-                                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.T("DifficultyEasy")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.T("DifficultyMedium")</MudSelectItem>
-                                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.T("DifficultyHard")</MudSelectItem>
+                            <MudSelect T="string" Label="@AppStrings.T("FilterDifficulty")" @bind-Value="currentQuestion.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">
+                                <MudSelectItem T="string" Value='@("Easy")'>@AppStrings.Difficulty("Easy")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Medium")'>@AppStrings.Difficulty("Medium")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("Hard")'>@AppStrings.Difficulty("Hard")</MudSelectItem>
                             </MudSelect>
                         </MudStack>
 
                         @if (currentQuestion.QuestionType != "TEXT")
                         {
-                            <MudTextField T="string" Label='@AppStrings.T("MediaUrl")'
+                            <MudTextField T="string" Label="@AppStrings.T("MediaUrl")"
                                           @bind-Value="currentQuestion.MediaUrl"
                                           Variant="Variant.Outlined"
                                           ReadOnly="@(!isEditMode && !isCreateMode)" />
@@ -193,7 +221,7 @@
                                                       Variant="Variant.Outlined"
                                                       FullWidth="true"
                                                       ReadOnly="@(!isEditMode && !isCreateMode)" />
-                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label='@AppStrings.T("Primary")' Disabled="@(!isEditMode && !isCreateMode)" />
+                                        <MudCheckBox T="bool" @bind-Value="answer.IsPrimary" Label="@AppStrings.T("Primary")" Disabled="@(!isEditMode && !isCreateMode)" />
                                         @if (isEditMode || isCreateMode)
                                         {
                                             <MudIconButton Icon="@Icons.Material.Filled.Delete"
@@ -202,6 +230,26 @@
                                                            OnClick="@(() => RemoveAnswer(index))" />
                                         }
                                     </MudStack>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
+                                        <MudSwitch T="bool"
+                                                   @bind-Value="answer.AllowFuzzyMatch"
+                                                   Color="Color.Primary"
+                                                   Label="@AppStrings.T("EnableFuzzy")"
+                                                   Disabled="@(!isEditMode && !isCreateMode)" />
+                                        <MudNumericField T="decimal?"
+                                                         @bind-Value="answer.MinConfidence"
+                                                         Label="@AppStrings.T("AcceptanceThreshold")"
+                                                         Variant="Variant.Outlined"
+                                                         Min="0.5m"
+                                                         Max="1.0m"
+                                                         Step="0.05m"
+                                                         Format="P0"
+                                                         Disabled="@((!isEditMode && !isCreateMode) || !answer.AllowFuzzyMatch)"
+                                                         Style="width: 220px;" />
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @AppStrings.T("AcceptanceThresholdHelp")
+                                    </MudText>
                                 </MudStack>
                             </MudPaper>
                         }
@@ -221,7 +269,14 @@
                         <MudText Typo="Typo.h6" Class="mb-3">@AppStrings.T("Tags")</MudText>
                         @if (isEditMode || isCreateMode)
                         {
-                            <MudSelect T="string" Label='@AppStrings.T("SelectTags")' MultiSelection="true" SelectedValues="@selectedTagIds" SelectedValuesChanged="@OnSelectedTagsChanged" Variant="Variant.Outlined">
+                            <MudSelect T="string"
+                                       Label="@AppStrings.T("SelectTags")"
+                                       MultiSelection="true"
+                                       SelectedValues="@selectedTagIds"
+                                       SelectedValuesChanged="@OnSelectedTagsChanged"
+                                       ToStringFunc="@GetTagName"
+                                       MultiSelectionTextFunc="@GetSelectedTagsText"
+                                       Variant="Variant.Outlined">
                                 @foreach (var tag in availableTags)
                                 {
                                     <MudSelectItem T="string" Value="@tag.Id.ToString()">@tag.Name</MudSelectItem>
@@ -252,7 +307,7 @@
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="@(() => showDialog = false)">
-            @(isEditMode || isCreateMode ? AppStrings.T("CommonCancel") : AppStrings.T("CommonClose"))
+            @(isEditMode || isCreateMode ? AppStrings.T("Cancel") : AppStrings.T("CommonClose"))
         </MudButton>
         @if (isEditMode || isCreateMode)
         {
@@ -278,6 +333,7 @@
     private bool isSaving = false;
     private string? filterStatus;
     private string? filterDifficulty;
+    private IEnumerable<string> selectedFilterTagIds = Array.Empty<string>();
     private IEnumerable<string> selectedTagIds = Array.Empty<string>();
 
     protected override async Task OnInitializedAsync()
@@ -288,7 +344,13 @@
     private async Task LoadQuestions()
     {
         isLoading = true;
-        questions = await QuestionsClient.GetQuestionsAsync(filterStatus, filterDifficulty);
+        var tagIds = selectedFilterTagIds
+            .Select(ParseGuid)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        questions = await QuestionsClient.GetQuestionsAsync(filterStatus, filterDifficulty, tagIds);
         isLoading = false;
     }
 
@@ -307,7 +369,7 @@
             Difficulty = "MEDIUM",
             Answers = new List<QuestionAnswerDto>
             {
-                new() { AnswerText = "", IsPrimary = true, IsActive = true, AllowFuzzyMatch = true }
+                new() { AnswerText = "", IsPrimary = true, IsActive = true, AllowFuzzyMatch = true, MinConfidence = 0.75m }
             },
             Tags = new List<TagDto>()
         };
@@ -352,9 +414,9 @@
     {
         var confirm = await DialogService.ShowMessageBox(
             AppStrings.T("DeleteQuestionTitle"),
-            string.Format(AppStrings.T("DeleteQuestionMessage"), question.Title),
+            AppStrings.Tf("DeleteQuestionMessage", question.Title),
             yesText: AppStrings.T("CommonDelete"),
-            cancelText: AppStrings.T("CommonCancel"));
+            cancelText: AppStrings.T("Cancel"));
 
         if (confirm != true)
             return;
@@ -373,7 +435,8 @@
             AnswerText = "",
             IsPrimary = currentQuestion.Answers.Count == 0,
             IsActive = true,
-            AllowFuzzyMatch = true
+            AllowFuzzyMatch = true,
+            MinConfidence = 0.75m
         });
     }
 
@@ -389,9 +452,44 @@
         }
     }
 
+    private void OnSelectedFilterTagsChanged(IEnumerable<string> values)
+    {
+        selectedFilterTagIds = values?.Where(v => !string.IsNullOrWhiteSpace(v)).ToArray() ?? Array.Empty<string>();
+    }
+
     private void OnSelectedTagsChanged(IEnumerable<string> values)
     {
         selectedTagIds = values?.Where(v => !string.IsNullOrWhiteSpace(v)).ToArray() ?? Array.Empty<string>();
+    }
+
+    private string GetSelectedFilterTagsText(List<string> values) => GetSelectedTagsDisplayText(values);
+
+    private string GetSelectedTagsText(List<string> values) => GetSelectedTagsDisplayText(values);
+
+    private string GetSelectedTagsDisplayText(IReadOnlyCollection<string>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var names = values
+            .Select(GetTagName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+
+        return names.Count == 0 ? string.Empty : string.Join(", ", names);
+    }
+
+    private string GetTagName(string? tagId)
+    {
+        if (string.IsNullOrWhiteSpace(tagId))
+        {
+            return string.Empty;
+        }
+
+        var tag = availableTags.FirstOrDefault(t => t.Id.ToString() == tagId);
+        return tag?.Name ?? tagId;
     }
 
     private static Guid? ParseGuid(string value) => Guid.TryParse(value, out var guid) ? guid : null;
@@ -434,7 +532,7 @@
                     IsPrimary = a.IsPrimary,
                     AllowFuzzyMatch = a.AllowFuzzyMatch,
                     MaxEditDistance = a.MaxEditDistance,
-                    MinConfidence = a.MinConfidence,
+                    MinConfidence = a.AcceptanceThreshold,
                     Aliases = (a.Aliases ?? new List<FuzzyAliasDto>()).Where(al => !string.IsNullOrWhiteSpace(al.AliasText)).Select(al => new CreateAliasRequest
                     {
                         AliasText = al.AliasText,
@@ -462,7 +560,7 @@
                     IsPrimary = a.IsPrimary,
                     AllowFuzzyMatch = a.AllowFuzzyMatch,
                     MaxEditDistance = a.MaxEditDistance,
-                    MinConfidence = a.MinConfidence,
+                    MinConfidence = a.AcceptanceThreshold,
                     Aliases = (a.Aliases ?? new List<FuzzyAliasDto>()).Where(al => !string.IsNullOrWhiteSpace(al.AliasText)).Select(al => new UpdateAliasRequest
                     {
                         Id = al.Id == Guid.Empty ? null : al.Id,

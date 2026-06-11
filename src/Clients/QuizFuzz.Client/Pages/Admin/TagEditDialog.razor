@@ -1,3 +1,4 @@
+@using QuizFuzz.Client.Localization
 @using QuizFuzz.Shared.Dtos.Questions
 @using MudBlazor
 
@@ -13,12 +14,12 @@
         else
         {
             <MudStack Spacing="3">
-                <MudTextField Label='@AppStrings.T("Name")'
+                <MudTextField Label="@AppStrings.T("Name")"
                               Value="@Tag.Name"
                               Variant="Variant.Outlined"
                               Disabled="true"
-                              HelperText='@AppStrings.T("TagNameFixedHelper")' />
-                <MudTextField Label='@AppStrings.T("Description")'
+                              HelperText="@AppStrings.T("TagNameFixedHelper")" />
+                <MudTextField Label="@AppStrings.T("Description")"
                               @bind-Value="description"
                               Lines="4"
                               MaxLength="500"
@@ -32,7 +33,7 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("Cancel")</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(Tag == null)" OnClick="@Submit">@AppStrings.T("CommonSave")</MudButton>
     </DialogActions>
 </MudDialog>

@@ -1,6 +1,7 @@
 @using MudBlazor
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Moderation
+@using QuizFuzz.Client.Localization
 @inject IModerationApiClient ModerationClient
 
 <MudDialog>
@@ -22,8 +23,8 @@
         else if (question != null)
         {
             <MudStack Spacing="3">
-                <MudTextField Label='@AppStrings.T("Title")' @bind-Value="question.Title" ReadOnly="true" Variant="Variant.Outlined" />
-                <MudTextField Label='@AppStrings.T("QuestionText")'
+                <MudTextField Label="@AppStrings.T("Title")" @bind-Value="question.Title" ReadOnly="true" Variant="Variant.Outlined" />
+                <MudTextField Label="@AppStrings.T("QuestionText")"
                               @bind-Value="question.PromptText"
                               Lines="3"
                               ReadOnly="true"
@@ -42,13 +43,13 @@
                         <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("MediaPreview")</MudText>
                         @if (question.Type.Equals("Image", StringComparison.OrdinalIgnoreCase))
                         {
-                            <MudImage Src="@question.MediaUrl" Alt='@AppStrings.T("QuestionTypeImage")' Class="rounded-lg" Style="max-height: 260px; max-width: 100%; object-fit: contain;" />
+                            <MudImage Src="@question.MediaUrl" Alt="@AppStrings.T("QuestionImageAlt")" Class="rounded-lg" Style="max-height: 260px; max-width: 100%; object-fit: contain;" />
                         }
                         else if (question.Type.Equals("Audio", StringComparison.OrdinalIgnoreCase))
                         {
                             <audio controls style="width: 100%;">
                                 <source src="@question.MediaUrl" />
-                                @AppStrings.T("AudioNotSupported")
+                                @AppStrings.T("AudioElementNotSupported")
                             </audio>
                         }
                         else
@@ -70,6 +71,9 @@
                                     <MudChip T="string" Size="Size.Small" Color="Color.Primary">@AppStrings.T("Primary")</MudChip>
                                 }
                             </MudStack>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @AppStrings.T("AcceptanceThreshold"): @((answer.MinConfidence ?? 0.75m).ToString("P0"))
+                            </MudText>
                             @if (answer.Aliases?.Any() == true)
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -80,7 +84,28 @@
                     </MudPaper>
                 }
 
-                <MudTextField Label='@AppStrings.T("CommentOptional")'
+
+
+                <MudText Typo="Typo.h6">@AppStrings.T("Hints")</MudText>
+                @if (question.Hints?.Any() == true)
+                {
+                    @foreach (var hint in question.Hints.OrderBy(h => h.OrderIndex).ThenBy(h => h.RevealTimeSeconds).Select((h, index) => new { Hint = h, Index = index }))
+                    {
+                        <MudPaper Elevation="1" Class="pa-3">
+                            <MudStack Spacing="1">
+                                <MudText><strong>@AppStrings.Tf("HintNumber", hint.Index + 1)</strong></MudText>
+                                <MudText Typo="Typo.body2">@hint.Hint.HintText</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@AppStrings.Tf("RevealAtSecondsValue", hint.Hint.RevealTimeSeconds)</MudText>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@AppStrings.T("NoHints")</MudText>
+                }
+
+                <MudTextField Label="@AppStrings.T("CommentOptional")"
                               @bind-Value="comment"
                               Lines="2"
                               Variant="Variant.Outlined" />
@@ -88,7 +113,7 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton Disabled="@isSubmitting" OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton Disabled="@isSubmitting" OnClick="@Cancel">@AppStrings.T("Cancel")</MudButton>
         <MudButton Disabled="@isSubmitting"
                    Color="Color.Error"
                    Variant="Variant.Filled"
@@ -123,7 +148,7 @@
             question = await ModerationClient.GetQuestionForModerationAsync(QuestionId);
             if (question == null)
             {
-                error = AppStrings.T("QuestionLoadFailed");
+                error = AppStrings.T("QuestionDetailsLoadFailed");
             }
         }
         catch (Exception ex)

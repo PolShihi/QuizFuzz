@@ -12,13 +12,20 @@ public class QuestionsApiClient : IQuestionsApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<List<QuestionDto>> GetQuestionsAsync(string? status = null, string? difficulty = null)
+    public async Task<List<QuestionDto>> GetQuestionsAsync(string? status = null, string? difficulty = null, IEnumerable<Guid>? tagIds = null)
     {
         try
         {
             var query = new List<string>();
-            if (!string.IsNullOrEmpty(status)) query.Add($"status={status}");
-            if (!string.IsNullOrEmpty(difficulty)) query.Add($"difficulty={difficulty}");
+            if (!string.IsNullOrEmpty(status)) query.Add($"status={Uri.EscapeDataString(status)}");
+            if (!string.IsNullOrEmpty(difficulty)) query.Add($"difficulty={Uri.EscapeDataString(difficulty)}");
+            if (tagIds != null)
+            {
+                foreach (var tagId in tagIds.Where(id => id != Guid.Empty).Distinct())
+                {
+                    query.Add($"tagIds={tagId}");
+                }
+            }
             
             var queryString = query.Any() ? "?" + string.Join("&", query) : "";
             var questions = await _httpClient.GetFromJsonAsync<List<QuestionDto>>($"api/questions{queryString}");

@@ -1,9 +1,10 @@
+@using QuizFuzz.Client.Localization
 @using QuizFuzz.Shared.Dtos.Admin
 @using MudBlazor
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@string.Format(AppStrings.T("ManageRolesTitle"), User?.Username)</MudText>
+        <MudText Typo="Typo.h6">@AppStrings.Tf("ManageRolesTitle", User?.Username)</MudText>
     </TitleContent>
     <DialogContent>
         @if (User == null)
@@ -25,9 +26,9 @@
                 </MudPaper>
 
                 <MudStack Spacing="2">
-                    <MudCheckBox T="bool" Value="true" Disabled="true" Label='@AppStrings.T("RoleUser")' Color="Color.Primary" />
-                    <MudCheckBox T="bool" @bind-Value="hasModeratorRole" Label='@AppStrings.T("RoleModerator")' Color="Color.Warning" />
-                    <MudCheckBox T="bool" @bind-Value="hasAdminRole" Label='@AppStrings.T("RoleAdmin")' Color="Color.Error" />
+                    <MudCheckBox T="bool" Value="true" Disabled="true" Label="@AppStrings.Role("User")" Color="Color.Primary" />
+                    <MudCheckBox T="bool" @bind-Value="hasModeratorRole" Label="@AppStrings.Role("Moderator")" Color="Color.Warning" />
+                    <MudCheckBox T="bool" @bind-Value="hasAdminRole" Label="@AppStrings.Role("Admin")" Color="Color.Error" />
                 </MudStack>
 
                 @if (hasAdminRole)
@@ -40,9 +41,9 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("Cancel")</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" Disabled="@(User == null)" OnClick="@Submit">
-            @AppStrings.T("CommonSave")
+            Save
         </MudButton>
     </DialogActions>
 </MudDialog>

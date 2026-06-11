@@ -1,6 +1,7 @@
 @page "/profile"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Users
+@using QuizFuzz.Client.Localization
 @attribute [Authorize]
 @inject IUsersApiClient UsersClient
 
@@ -11,7 +12,7 @@
     {
         <MudPaper Elevation="0" Class="qf-empty-state">
             <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-            <MudText Class="qf-muted">@AppStrings.T("Loading")</MudText>
+            <MudText Class="qf-muted">@AppStrings.T("LoadingProfile")</MudText>
         </MudPaper>
     }
     else
@@ -61,7 +62,7 @@
                     <MudStack AlignItems="AlignItems.Center" Spacing="2">
                         <MudIcon Icon="@Icons.Material.Filled.Speed" Size="Size.Large" Color="Color.Info" />
                         <MudText Typo="Typo.h4">@GetAverageTimeDisplay()</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("AverageAnswerTime")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("AvgAnswerTime")</MudText>
                     </MudStack>
                 </MudPaper>
             </MudItem>
@@ -91,19 +92,19 @@
                     <MudGrid>
                         @if (stats.GamesPlayed >= 1)
                         {
-                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("FirstGame")</MudText></MudStack></MudPaper></MudItem>
+                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Warning" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("AchievementFirstGame")</MudText></MudStack></MudPaper></MudItem>
                         }
                         @if (stats.GamesWon >= 1)
                         {
-                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Warning" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("FirstWin")</MudText></MudStack></MudPaper></MudItem>
+                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Color="Color.Warning" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("AchievementFirstWin")</MudText></MudStack></MudPaper></MudItem>
                         }
                         @if (stats.QuestionsAnswered >= 10)
                         {
-                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.Quiz" Color="Color.Info" /><MudText Typo="Typo.caption" Align="Align.Center">10 Questions</MudText></MudStack></MudPaper></MudItem>
+                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.Quiz" Color="Color.Info" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("AchievementTenQuestions")</MudText></MudStack></MudPaper></MudItem>
                         }
                         @if (stats.GamesWon >= 10)
                         {
-                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Color="Color.Success" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("Veteran")</MudText></MudStack></MudPaper></MudItem>
+                            <MudItem xs="6" sm="4" md="3"><MudPaper Elevation="0" Class="qf-player-row"><MudStack AlignItems="AlignItems.Center" Spacing="1"><MudIcon Icon="@Icons.Material.Filled.MilitaryTech" Color="Color.Success" /><MudText Typo="Typo.caption" Align="Align.Center">@AppStrings.T("AchievementVeteran")</MudText></MudStack></MudPaper></MudItem>
                         }
                     </MudGrid>
                 </MudPaper>

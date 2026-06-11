@@ -1,9 +1,10 @@
+@using QuizFuzz.Client.Localization
 @using QuizFuzz.Shared.Dtos.Admin
 @using MudBlazor
 
 <MudDialog>
     <TitleContent>
-        <MudText Typo="Typo.h6">@string.Format(AppStrings.T("BanUserTitle"), User?.Username)</MudText>
+        <MudText Typo="Typo.h6">@AppStrings.Tf("BanUserTitle", User?.Username)</MudText>
     </TitleContent>
     <DialogContent>
         @if (User == null)
@@ -20,7 +21,7 @@
                     </MudStack>
                 </MudPaper>
 
-                <MudSelect T="string" Label='@AppStrings.T("BanDuration")' @bind-Value="banDuration" Variant="Variant.Outlined">
+                <MudSelect T="string" Label="@AppStrings.T("BanDuration")" @bind-Value="banDuration" Variant="Variant.Outlined">
                     <MudSelectItem T="string" Value="@BanDurationOneHour">@AppStrings.T("BanDurationOneHour")</MudSelectItem>
                     <MudSelectItem T="string" Value="@BanDurationOneDay">@AppStrings.T("BanDurationOneDay")</MudSelectItem>
                     <MudSelectItem T="string" Value="@BanDurationSevenDays">@AppStrings.T("BanDurationSevenDays")</MudSelectItem>
@@ -31,14 +32,14 @@
 
                 @if (banDuration == BanDurationCustomHours)
                 {
-                    <MudNumericField T="int" Label='@AppStrings.T("Hours")' @bind-Value="customBanHours" Min="1" Max="8760" Variant="Variant.Outlined" />
+                    <MudNumericField T="int" Label="@AppStrings.T("Hours")" @bind-Value="customBanHours" Min="1" Max="8760" Variant="Variant.Outlined" />
                 }
 
-                <MudTextField Label='@AppStrings.T("Reason")'
+                <MudTextField Label="@AppStrings.T("Reason")"
                               @bind-Value="banReason"
                               Lines="3"
                               Variant="Variant.Outlined"
-                              Placeholder='@AppStrings.T("OptionalModerationNote")' />
+                              Placeholder="@AppStrings.T("OptionalModerationNote")" />
 
                 @if (!string.IsNullOrWhiteSpace(validationError))
                 {
@@ -52,7 +53,7 @@
         }
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("Cancel")</MudButton>
         <MudButton Color="Color.Error" Variant="Variant.Filled" Disabled="@(User == null)" OnClick="@Submit">
             @AppStrings.T("Ban")
         </MudButton>
@@ -123,7 +124,7 @@
     {
         var bannedUntil = CalculateBannedUntil();
         return bannedUntil.HasValue
-            ? string.Format(AppStrings.T("BanPreviewUntil"), bannedUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
+            ? AppStrings.Tf("BanPreviewUntil", bannedUntil.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm"))
             : AppStrings.T("BanPreviewPermanent");
     }
 }

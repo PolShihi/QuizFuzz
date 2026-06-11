@@ -2,6 +2,7 @@
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Client.Services.Auth
 @using QuizFuzz.Shared.Dtos.Rooms
+@using QuizFuzz.Client.Localization
 @using Microsoft.AspNetCore.SignalR.Client
 @attribute [Authorize]
 @inject IRoomsApiClient RoomsClient
@@ -115,7 +116,7 @@ else
                         <MudStack Spacing="3">
                             <MudStack Spacing="1">
                                 <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("Status")</MudText>
-                                <MudChip T="string" Color="@GetStatusColor(room.Status)" Class="qf-status-chip">@GetStatusText(room.Status)</MudChip>
+                                <MudChip T="string" Color="@GetStatusColor(room.Status)" Class="qf-status-chip">@AppStrings.Status(room.Status)</MudChip>
                             </MudStack>
                             <MudStack Spacing="1">
                                 <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("VictoryCondition")</MudText>
@@ -226,18 +227,6 @@ else
             "InProgress" => Color.Warning,
             "Finished" => Color.Default,
             _ => Color.Default
-        };
-    }
-
-
-    private string GetStatusText(string status)
-    {
-        return status switch
-        {
-            "Lobby" => AppStrings.T("RoomStatusLobby"),
-            "InProgress" => AppStrings.T("RoomStatusInProgress"),
-            "Finished" => AppStrings.T("RoomStatusFinished"),
-            _ => status
         };
     }
 

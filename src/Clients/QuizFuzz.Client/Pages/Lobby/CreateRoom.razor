@@ -2,6 +2,7 @@
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Rooms
 @using QuizFuzz.Shared.Dtos.Questions
+@using QuizFuzz.Client.Localization
 @attribute [Authorize]
 @inject IRoomsApiClient RoomsClient
 @inject ITagsApiClient TagsClient
@@ -17,7 +18,7 @@
                 <MudIcon Icon="@Icons.Material.Filled.MeetingRoom" />
             </MudAvatar>
             <MudStack Spacing="0">
-                <MudText Typo="Typo.h4" Class="qf-section-title">@AppStrings.T("CreateRoom")</MudText>
+                <MudText Typo="Typo.h4" Class="qf-section-title">@AppStrings.T("CreateRoomHeading")</MudText>
                 <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("CreateRoomDescription")</MudText>
             </MudStack>
         </MudStack>
@@ -35,7 +36,7 @@
                     </MudText>
 
                     <MudTextField @bind-Value="request.Name"
-                                  Label='@AppStrings.T("RoomName")'
+                                  Label="@AppStrings.T("RoomName")"
                                   Variant="Variant.Outlined"
                                   Adornment="Adornment.Start"
                                   AdornmentIcon="@Icons.Material.Filled.MeetingRoom"
@@ -45,7 +46,7 @@
                     <MudGrid>
                         <MudItem xs="12" sm="6">
                             <MudNumericField @bind-Value="request.MaxPlayers"
-                                             Label='@AppStrings.T("MaxPlayers")'
+                                             Label="@AppStrings.T("MaxPlayers")"
                                              Variant="Variant.Outlined"
                                              Min="2" Max="50"
                                              Adornment="Adornment.Start"
@@ -53,7 +54,7 @@
                         </MudItem>
                         <MudItem xs="12" sm="6">
                             <MudSelect @bind-Value="request.Visibility"
-                                       Label='@AppStrings.T("Access")'
+                                       Label="@AppStrings.T("Access")"
                                        Variant="Variant.Outlined"
                                        Adornment="Adornment.Start"
                                        AdornmentIcon="@Icons.Material.Filled.Visibility">
@@ -66,15 +67,15 @@
                     @if (IsPrivateRoom)
                     {
                         <MudTextField @bind-Value="request.AccessCode"
-                                      Label='@AppStrings.T("AccessCode")'
+                                      Label="@AppStrings.T("AccessCode")"
                                       Variant="Variant.Outlined"
                                       InputType="InputType.Password"
                                       Immediate="true"
                                       MaxLength="32"
                                       Counter="32"
                                       Required="true"
-                                      RequiredError='@AppStrings.T("AccessCodeRequired")'
-                                      HelperText='@AppStrings.T("AccessCodeHelper")'
+                                      RequiredError="@AppStrings.T("AccessCodeRequired")"
+                                      HelperText="@AppStrings.T("AccessCodeHelper")"
                                       Adornment="Adornment.Start"
                                       AdornmentIcon="@Icons.Material.Filled.Key"
                                       Class="mt-4" />
@@ -107,23 +108,23 @@
                     @if (selectedVictoryMode == "Points")
                     {
                         <MudNumericField @bind-Value="request.VictoryValue"
-                                         Label='@AppStrings.T("WinValue")'
+                                         Label="@AppStrings.T("WinValue")"
                                          Min="50"
                                          Max="10000"
                                          Step="50"
                                          Variant="Variant.Outlined"
-                                         HelperText='@AppStrings.T("WinByPoints")'
+                                         HelperText="@AppStrings.T("WinByPoints")"
                                          Adornment="Adornment.Start"
                                          AdornmentIcon="@Icons.Material.Filled.Flag" />
                     }
                     else
                     {
                         <MudNumericField @bind-Value="request.NumberOfRounds"
-                                         Label='@AppStrings.T("Questions")'
+                                         Label="@AppStrings.T("Question")"
                                          Min="3"
                                          Max="20"
                                          Variant="Variant.Outlined"
-                                         HelperText='@AppStrings.T("WinByRounds")'
+                                         HelperText="@AppStrings.T("WinByRounds")"
                                          Adornment="Adornment.Start"
                                          AdornmentIcon="@Icons.Material.Filled.QuestionAnswer" />
                     }
@@ -132,17 +133,17 @@
                 <MudPaper Elevation="0" Class="qf-form-section">
                     <MudText Typo="Typo.h6" Class="mb-4">
                         <MudIcon Icon="@Icons.Material.Filled.FilterAlt" Class="mr-2" />
-                        @AppStrings.T("DifficultyFilter")
+                        @AppStrings.T("QuestionFilters")
                     </MudText>
 
                     <MudSelect T="string"
-                               Label='@AppStrings.T("SelectTags")'
+                               Label="@AppStrings.T("SelectTags")"
                                MultiSelection="true"
                                @bind-SelectedValues="selectedTagIds"
                                Variant="Variant.Outlined"
                                ToStringFunc="@GetTagName"
                                MultiSelectionTextFunc="@GetSelectedTagsText"
-                               HelperText='@AppStrings.T("TagsHelper")'
+                               HelperText="@AppStrings.T("LeaveTagsEmpty")"
                                Class="mb-4">
                         @foreach (var tag in availableTags)
                         {
@@ -151,14 +152,14 @@
                     </MudSelect>
 
                     <MudSelect T="string"
-                               Label='@AppStrings.T("QuestionDifficulty")'
+                               Label="@AppStrings.T("DifficultyFilter")"
                                MultiSelection="true"
                                @bind-SelectedValues="selectedDifficulties"
                                Variant="Variant.Outlined"
-                               HelperText='@AppStrings.T("DifficultyFilter")'>
-                        <MudSelectItem T="string" Value="@("Easy")">@AppStrings.T("DifficultyEasy")</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Medium")">@AppStrings.T("DifficultyMedium")</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("Hard")">@AppStrings.T("DifficultyHard")</MudSelectItem>
+                               HelperText="@AppStrings.T("LeaveDifficultyEmpty")">
+                        <MudSelectItem T="string" Value="@("Easy")">@AppStrings.Difficulty("Easy")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Medium")">@AppStrings.Difficulty("Medium")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Hard")">@AppStrings.Difficulty("Hard")</MudSelectItem>
                     </MudSelect>
                 </MudPaper>
 
@@ -188,7 +189,7 @@
                                Color="Color.Primary"
                                Disabled="@isLoading"
                                StartIcon="@Icons.Material.Filled.Add">
-                        @(isLoading ? AppStrings.T("CreatingRoom") : AppStrings.T("CreateRoom"))
+                        @(isLoading ? AppStrings.T("CreatingRoom") : AppStrings.T("CreateRoomSubmit"))
                     </MudButton>
                     <MudButton Variant="Variant.Outlined"
                                StartIcon="@Icons.Material.Filled.ArrowBack"

@@ -1,6 +1,7 @@
-﻿@page "/admin/moderation"
+@page "/admin/moderation"
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Moderation
+@using QuizFuzz.Client.Localization
 @using MudBlazor
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Moderator,Admin")]
@@ -17,7 +18,7 @@
                 <MudIcon Icon="@Icons.Material.Filled.Gavel" Class="mr-2" />
                 @AppStrings.T("ModerationQueue")
             </MudText>
-            <MudChip T="string" Color="Color.Warning">@string.Format(AppStrings.T("PendingCount"), pendingCount)</MudChip>
+            <MudChip T="string" Color="Color.Warning">@AppStrings.Tf("PendingWithCount", pendingCount)</MudChip>
         </MudStack>
     </MudPaper>
 
@@ -26,7 +27,7 @@
             <MudButton Variant="@(selectedStatus == "UnderReview" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Warning"
                        OnClick="@(() => FilterByStatus("UnderReview"))">
-                @string.Format(AppStrings.T("PendingWithCount"), pendingCount)
+                @AppStrings.Tf("PendingWithCount", pendingCount)
             </MudButton>
             <MudButton Variant="@(selectedStatus == "APPROVED" ? Variant.Filled : Variant.Outlined)"
                        Color="Color.Success"
@@ -46,7 +47,7 @@
             <MudButton Variant="Variant.Text"
                        StartIcon="@Icons.Material.Filled.Refresh"
                        OnClick="@LoadQueue">
-                @AppStrings.T("CommonRefresh")
+                @AppStrings.T("Refresh")
             </MudButton>
         </MudStack>
     </MudPaper>
@@ -74,11 +75,11 @@
                 <MudTh>@AppStrings.T("Question")</MudTh>
                 <MudTh>@AppStrings.T("SubmittedBy")</MudTh>
                 <MudTh>@AppStrings.T("Status")</MudTh>
-                <MudTh>@AppStrings.T("CommonDate")</MudTh>
-                <MudTh>@AppStrings.T("CommonActions")</MudTh>
+                <MudTh>@AppStrings.T("Date")</MudTh>
+                <MudTh>@AppStrings.T("Actions")</MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel='@AppStrings.T("Question")'>
+                <MudTd DataLabel="@AppStrings.T("Question")">
                     <MudStack Spacing="1">
                         <MudText Typo="Typo.body1"><strong>@context.QuestionTitle</strong></MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -86,18 +87,18 @@
                         </MudText>
                     </MudStack>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("SubmittedBy")'>
+                <MudTd DataLabel="@AppStrings.T("SubmittedBy")">
                     <MudText>@context.SubmittedByUsername</MudText>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("Status")'>
+                <MudTd DataLabel="@AppStrings.T("Status")">
                     <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">
                         @AppStrings.QuestionStatus(context.Status)
                     </MudChip>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("CommonDate")'>
+                <MudTd DataLabel="@AppStrings.T("Date")">
                     <MudText Typo="Typo.caption">@context.CreatedAt.ToString("dd/MM/yyyy HH:mm")</MudText>
                 </MudTd>
-                <MudTd DataLabel='@AppStrings.T("CommonActions")'>
+                <MudTd DataLabel="@AppStrings.T("Actions")">
                     <MudStack Row="true" Spacing="1">
                         <MudButton Size="Size.Small"
                                    Variant="Variant.Filled"
@@ -145,7 +146,17 @@
     {
         isLoading = true;
         queue = await ModerationClient.GetModerationQueueAsync(selectedStatus);
-        pendingCount = queue.Count(q => q.Status == "UnderReview");
+
+        if (selectedStatus == "UnderReview")
+        {
+            pendingCount = queue.Count(q => q.Status == "UnderReview");
+        }
+        else
+        {
+            var pendingItems = await ModerationClient.GetModerationQueueAsync("UnderReview");
+            pendingCount = pendingItems.Count(q => q.Status == "UnderReview");
+        }
+
         isLoading = false;
     }
 
@@ -194,7 +205,7 @@
         {
             QueueId = item.Id,
             Action = "REJECT",
-            Reason = AppStrings.T("RejectedByModerator")
+            Reason = AppStrings.T("QuickReject")
         };
 
         var success = await ModerationClient.RejectAsync(request);

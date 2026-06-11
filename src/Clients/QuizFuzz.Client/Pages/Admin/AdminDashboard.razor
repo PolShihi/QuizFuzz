@@ -1,4 +1,5 @@
 @page "/admin"
+@using QuizFuzz.Client.Localization
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize(Roles = "Moderator,Admin")]
 @inject NavigationManager Navigation
@@ -24,7 +25,7 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/moderation"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Gavel" Size="Size.Large" Color="Color.Warning" />
-                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("ModerationCardTitle")</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("ModerationQueue")</MudText>
                         <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("ModerationCardDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
@@ -34,8 +35,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/questions"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Quiz" Size="Size.Large" Color="Color.Primary" />
-                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("QuestionsCardTitle")</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("QuestionsCardDescription")</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("Questions")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("QuestionsManagementDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -44,8 +45,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/tags"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.Label" Size="Size.Large" Color="Color.Success" />
-                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("TagsCardTitle")</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("TagsCardDescription")</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("Tags")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("TagsManagementDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -56,8 +57,8 @@
                 <MudCard Elevation="0" Class="qf-dashboard-card" @onclick="@(() => Navigation.NavigateTo("/admin/users"))">
                     <MudCardContent Class="d-flex flex-column align-center justify-center" Style="height: 100%;">
                         <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Large" Color="Color.Info" />
-                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("UsersCardTitle")</MudText>
-                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("UsersCardDescription")</MudText>
+                        <MudText Typo="Typo.h5" Class="mt-4">@AppStrings.T("Users")</MudText>
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("UsersManagementDescription")</MudText>
                     </MudCardContent>
                 </MudCard>
             </MudItem>
@@ -68,8 +69,8 @@
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.Insights" Color="Color.Secondary" />
             <MudStack Spacing="0">
-                <MudText Typo="Typo.h6">@AppStrings.T("ShortStatsTitle")</MudText>
-                <MudText Class="qf-muted">@AppStrings.T("ShortStatsComingSoon")</MudText>
+                <MudText Typo="Typo.h6">@AppStrings.T("BriefStats")</MudText>
+                <MudText Class="qf-muted">@AppStrings.T("StatsComingSoon")</MudText>
             </MudStack>
         </MudStack>
     </MudPaper>

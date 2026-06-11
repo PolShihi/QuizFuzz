@@ -77,32 +77,25 @@
                     }
 
                     <!-- Hints -->
-                    <MudPaper Elevation="0" Class="qf-hints-panel pa-3 mb-4">
-                        @if (visibleHints.Any())
-                        {
+                    @if (visibleHints.Any())
+                    {
+                        <MudPaper Elevation="0" Class="qf-hints-panel pa-3 mb-4">
                             <MudStack Spacing="2">
-                                @foreach (var hint in visibleHints.OrderBy(h => h.OrderIndex))
+                                @foreach (var item in visibleHints.OrderBy(h => h.OrderIndex).Select((hint, index) => new { Hint = hint, Number = index + 1 }))
                                 {
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                         <MudIcon Icon="@Icons.Material.Filled.Lightbulb" Size="Size.Small" Color="Color.Warning" />
-                                        <MudText>@GetHintText(hint)</MudText>
+                                        <MudText>@GetHintText(item.Hint, item.Number)</MudText>
                                     </MudStack>
 
-                                    @if (!string.IsNullOrWhiteSpace(hint.MediaUrl))
+                                    @if (!string.IsNullOrWhiteSpace(item.Hint.MediaUrl))
                                     {
-                                        <MudLink Href="@hint.MediaUrl" Target="_blank">@AppStrings.T("OpenHintMedia")</MudLink>
+                                        <MudLink Href="@item.Hint.MediaUrl" Target="_blank">@AppStrings.T("OpenHintMedia")</MudLink>
                                     }
                                 }
                             </MudStack>
-                        }
-                        else
-                        {
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                                <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" Color="Color.Default" />
-                                <MudText Typo="Typo.body2">@AppStrings.T("HintsWillAppear")</MudText>
-                            </MudStack>
-                        }
-                    </MudPaper>
+                        </MudPaper>
+                    }
 
                     <!-- Answer Input -->
                     <MudPaper Elevation="0" Class="qf-answer-panel pa-4">
@@ -598,9 +591,9 @@
         attempt.ScoreAwarded = isCorrect ? lastScore : 0;
     }
 
-    private string GetHintText(HintDto hint)
+    private string GetHintText(HintDto hint, int displayNumber)
     {
-        var label = AppStrings.Tf("HintNumber", hint.OrderIndex + 1);
+        var label = AppStrings.Tf("HintNumber", displayNumber);
         return string.IsNullOrWhiteSpace(hint.Text) ? label : $"{label}: {hint.Text}";
     }
 

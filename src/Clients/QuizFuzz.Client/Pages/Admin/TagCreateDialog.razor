@@ -1,3 +1,4 @@
+@using QuizFuzz.Client.Localization
 @using MudBlazor
 
 <MudDialog>
@@ -6,16 +7,16 @@
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudTextField Label='@AppStrings.T("Name")'
+            <MudTextField Label="@AppStrings.T("Name")"
                           @bind-Value="name"
                           Variant="Variant.Outlined"
                           Required="true"
-                          RequiredError='@AppStrings.T("TagNameRequired")'
+                          RequiredError="@AppStrings.T("TagNameRequired")"
                           Immediate="true"
                           MaxLength="50"
                           Counter="50"
-                          HelperText='@AppStrings.T("TagNameHelper")' />
-            <MudTextField Label='@AppStrings.T("Description")'
+                          HelperText="@AppStrings.T("TagNameHelper")" />
+            <MudTextField Label="@AppStrings.T("Description")"
                           @bind-Value="description"
                           Lines="3"
                           MaxLength="500"
@@ -29,7 +30,7 @@
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="@Cancel">@AppStrings.T("CommonCancel")</MudButton>
+        <MudButton OnClick="@Cancel">@AppStrings.T("Cancel")</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="@Submit">@AppStrings.T("CommonCreate")</MudButton>
     </DialogActions>
 </MudDialog>

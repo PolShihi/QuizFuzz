@@ -45,6 +45,18 @@ public class QuestionAnswerConfiguration : IEntityTypeConfiguration<QuestionAnsw
             .HasColumnName("is_active")
             .HasDefaultValue(true);
 
+        builder.Property(qa => qa.AllowFuzzyMatch)
+            .HasColumnName("AllowFuzzyMatch")
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(qa => qa.MaxEditDistance)
+            .HasColumnName("MaxEditDistance");
+
+        builder.Property(qa => qa.MinConfidence)
+            .HasColumnName("MinConfidence")
+            .HasPrecision(3, 2);
+
         builder.Property(qa => qa.CreatedAt)
             .HasColumnName("created_at")
             .HasDefaultValueSql("CURRENT_TIMESTAMP");

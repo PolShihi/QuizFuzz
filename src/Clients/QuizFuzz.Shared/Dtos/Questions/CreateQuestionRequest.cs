@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace QuizFuzz.Shared.Dtos.Questions;
 
@@ -58,6 +59,13 @@ public class CreateAnswerRequest
     /// Для строгих ответов установите 0.95-1.0!
     /// </summary>
     public decimal? MinConfidence { get; set; }
+
+    [JsonIgnore]
+    public decimal? AcceptanceThreshold
+    {
+        get => MinConfidence;
+        set => MinConfidence = value;
+    }
 }
 
 public class CreateAliasRequest

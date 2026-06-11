@@ -13,8 +13,9 @@ public class FuzzyMatchingService : IFuzzyMatchingService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<FuzzyMatchingService> _logger;
 
-    //  DEFAULT Thresholds (используются если не заданы в QuestionAnswer)
-    private const decimal DefaultMinConfidenceThreshold = 0.75m;
+    // Индивидуальный порог принятия ответа используется из QuestionAnswer.MinConfidence.
+    // Если порог не задан, применяется безопасное значение по умолчанию.
+    private const decimal DefaultAcceptanceThreshold = 0.75m;
     private const int DefaultMaxEditDistance = 2;
     
     // Старые константы (для обратной совместимости)
@@ -207,7 +208,7 @@ public class FuzzyMatchingService : IFuzzyMatchingService
                     {
                         IsCorrect = true,
                         Strategy = MatchStrategy.Alias,
-                        Confidence = HighConfidenceThreshold,
+                        Confidence = ExactMatchThreshold,
                         NormalizedAnswer = normalizedUserAnswer,
                         MatchedQuestionAnswerId = answer.Id,
                         MatchedAliasId = alias.Id
@@ -238,7 +239,7 @@ public class FuzzyMatchingService : IFuzzyMatchingService
             
             //  НОВОЕ: Получаем настройки из ответа или используем defaults
             var maxEditDistance = answer.MaxEditDistance ?? DefaultMaxEditDistance;
-            var minConfidence = answer.MinConfidence ?? DefaultMinConfidenceThreshold;
+            var minConfidence = answer.MinConfidence ?? DefaultAcceptanceThreshold;
             
             _logger.LogDebug("    [EditDistance] Answer {AnswerId}: '{Text}' (MaxEditDist: {MaxDist}, MinConf: {MinConf:P0})", 
                 answer.Id, answer.AnswerText, maxEditDistance, minConfidence);
@@ -302,7 +303,7 @@ public class FuzzyMatchingService : IFuzzyMatchingService
             }
             
             //  НОВОЕ: Получаем минимальную confidence из ответа или используем default
-            var minConfidence = answer.MinConfidence ?? DefaultMinConfidenceThreshold;
+            var minConfidence = answer.MinConfidence ?? DefaultAcceptanceThreshold;
             
             _logger.LogDebug("    [Token] Answer {AnswerId}: '{Text}' (MinConf: {MinConf:P0})", 
                 answer.Id, answer.AnswerText, minConfidence);
@@ -373,7 +374,7 @@ public class FuzzyMatchingService : IFuzzyMatchingService
             
             //  Получаем настройки из ответа или используем defaults
             var maxEditDistance = answer.MaxEditDistance ?? DefaultMaxEditDistance;
-            var minConfidence = answer.MinConfidence ?? DefaultMinConfidenceThreshold;
+            var minConfidence = answer.MinConfidence ?? DefaultAcceptanceThreshold;
             
             // Транслитерируем правильный ответ
             var answerTranslit = Transliterator.ToLatin(answer.NormalizedAnswer);
@@ -444,9 +445,9 @@ public class FuzzyMatchingService : IFuzzyMatchingService
                 continue;
             }
             
-            //  Получаем минимальную confidence из ответа или используем default
-            // Для фонетики используем чуть более низкий порог (т.к. это последний шаг)
-            var minConfidence = (answer.MinConfidence ?? DefaultMinConfidenceThreshold) * 0.9m;
+            // Получаем индивидуальный порог принятия из ответа или используем default.
+            // Порог не смягчается для фонетики: он является явным правилом модератора/автора.
+            var minConfidence = answer.MinConfidence ?? DefaultAcceptanceThreshold;
             
             // Транслитерируем правильный ответ
             var answerTranslit = Transliterator.ToLatin(answer.NormalizedAnswer);

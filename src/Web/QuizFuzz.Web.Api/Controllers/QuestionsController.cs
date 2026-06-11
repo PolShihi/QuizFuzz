@@ -36,38 +36,30 @@ public class QuestionsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetQuestions(
         [FromQuery] QuestionStatus? status = null,
-        [FromQuery] Difficulty? difficulty = null)
+        [FromQuery] Difficulty? difficulty = null,
+        [FromQuery] Guid[]? tagIds = null)
     {
-        IReadOnlyList<Question> questions;
+        var effectiveStatus = status ?? QuestionStatus.Approved;
 
-        if (status.HasValue)
-        {
-            questions = await _unitOfWork.Questions.GetByStatusAsync(status.Value);
-        }
-        else
-        {
-            // По умолчанию только одобренные вопросы
-            questions = await _unitOfWork.Questions.GetByStatusAsync(QuestionStatus.Approved);
-        }
+        var questions = await _unitOfWork.Questions.GetForModerationQueueAsync(
+            effectiveStatus,
+            limit: 1000,
+            cancellationToken: HttpContext.RequestAborted);
 
         if (difficulty.HasValue)
         {
             questions = questions.Where(q => q.Difficulty == difficulty.Value).ToList();
         }
 
-        // Resolve author usernames + answer counts (list endpoint is lightweight: no full DTO expansion)
-        var authorIds = questions.Where(q => q.AuthorUserId.HasValue).Select(q => q.AuthorUserId!.Value).Distinct().ToList();
-        var allUsers = await _unitOfWork.Users.GetAllAsync();
-        var userDict = allUsers
-            .Where(u => authorIds.Contains(u.Id))
-            .ToDictionary(u => u.Id, u => u.Username);
-
-        // Answers counts (без тяжелых Include в репозитории списка)
-        var answerCounts = new Dictionary<Guid, int>();
-        foreach (var q in questions)
+        if (tagIds is { Length: > 0 })
         {
-            var answers = await _unitOfWork.QuestionAnswers.GetByQuestionIdAsync(q.Id);
-            answerCounts[q.Id] = answers.Count;
+            var selectedTagIds = tagIds.Where(id => id != Guid.Empty).ToHashSet();
+            if (selectedTagIds.Count > 0)
+            {
+                questions = questions
+                    .Where(q => q.Tags.Any(qt => selectedTagIds.Contains(qt.TagId)))
+                    .ToList();
+            }
         }
 
         var result = questions.Select(q => new QuestionDto
@@ -80,13 +72,23 @@ public class QuestionsController : ControllerBase
             LanguageCode = q.LanguageCode,
             Status = q.Status.ToString(),
             AuthorUserId = q.AuthorUserId,
-            AuthorUsername = q.AuthorUserId.HasValue && userDict.TryGetValue(q.AuthorUserId.Value, out var username) ? username : null,
+            AuthorUsername = q.Author?.Username,
             CreatedAt = q.CreatedAt,
             UpdatedAt = q.UpdatedAt,
-            Answers = new List<QuestionAnswerDto>(), // Simplified list endpoint
-            AnswersCount = answerCounts.TryGetValue(q.Id, out var count) ? count : 0,
+            Answers = new List<QuestionAnswerDto>(),
+            AnswersCount = q.Answers?.Count ?? 0,
             Hints = new List<HintDto>(),
-            Tags = new List<TagDto>()
+            Tags = (q.Tags ?? Array.Empty<QuestionTag>())
+                .Where(qt => qt.Tag != null)
+                .OrderBy(qt => qt.Tag.Name)
+                .Select(qt => new TagDto
+                {
+                    Id = qt.Tag.Id,
+                    Name = qt.Tag.Name,
+                    Description = qt.Tag.Description,
+                    IsActive = qt.Tag.IsActive
+                })
+                .ToList()
         }).ToList();
 
         return Ok(result);
@@ -428,6 +430,53 @@ public class QuestionsController : ControllerBase
 
                     created.AddAlias(aliasReq.AliasText, aliasKind);
                 }
+            }
+        }
+
+        // Hints: update existing + add new first, then delete removed.
+        var requestedHints = (request.Hints ?? new List<UpdateHintRequest>())
+            .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+            .OrderBy(h => h.RevealTimeSeconds)
+            .ThenBy(h => h.OrderIndex)
+            .Select((h, index) => new
+            {
+                Hint = h,
+                NormalizedOrderIndex = index
+            })
+            .ToList();
+
+        var existingHintsById = question.Hints.ToDictionary(h => h.Id, h => h);
+        var requestedExistingHintIds = requestedHints
+            .Where(h => h.Hint.Id.HasValue)
+            .Select(h => h.Hint.Id!.Value)
+            .ToHashSet();
+
+        foreach (var requestedHint in requestedHints)
+        {
+            var hintReq = requestedHint.Hint;
+            if (hintReq.Id.HasValue && existingHintsById.TryGetValue(hintReq.Id.Value, out var existingHint))
+            {
+                existingHint.UpdateOrderIndex(requestedHint.NormalizedOrderIndex);
+                existingHint.UpdateHintText(hintReq.HintText);
+                existingHint.UpdateRevealTime(hintReq.RevealTimeSeconds);
+            }
+            else
+            {
+                question.AddHint(
+                    requestedHint.NormalizedOrderIndex,
+                    hintReq.HintText.Trim(),
+                    hintReq.RevealTimeSeconds);
+            }
+        }
+
+        foreach (var existingHint in question.Hints.ToList())
+        {
+            if (!requestedExistingHintIds.Contains(existingHint.Id) &&
+                !requestedHints.Any(h => !h.Hint.Id.HasValue &&
+                    string.Equals(h.Hint.HintText.Trim(), existingHint.HintText, StringComparison.OrdinalIgnoreCase) &&
+                    h.Hint.RevealTimeSeconds == existingHint.RevealTimeSec))
+            {
+                question.RemoveHint(existingHint.Id);
             }
         }
 
