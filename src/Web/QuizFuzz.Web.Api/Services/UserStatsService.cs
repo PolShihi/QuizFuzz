@@ -112,6 +112,37 @@ public class UserStatsService : IUserStatsService
         var hasPerfectGame = scoreboards.Any(s => s.Session.TotalRoundsPlayed > 0 && s.CorrectCount >= s.Session.TotalRoundsPlayed);
 
         var tagStats = BuildTagStats(byRound);
+        var favoriteTags = tagStats
+            .OrderByDescending(x => x.QuestionsAnswered)
+            .ThenByDescending(x => x.Accuracy)
+            .Take(5)
+            .ToList();
+        var eligibleTagStats = tagStats
+            .Where(x => x.QuestionsAnswered >= 2)
+            .ToList();
+
+        var strongTags = eligibleTagStats
+            .Where(x => x.Accuracy >= 75)
+            .OrderByDescending(x => x.Accuracy)
+            .ThenByDescending(x => x.QuestionsAnswered)
+            .ThenBy(x => x.TagName)
+            .Take(3)
+            .ToList();
+
+        var strongTagIds = strongTags
+            .Select(x => x.TagId)
+            .ToHashSet();
+
+        var weakTags = eligibleTagStats
+            .Where(x => x.Accuracy < 60)
+            .Where(x => !strongTagIds.Contains(x.TagId))
+            .OrderBy(x => x.Accuracy)
+            .ThenByDescending(x => x.QuestionsAnswered)
+            .ThenBy(x => x.TagName)
+            .Take(3)
+            .ToList();
+
+        var authorStats = await BuildAuthorStatsAsync(userId, cancellationToken);
 
         var snapshot = new UserStatsSnapshot(
             gamesPlayed,
@@ -152,7 +183,10 @@ public class UserStatsService : IUserStatsService
             LastPlayedAt = history.FirstOrDefault()?.PlayedAt,
             HasActiveSubscription = subscription != null,
             SubscriptionExpiresAt = subscription?.ExpiresAt,
-            FavoriteTags = tagStats,
+            FavoriteTags = favoriteTags,
+            StrongTags = strongTags,
+            WeakTags = weakTags,
+            AuthorStats = authorStats,
             Achievements = achievements,
             RecentGames = history.Take(5).ToList()
         };
@@ -305,8 +339,60 @@ public class UserStatsService : IUserStatsService
             })
             .OrderByDescending(x => x.QuestionsAnswered)
             .ThenByDescending(x => x.Accuracy)
-            .Take(5)
             .ToList();
+    }
+
+    private async Task<AuthorQuestionStatsDto> BuildAuthorStatsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var questions = await _db.Questions
+            .AsNoTracking()
+            .Where(q => q.AuthorUserId == userId)
+            .Select(q => new { q.Id, q.Status })
+            .ToListAsync(cancellationToken);
+
+        if (questions.Count == 0)
+        {
+            return new AuthorQuestionStatsDto();
+        }
+
+        var questionIds = questions.Select(q => q.Id).ToList();
+        var total = questions.Count;
+        var approved = questions.Count(q => q.Status == QuestionStatus.Approved);
+        var underReview = questions.Count(q => q.Status == QuestionStatus.UnderReview);
+        var rejected = questions.Count(q => q.Status == QuestionStatus.Rejected);
+        var draft = questions.Count(q => q.Status == QuestionStatus.Draft);
+
+        var playedRoundIds = await _db.GameRounds
+            .AsNoTracking()
+            .Where(r => questionIds.Contains(r.QuestionId) && r.Session.Status == GameSessionStatus.Finished)
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        var attempts = playedRoundIds.Count == 0
+            ? 0
+            : await _db.PlayerAnswers
+                .AsNoTracking()
+                .CountAsync(a => playedRoundIds.Contains(a.RoundId), cancellationToken);
+
+        var correctAnswers = playedRoundIds.Count == 0
+            ? 0
+            : await _db.PlayerAnswers
+                .AsNoTracking()
+                .CountAsync(a => playedRoundIds.Contains(a.RoundId) && a.Evaluation != null && a.Evaluation.IsCorrect, cancellationToken);
+
+        return new AuthorQuestionStatsDto
+        {
+            TotalQuestions = total,
+            ApprovedQuestions = approved,
+            UnderReviewQuestions = underReview,
+            RejectedQuestions = rejected,
+            DraftQuestions = draft,
+            ApprovalRate = total == 0 ? 0 : Math.Round((double)approved / total * 100, 1),
+            TimesPlayed = playedRoundIds.Count,
+            AnswerAttempts = attempts,
+            CorrectAnswers = correctAnswers,
+            AnswerAccuracy = attempts == 0 ? 0 : Math.Round((double)correctAnswers / attempts * 100, 1)
+        };
     }
 
     private static int CalculateCurrentWinStreak(IReadOnlyList<GameHistoryItemDto> historyAscending)

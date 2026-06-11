@@ -35,6 +35,9 @@ public class UserStatsDto
     public DateTime? SubscriptionExpiresAt { get; set; }
 
     public List<UserTagStatDto> FavoriteTags { get; set; } = new();
+    public List<UserTagStatDto> StrongTags { get; set; } = new();
+    public List<UserTagStatDto> WeakTags { get; set; } = new();
+    public AuthorQuestionStatsDto AuthorStats { get; set; } = new();
     public List<UserAchievementDto> Achievements { get; set; } = new();
     public List<GameHistoryItemDto> RecentGames { get; set; } = new();
 }

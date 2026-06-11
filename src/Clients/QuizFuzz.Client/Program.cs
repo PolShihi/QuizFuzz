@@ -156,6 +156,17 @@ builder.Services.AddScoped<ISubscriptionsApiClient>(sp =>
     return new SubscriptionsApiClient(httpClient);
 });
 
+builder.Services.AddScoped<ILeaderboardApiClient>(sp =>
+{
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new LeaderboardApiClient(httpClient);
+});
+
 
 var host = builder.Build();
 

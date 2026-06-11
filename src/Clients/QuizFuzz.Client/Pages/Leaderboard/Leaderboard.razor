@@ -1,0 +1,144 @@
+@page "/leaderboard"
+@attribute [Authorize]
+@using QuizFuzz.Shared.Dtos.Leaderboard
+@using QuizFuzz.Client.Services.Api
+@inject ILeaderboardApiClient LeaderboardClient
+
+<PageTitle>@AppStrings.T("LeaderboardPageTitle")</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-6">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-5 flex-wrap gap-3">
+        <div>
+            <MudText Typo="Typo.h4">@AppStrings.T("Leaderboard")</MudText>
+            <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("LeaderboardDescription")</MudText>
+        </div>
+        <MudButton Href="/profile" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Person">
+            @AppStrings.T("BackToProfile")
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Elevation="0" Class="qf-panel pa-4 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-wrap gap-3">
+            <MudSelect T="string" Label='@AppStrings.T("Period")' Value="@selectedPeriod" ValueChanged="OnPeriodChanged" Dense="true" Style="min-width: 170px;">
+                <MudSelectItem Value='@("Global")'>@AppStrings.T("PeriodGlobal")</MudSelectItem>
+                <MudSelectItem Value='@("Weekly")'>@AppStrings.T("PeriodWeekly")</MudSelectItem>
+                <MudSelectItem Value='@("Monthly")'>@AppStrings.T("PeriodMonthly")</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="string" Label='@AppStrings.T("Metric")' Value="@selectedMetric" ValueChanged="OnMetricChanged" Dense="true" Style="min-width: 170px;">
+                <MudSelectItem Value='@("Score")'>@AppStrings.T("MetricScore")</MudSelectItem>
+                <MudSelectItem Value='@("Wins")'>@AppStrings.T("MetricWins")</MudSelectItem>
+                <MudSelectItem Value='@("Accuracy")'>@AppStrings.T("MetricAccuracy")</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadLeaderboard" Disabled="isLoading">
+                @AppStrings.T("Refresh")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @if (isLoading)
+    {
+        <MudPaper Elevation="0" Class="qf-panel pa-6 text-center">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <MudText Class="mt-3">@AppStrings.T("LoadingLeaderboard")</MudText>
+        </MudPaper>
+    }
+    else if (leaderboard == null || leaderboard.Entries.Count == 0)
+    {
+        <MudPaper Elevation="0" Class="qf-panel pa-6 text-center">
+            <MudIcon Icon="@Icons.Material.Filled.EmojiEvents" Size="Size.Large" Color="Color.Warning" />
+            <MudText Typo="Typo.h6" Class="mt-3">@AppStrings.T("LeaderboardEmpty")</MudText>
+            <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("LeaderboardEmptyHint")</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        @if (leaderboard.CurrentUserEntry != null)
+        {
+            <MudPaper Elevation="0" Class="qf-panel pa-4 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap gap-3">
+                    <MudStack Spacing="1">
+                        <MudText Typo="Typo.subtitle2">@AppStrings.T("YourLeaderboardRank")</MudText>
+                        <MudText Typo="Typo.h5">#@leaderboard.CurrentUserEntry.Rank / @leaderboard.TotalPlayers</MudText>
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText Typo="Typo.body1">@leaderboard.CurrentUserEntry.Username</MudText>
+                        @if (leaderboard.CurrentUserEntry.HasActiveSubscription)
+                        {
+                            <PremiumBadge />
+                        }
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        <MudPaper Elevation="0" Class="qf-panel pa-0">
+            <MudTable Items="@leaderboard.Entries" Dense="true" Hover="true" Elevation="0">
+                <HeaderContent>
+                    <MudTh>@AppStrings.T("Rank")</MudTh>
+                    <MudTh>@AppStrings.T("Player")</MudTh>
+                    <MudTh>@AppStrings.T("Score")</MudTh>
+                    <MudTh>@AppStrings.T("GamesPlayed")</MudTh>
+                    <MudTh>@AppStrings.T("GamesWon")</MudTh>
+                    <MudTh>@AppStrings.T("Accuracy")</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>#@context.Rank</MudTd>
+                    <MudTd>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText>@context.Username</MudText>
+                            @if (context.HasActiveSubscription)
+                            {
+                                <PremiumBadge />
+                            }
+                        </MudStack>
+                    </MudTd>
+                    <MudTd>@context.TotalScore</MudTd>
+                    <MudTd>@context.GamesPlayed</MudTd>
+                    <MudTd>@context.GamesWon</MudTd>
+                    <MudTd>@context.Accuracy.ToString("F1")%</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudText Typo="Typo.caption" Class="qf-muted d-block mt-3">
+            @AppStrings.Tf("LeaderboardUpdatedAt", leaderboard.CalculatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))
+        </MudText>
+    }
+</MudContainer>
+
+@code {
+    private LeaderboardResponseDto? leaderboard;
+    private bool isLoading;
+    private string selectedPeriod = "Global";
+    private string selectedMetric = "Score";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLeaderboard();
+    }
+
+    private async Task OnPeriodChanged(string value)
+    {
+        selectedPeriod = value;
+        await LoadLeaderboard();
+    }
+
+    private async Task OnMetricChanged(string value)
+    {
+        selectedMetric = value;
+        await LoadLeaderboard();
+    }
+
+    private async Task LoadLeaderboard()
+    {
+        isLoading = true;
+        try
+        {
+            leaderboard = await LeaderboardClient.GetLeaderboardAsync(selectedPeriod, selectedMetric, 50);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

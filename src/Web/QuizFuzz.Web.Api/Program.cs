@@ -55,8 +55,9 @@ builder.Services.AddScoped<QuizFuzz.Application.Common.Interfaces.Services.ICurr
 // Round hint scheduling
 builder.Services.AddSingleton<IHintRevealScheduler, HintRevealScheduler>();
 
-// User stats and achievements
+// User stats, achievements and leaderboards
 builder.Services.AddScoped<IUserStatsService, UserStatsService>();
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 
 // Room cleanup
 builder.Services.Configure<RoomCleanupOptions>(builder.Configuration.GetSection("RoomCleanup"));

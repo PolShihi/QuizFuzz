@@ -38,6 +38,18 @@
             </MudStack>
         </MudPaper>
 
+        <MudPaper Elevation="0" Class="qf-panel pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="flex-wrap gap-3">
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.h6">@AppStrings.T("Leaderboard")</MudText>
+                    <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("LeaderboardProfileHint")</MudText>
+                </MudStack>
+                <MudButton Href="/leaderboard" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Leaderboard">
+                    @AppStrings.T("OpenLeaderboard")
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
         <MudGrid Spacing="3">
             <MudItem xs="12" sm="6" md="3">
                 <MudPaper Elevation="0" Class="qf-stat-card pa-4">
@@ -132,6 +144,97 @@
                                 </MudPaper>
                             }
                         </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="0" Class="qf-panel pa-5">
+                    <MudText Typo="Typo.h6" Class="mb-4">@AppStrings.T("StrongCategories")</MudText>
+                    @if (stats.StrongTags.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("NoStrongCategoriesYet")</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var tag in stats.StrongTags)
+                            {
+                                <MudPaper Elevation="0" Class="qf-player-row pa-3">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="gap-3">
+                                        <MudText Typo="Typo.body2">@tag.TagName</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Success">@AppStrings.Tf("TagStatSummary", tag.QuestionsAnswered, tag.Accuracy)</MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="0" Class="qf-panel pa-5">
+                    <MudText Typo="Typo.h6" Class="mb-4">@AppStrings.T("WeakCategories")</MudText>
+                    @if (stats.WeakTags.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("NoWeakCategoriesYet")</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var tag in stats.WeakTags)
+                            {
+                                <MudPaper Elevation="0" Class="qf-player-row pa-3">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="gap-3">
+                                        <MudText Typo="Typo.body2">@tag.TagName</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Warning">@AppStrings.Tf("TagStatSummary", tag.QuestionsAnswered, tag.Accuracy)</MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12">
+                <MudPaper Elevation="0" Class="qf-panel pa-5">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.EditNote" Color="Color.Info" />
+                        <MudText Typo="Typo.h6">@AppStrings.T("AuthorQuestionStats")</MudText>
+                    </MudStack>
+
+                    @if (stats.AuthorStats.TotalQuestions == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("NoAuthorStatsYet")</MudText>
+                    }
+                    else
+                    {
+                        <MudGrid>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudText Typo="Typo.caption" Class="qf-muted">@AppStrings.T("QuestionsTotal")</MudText>
+                                <MudText Typo="Typo.h6">@stats.AuthorStats.TotalQuestions</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudText Typo="Typo.caption" Class="qf-muted">@AppStrings.T("QuestionsApproved")</MudText>
+                                <MudText Typo="Typo.h6" Color="Color.Success">@stats.AuthorStats.ApprovedQuestions</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudText Typo="Typo.caption" Class="qf-muted">@AppStrings.T("ApprovalRate")</MudText>
+                                <MudText Typo="Typo.h6">@stats.AuthorStats.ApprovalRate.ToString("F1")%</MudText>
+                            </MudItem>
+                            <MudItem xs="12" sm="6" md="3">
+                                <MudText Typo="Typo.caption" Class="qf-muted">@AppStrings.T("QuestionsPlayed")</MudText>
+                                <MudText Typo="Typo.h6">@stats.AuthorStats.TimesPlayed</MudText>
+                            </MudItem>
+                        </MudGrid>
+                        <MudSimpleTable Dense="true" Class="mt-4">
+                            <tbody>
+                                <tr><td>@AppStrings.T("StatusUnderReview")</td><td class="text-end">@stats.AuthorStats.UnderReviewQuestions</td></tr>
+                                <tr><td>@AppStrings.T("StatusRejected")</td><td class="text-end">@stats.AuthorStats.RejectedQuestions</td></tr>
+                                <tr><td>@AppStrings.T("StatusDraft")</td><td class="text-end">@stats.AuthorStats.DraftQuestions</td></tr>
+                                <tr><td>@AppStrings.T("AuthorQuestionsAnswerAccuracy")</td><td class="text-end">@stats.AuthorStats.AnswerAccuracy.ToString("F1")%</td></tr>
+                            </tbody>
+                        </MudSimpleTable>
                     }
                 </MudPaper>
             </MudItem>

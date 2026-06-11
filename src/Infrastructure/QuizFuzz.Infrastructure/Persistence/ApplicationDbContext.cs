@@ -20,6 +20,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
     public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
     public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+    public DbSet<LeaderboardEntry> LeaderboardEntries => Set<LeaderboardEntry>();
 
     // Questions and Content
     public DbSet<Question> Questions => Set<Question>();
