@@ -25,6 +25,7 @@ public class RoomsController : ControllerBase
     private readonly ILogger<RoomsController> _logger;
     private readonly IHubContext<LobbyHub> _lobbyHubContext;
     private readonly IHintRevealScheduler _hintRevealScheduler;
+    private readonly IRoomCleanupService _roomCleanupService;
 
     public RoomsController(
         IUnitOfWork unitOfWork,
@@ -32,7 +33,8 @@ public class RoomsController : ControllerBase
         IPasswordHasher passwordHasher,
         ILogger<RoomsController> logger,
         IHubContext<LobbyHub> lobbyHubContext,
-        IHintRevealScheduler hintRevealScheduler)
+        IHintRevealScheduler hintRevealScheduler,
+        IRoomCleanupService roomCleanupService)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
@@ -40,6 +42,7 @@ public class RoomsController : ControllerBase
         _logger = logger;
         _lobbyHubContext = lobbyHubContext;
         _hintRevealScheduler = hintRevealScheduler;
+        _roomCleanupService = roomCleanupService;
     }
 
     /// <summary>
@@ -51,7 +54,8 @@ public class RoomsController : ControllerBase
     {
         _logger.LogDebug(" [GetRooms] Loading lobby rooms list");
         
-        var rooms = await _unitOfWork.Rooms.GetLobbyRoomsAsync();
+        await _roomCleanupService.CleanupAsync(HttpContext.RequestAborted);
+        var rooms = await _unitOfWork.Rooms.GetLobbyRoomsAsync(HttpContext.RequestAborted);
         
         _logger.LogDebug(" [GetRooms] Found {Count} rooms", rooms.Count());
 
@@ -92,7 +96,8 @@ public class RoomsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> GetPublicRooms()
     {
-        var rooms = await _unitOfWork.Rooms.GetPublicRoomsAsync();
+        await _roomCleanupService.CleanupAsync(HttpContext.RequestAborted);
+        var rooms = await _unitOfWork.Rooms.GetPublicRoomsAsync(HttpContext.RequestAborted);
 
         var result = rooms.Select(r => new RoomListItemDto
         {

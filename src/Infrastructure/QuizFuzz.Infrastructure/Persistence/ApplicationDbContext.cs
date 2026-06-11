@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext
     // Users and Auth
     public DbSet<User> Users => Set<User>();
     public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     // Questions and Content
     public DbSet<Question> Questions => Set<Question>();

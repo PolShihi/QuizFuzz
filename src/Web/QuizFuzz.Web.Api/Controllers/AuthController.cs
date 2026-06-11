@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
 using QuizFuzz.Domain.Entities;
-using QuizFuzz.Domain.Enums;
 using QuizFuzz.Domain.ValueObjects;
 using QuizFuzz.Shared.Dtos.Auth;
 
@@ -20,17 +19,22 @@ public class AuthController : ControllerBase
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly ILogger<AuthController> _logger;
+    private readonly int _accessTokenExpirationMinutes;
+    private readonly int _refreshTokenExpirationDays;
 
     public AuthController(
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
+        IConfiguration configuration,
         ILogger<AuthController> logger)
     {
         _unitOfWork = unitOfWork;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _logger = logger;
+        _accessTokenExpirationMinutes = int.Parse(configuration["Jwt:AccessTokenExpirationMinutes"] ?? "60");
+        _refreshTokenExpirationDays = int.Parse(configuration["Jwt:RefreshTokenExpirationDays"] ?? "7");
     }
 
     /// <summary>
@@ -41,7 +45,6 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        // Validation
         if (string.IsNullOrWhiteSpace(request.Username) || request.Username.Length < 3)
             return BadRequest("Username must be at least 3 characters");
 
@@ -51,7 +54,6 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
             return BadRequest("Password must be at least 6 characters");
 
-        // Check if username or email already exists
         if (await _unitOfWork.Users.IsUsernameTakenAsync(request.Username))
             return BadRequest("Username is already taken");
 
@@ -60,34 +62,18 @@ public class AuthController : ControllerBase
 
         try
         {
-            // Create email value object
             var email = Email.Create(request.Email);
-
-            // Hash password
             var passwordHash = _passwordHasher.HashPassword(request.Password);
-
-            // Create user
             var user = new User(request.Username, email, passwordHash);
 
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
 
-            // Generate tokens
-            var roles = user.Roles.Select(r => r.ToString());
-            var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, email.Value, roles);
-            var refreshToken = _tokenService.GenerateRefreshToken();
+            var authResponse = await CreateAuthResponseAsync(user);
 
             _logger.LogDebug("User {Username} registered successfully", request.Username);
 
-            return Ok(new AuthResponse
-            {
-                UserId = user.Id,
-                Username = user.Username,
-                Email = email.Value,
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                Roles = roles.ToList()
-            });
+            return Ok(authResponse);
         }
         catch (ArgumentException ex)
         {
@@ -109,22 +95,13 @@ public class AuthController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Password))
             return BadRequest("Password is required");
 
-        // Try to find user by email or username
-        User? user = null;
-
-        if (request.EmailOrUsername.Contains('@'))
-        {
-            user = await _unitOfWork.Users.GetByEmailAsync(request.EmailOrUsername);
-        }
-        else
-        {
-            user = await _unitOfWork.Users.GetByUsernameAsync(request.EmailOrUsername);
-        }
+        var user = request.EmailOrUsername.Contains('@')
+            ? await _unitOfWork.Users.GetByEmailAsync(request.EmailOrUsername)
+            : await _unitOfWork.Users.GetByUsernameAsync(request.EmailOrUsername);
 
         if (user == null)
             return Unauthorized("Invalid credentials");
 
-        // Check if user is banned
         if (user.IsBanActive())
         {
             if (user.BannedUntil.HasValue)
@@ -139,30 +116,17 @@ public class AuthController : ControllerBase
             await _unitOfWork.SaveChangesAsync();
         }
 
-        // Verify password
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
             return Unauthorized("Invalid credentials");
 
-        // Update last login
         user.UpdateLastLogin();
         await _unitOfWork.SaveChangesAsync();
 
-        // Generate tokens
-        var roles = user.Roles.Select(r => r.ToString());
-        var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
-        var refreshToken = _tokenService.GenerateRefreshToken();
+        var authResponse = await CreateAuthResponseAsync(user);
 
         _logger.LogDebug("User {Username} logged in successfully", user.Username);
 
-        return Ok(new AuthResponse
-        {
-            UserId = user.Id,
-            Username = user.Username,
-            Email = user.Email.Value,
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            Roles = roles.ToList()
-        });
+        return Ok(authResponse);
     }
 
     /// <summary>
@@ -174,72 +138,162 @@ public class AuthController : ControllerBase
     public IActionResult ValidateToken([FromBody] string token)
     {
         var isValid = _tokenService.ValidateToken(token);
-        
+
         if (isValid)
             return Ok(new { valid = true });
-        
+
         return Unauthorized(new { valid = false });
     }
 
     /// <summary>
-    /// Обновить access token используя refresh token
+    /// Обновить пару access/refresh token. Refresh token используется один раз и ротируется.
     /// </summary>
     [HttpPost("refresh")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
             return BadRequest("Refresh token is required");
 
-        // В реальном приложении нужно проверить refresh token из БД
-        // Здесь упрощенная версия - извлекаем userId из старого access token
-        var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken);
-        if (principal == null)
-            return Unauthorized("Invalid access token");
+        var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
+        var storedToken = await _unitOfWork.RefreshTokens.GetByTokenHashAsync(tokenHash);
 
-        var userIdClaim = principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return Unauthorized("Invalid token claims");
+        if (storedToken == null)
+            return Unauthorized("Invalid refresh token");
 
-        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        var user = await _unitOfWork.Users.GetByIdAsync(storedToken.UserId);
         if (user == null)
             return Unauthorized("User not found");
+
+        if (storedToken.IsRevoked)
+        {
+            await _unitOfWork.RefreshTokens.RevokeAllActiveByUserIdAsync(user.Id, GetClientIpAddress());
+            await _unitOfWork.SaveChangesAsync();
+            _logger.LogWarning("Refresh token reuse detected for user {UserId}; active refresh tokens revoked", user.Id);
+            return Unauthorized("Refresh token was already used");
+        }
+
+        if (storedToken.IsExpired())
+            return Unauthorized("Refresh token expired");
 
         if (user.IsBanActive())
             return Unauthorized("User is banned");
 
-        // Генерируем новые токены
-        var roles = user.Roles.Select(r => r.ToString());
-        var newAccessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
+        var newRefreshTokenHash = _tokenService.HashRefreshToken(newRefreshToken);
+        var refreshExpiresAt = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays);
 
-        _logger.LogDebug("Tokens refreshed for user {UserId}", userId);
+        storedToken.Revoke(GetClientIpAddress(), newRefreshTokenHash);
 
-        return Ok(new
+        var replacementToken = new RefreshToken(
+            user.Id,
+            newRefreshTokenHash,
+            refreshExpiresAt,
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        await _unitOfWork.RefreshTokens.AddAsync(replacementToken);
+        await _unitOfWork.SaveChangesAsync();
+
+        var roles = user.Roles.Select(r => r.ToString()).ToList();
+        var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
+
+        _logger.LogDebug("Tokens refreshed for user {UserId}", user.Id);
+
+        return Ok(new AuthResponse
         {
-            accessToken = newAccessToken,
-            refreshToken = newRefreshToken
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email.Value,
+            AccessToken = accessToken,
+            RefreshToken = newRefreshToken,
+            AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
+            RefreshTokenExpiresAt = refreshExpiresAt,
+            Roles = roles
         });
     }
 
     /// <summary>
-    /// Выход из системы (инвалидация токена на клиенте)
+    /// Выход из системы: серверно отзывает текущий refresh token.
     /// </summary>
     [HttpPost("logout")]
-    [Authorize]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        
-        _logger.LogDebug("User {UserId} logged out", userId);
+        if (!string.IsNullOrWhiteSpace(request?.RefreshToken))
+        {
+            var tokenHash = _tokenService.HashRefreshToken(request.RefreshToken);
+            var storedToken = await _unitOfWork.RefreshTokens.GetByTokenHashAsync(tokenHash);
 
-        // В клиентском приложении нужно удалить токены
-        // На сервере можно добавить токен в черный список (опционально)
-        
+            if (storedToken != null)
+            {
+                storedToken.Revoke(GetClientIpAddress());
+                await _unitOfWork.SaveChangesAsync();
+                _logger.LogDebug("Refresh token revoked for user {UserId}", storedToken.UserId);
+            }
+        }
+
         return Ok(new { message = "Logged out successfully" });
     }
-}
 
-public record RefreshTokenRequest(string AccessToken, string RefreshToken);
+    /// <summary>
+    /// Выход со всех устройств: отзывает все активные refresh tokens текущего пользователя.
+    /// </summary>
+    [HttpPost("logout-all")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> LogoutAll()
+    {
+        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        await _unitOfWork.RefreshTokens.RevokeAllActiveByUserIdAsync(userId, GetClientIpAddress());
+        await _unitOfWork.SaveChangesAsync();
+
+        _logger.LogDebug("All refresh tokens revoked for user {UserId}", userId);
+
+        return Ok(new { message = "Logged out from all devices successfully" });
+    }
+
+    private async Task<AuthResponse> CreateAuthResponseAsync(User user)
+    {
+        var roles = user.Roles.Select(r => r.ToString()).ToList();
+        var accessToken = _tokenService.GenerateAccessToken(user.Id, user.Username, user.Email.Value, roles);
+        var refreshToken = _tokenService.GenerateRefreshToken();
+        var refreshTokenHash = _tokenService.HashRefreshToken(refreshToken);
+        var refreshTokenExpiresAt = DateTime.UtcNow.AddDays(_refreshTokenExpirationDays);
+
+        await _unitOfWork.RefreshTokens.AddAsync(new RefreshToken(
+            user.Id,
+            refreshTokenHash,
+            refreshTokenExpiresAt,
+            GetClientIpAddress(),
+            GetUserAgent()));
+
+        await _unitOfWork.SaveChangesAsync();
+
+        return new AuthResponse
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email.Value,
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            AccessTokenExpiresAt = DateTime.UtcNow.AddMinutes(_accessTokenExpirationMinutes),
+            RefreshTokenExpiresAt = refreshTokenExpiresAt,
+            Roles = roles
+        };
+    }
+
+    private string? GetClientIpAddress()
+    {
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
+    }
+
+    private string? GetUserAgent()
+    {
+        return Request.Headers.UserAgent.ToString();
+    }
+}

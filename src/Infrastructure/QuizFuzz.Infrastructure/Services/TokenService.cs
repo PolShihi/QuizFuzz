@@ -64,6 +64,16 @@ public class TokenService : ITokenService
         return Convert.ToBase64String(randomNumber);
     }
 
+
+    public string HashRefreshToken(string refreshToken)
+    {
+        if (string.IsNullOrWhiteSpace(refreshToken))
+            throw new ArgumentException("Refresh token cannot be empty", nameof(refreshToken));
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken));
+        return Convert.ToHexString(bytes);
+    }
+
     public bool ValidateToken(string token)
     {
         if (string.IsNullOrWhiteSpace(token))

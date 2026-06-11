@@ -25,6 +25,7 @@ public class UnitOfWork : IUnitOfWork
     private IScoreboardRepository? _scoreboardRepository;
     private IInvitationRepository? _invitationRepository;
     private IModerationActionRepository? _moderationActionRepository;
+    private IRefreshTokenRepository? _refreshTokenRepository;
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -66,6 +67,9 @@ public class UnitOfWork : IUnitOfWork
 
     public IModerationActionRepository ModerationActions =>
         _moderationActionRepository ??= new ModerationActionRepository(_context);
+
+    public IRefreshTokenRepository RefreshTokens =>
+        _refreshTokenRepository ??= new RefreshTokenRepository(_context);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

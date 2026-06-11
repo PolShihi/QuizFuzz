@@ -12,6 +12,7 @@ public class AuthService : IAuthService
 
     private readonly HttpClient _httpClient;
     private readonly ILocalStorageService _localStorage;
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
     public AuthService(HttpClient httpClient, ILocalStorageService localStorage)
     {
@@ -24,24 +25,14 @@ public class AuthService : IAuthService
         try
         {
             var response = await _httpClient.PostAsJsonAsync("api/auth/login", request);
-            
+
             if (!response.IsSuccessStatusCode)
                 return null;
 
             var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
-            
+
             if (authResponse != null)
-            {
-                await _localStorage.SetItemAsync(TokenKey, authResponse.AccessToken);
-                await _localStorage.SetItemAsync(RefreshTokenKey, authResponse.RefreshToken);
-                await _localStorage.SetItemAsync(UserKey, new UserDto 
-                { 
-                    Id = authResponse.UserId,
-                    Username = authResponse.Username,
-                    Email = authResponse.Email,
-                    Roles = authResponse.Roles.ToList()
-                });
-            }
+                await StoreAuthResponseAsync(authResponse);
 
             return authResponse;
         }
@@ -56,24 +47,14 @@ public class AuthService : IAuthService
         try
         {
             var response = await _httpClient.PostAsJsonAsync("api/auth/register", request);
-            
+
             if (!response.IsSuccessStatusCode)
                 return null;
 
             var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
-            
+
             if (authResponse != null)
-            {
-                await _localStorage.SetItemAsync(TokenKey, authResponse.AccessToken);
-                await _localStorage.SetItemAsync(RefreshTokenKey, authResponse.RefreshToken);
-                await _localStorage.SetItemAsync(UserKey, new UserDto 
-                { 
-                    Id = authResponse.UserId,
-                    Username = authResponse.Username,
-                    Email = authResponse.Email,
-                    Roles = authResponse.Roles.ToList()
-                });
-            }
+                await StoreAuthResponseAsync(authResponse);
 
             return authResponse;
         }
@@ -85,14 +66,79 @@ public class AuthService : IAuthService
 
     public async Task LogoutAsync()
     {
-        await _localStorage.RemoveItemAsync(TokenKey);
-        await _localStorage.RemoveItemAsync(RefreshTokenKey);
-        await _localStorage.RemoveItemAsync(UserKey);
+        var refreshToken = await GetRefreshTokenAsync();
+
+        if (!string.IsNullOrWhiteSpace(refreshToken))
+        {
+            try
+            {
+                await _httpClient.PostAsJsonAsync("api/auth/logout", new LogoutRequest
+                {
+                    RefreshToken = refreshToken
+                });
+            }
+            catch
+            {
+                // Даже если сервер временно недоступен, локальную сессию нужно очистить.
+            }
+        }
+
+        await ClearAuthStateAsync();
+    }
+
+    public async Task<bool> RefreshTokenAsync()
+    {
+        await _refreshLock.WaitAsync();
+
+        try
+        {
+            var refreshToken = await GetRefreshTokenAsync();
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                await ClearAuthStateAsync();
+                return false;
+            }
+
+            var response = await _httpClient.PostAsJsonAsync("api/auth/refresh", new RefreshTokenRequest
+            {
+                RefreshToken = refreshToken
+            });
+
+            if (!response.IsSuccessStatusCode)
+            {
+                await ClearAuthStateAsync();
+                return false;
+            }
+
+            var authResponse = await response.Content.ReadFromJsonAsync<AuthResponse>();
+            if (authResponse == null)
+            {
+                await ClearAuthStateAsync();
+                return false;
+            }
+
+            await StoreAuthResponseAsync(authResponse);
+            return true;
+        }
+        catch
+        {
+            await ClearAuthStateAsync();
+            return false;
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
     }
 
     public async Task<string?> GetTokenAsync()
     {
         return await _localStorage.GetItemAsync<string>(TokenKey);
+    }
+
+    public async Task<string?> GetRefreshTokenAsync()
+    {
+        return await _localStorage.GetItemAsync<string>(RefreshTokenKey);
     }
 
     public async Task<bool> IsAuthenticatedAsync()
@@ -104,5 +150,25 @@ public class AuthService : IAuthService
     public async Task<UserDto?> GetCurrentUserAsync()
     {
         return await _localStorage.GetItemAsync<UserDto>(UserKey);
+    }
+
+    private async Task StoreAuthResponseAsync(AuthResponse authResponse)
+    {
+        await _localStorage.SetItemAsync(TokenKey, authResponse.AccessToken);
+        await _localStorage.SetItemAsync(RefreshTokenKey, authResponse.RefreshToken);
+        await _localStorage.SetItemAsync(UserKey, new UserDto
+        {
+            Id = authResponse.UserId,
+            Username = authResponse.Username,
+            Email = authResponse.Email,
+            Roles = authResponse.Roles.ToList()
+        });
+    }
+
+    private async Task ClearAuthStateAsync()
+    {
+        await _localStorage.RemoveItemAsync(TokenKey);
+        await _localStorage.RemoveItemAsync(RefreshTokenKey);
+        await _localStorage.RemoveItemAsync(UserKey);
     }
 }

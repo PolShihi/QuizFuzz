@@ -29,6 +29,17 @@ public class RoomRepository : BaseRepository<Room>, IRoomRepository
             .ToListAsync(cancellationToken);
     }
 
+
+    public async Task<IReadOnlyList<Room>> GetLobbyRoomsForCleanupAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(r => r.Sessions)
+                .ThenInclude(s => s.Players)
+            .Where(r => r.Status == RoomStatus.Lobby)
+            .OrderBy(r => r.CreatedAt)
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Room>> GetByStatusAsync(
         RoomStatus status,
         CancellationToken cancellationToken = default)

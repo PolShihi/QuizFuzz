@@ -18,6 +18,7 @@ public interface IUnitOfWork : IDisposable
     IScoreboardRepository Scoreboards { get; }
     IInvitationRepository Invitations { get; }
     IModerationActionRepository ModerationActions { get; }
+    IRefreshTokenRepository RefreshTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);

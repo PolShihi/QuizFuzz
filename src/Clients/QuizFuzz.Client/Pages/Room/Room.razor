@@ -179,9 +179,8 @@ else
         var hubUrl = "https://localhost:7001/hubs/lobby";
         try
         {
-            var token = await AuthService.GetTokenAsync();
             hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl, options => { options.AccessTokenProvider = () => Task.FromResult(token); })
+                .WithUrl(hubUrl, options => { options.AccessTokenProvider = async () => await AuthService.GetTokenAsync(); })
                 .ConfigureLogging(logging => { logging.SetMinimumLevel(LogLevel.Debug); })
                 .WithAutomaticReconnect()
                 .Build();
