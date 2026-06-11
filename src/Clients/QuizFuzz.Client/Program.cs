@@ -145,6 +145,17 @@ builder.Services.AddScoped<IMediaApiClient>(sp =>
     };
     return new MediaApiClient(httpClient, sp.GetRequiredService<ILogger<MediaApiClient>>());
 });
+builder.Services.AddScoped<ISubscriptionsApiClient>(sp =>
+{
+    var authService = sp.GetRequiredService<IAuthService>();
+    var handler = new AuthenticatedHttpHandler(authService, new HttpClientHandler());
+    var httpClient = new HttpClient(handler)
+    {
+        BaseAddress = new Uri(apiBaseAddress)
+    };
+    return new SubscriptionsApiClient(httpClient);
+});
+
 
 var host = builder.Build();
 
@@ -159,5 +170,7 @@ if (cultureName is not ("ru-RU" or "en-US"))
 var culture = new CultureInfo(cultureName);
 CultureInfo.DefaultThreadCurrentCulture = culture;
 CultureInfo.DefaultThreadCurrentUICulture = culture;
+CultureInfo.CurrentCulture = culture;
+CultureInfo.CurrentUICulture = culture;
 
 await host.RunAsync();

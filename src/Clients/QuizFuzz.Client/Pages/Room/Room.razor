@@ -92,6 +92,10 @@ else
                                                 @GetInitial(player.Username)
                                             </MudAvatar>
                                             <MudText>@player.Username</MudText>
+                                            @if (player.HasActiveSubscription)
+                                            {
+                                                <PremiumBadge />
+                                            }
                                             <MudSpacer />
                                             @if (player.IsOwner)
                                             {

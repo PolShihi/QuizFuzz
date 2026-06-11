@@ -141,7 +141,15 @@ public class RoomsController : ControllerBase
             _logger.LogDebug(" [GetRoom] Loading players from session {SessionId}", session.Id);
             _logger.LogDebug(" [GetRoom] Session has {Count} players", session.Players.Count);
             
-            foreach (var player in session.Players.Where(p => p.IsActive))
+            var activePlayers = session.Players.Where(p => p.IsActive).ToList();
+            var activeSubscriptions = await _unitOfWork.UserSubscriptions.GetActiveByUserIdsAsync(
+                activePlayers.Select(p => p.UserId),
+                DateTime.UtcNow);
+            var activeSubscriptionByUserId = activeSubscriptions
+                .GroupBy(s => s.UserId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.ExpiresAt).First());
+
+            foreach (var player in activePlayers)
             {
                 _logger.LogDebug(" [GetRoom] Processing player {UserId}, IsActive: {IsActive}", player.UserId, player.IsActive);
                 
@@ -158,7 +166,11 @@ public class RoomsController : ControllerBase
                         Username = user.Username,
                         IsOwner = isRoomOwner,
                         IsReady = false,
-                        JoinedAt = player.JoinedAt
+                        JoinedAt = player.JoinedAt,
+                        HasActiveSubscription = activeSubscriptionByUserId.ContainsKey(player.UserId),
+                        SubscriptionExpiresAt = activeSubscriptionByUserId.TryGetValue(player.UserId, out var playerSubscription)
+                            ? playerSubscription.ExpiresAt
+                            : null
                     });
                 }
                 else

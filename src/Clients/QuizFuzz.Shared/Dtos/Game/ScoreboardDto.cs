@@ -13,4 +13,6 @@ public class PlayerScoreDto
     public int TotalScore { get; set; }
     public int CorrectAnswers { get; set; }
     public int UniqueCorrectAnswers { get; set; }
+    public bool HasActiveSubscription { get; set; }
+    public DateTime? SubscriptionExpiresAt { get; set; }
 }

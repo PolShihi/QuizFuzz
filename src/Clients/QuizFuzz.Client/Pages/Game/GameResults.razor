@@ -28,24 +28,39 @@
     }
     else if (scoreboard.Players.Any())
     {
-        var winner = scoreboard.Players.OrderByDescending(p => p.TotalScore).First();
-        var ordered = scoreboard.Players.OrderByDescending(p => p.TotalScore).ToList();
+        var ordered = scoreboard.Players
+            .OrderByDescending(p => p.TotalScore)
+            .ThenByDescending(p => p.CorrectAnswers)
+            .ThenBy(p => p.Username)
+            .Select((player, index) => new { Player = player, Rank = index + 1 })
+            .ToList();
+        var winner = ordered.First().Player;
 
         <MudPaper Elevation="0" Class="qf-panel pa-5 mb-4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
                 <MudIcon Icon="@Icons.Material.Filled.WorkspacePremium" Color="Color.Warning" />
                 <MudText Typo="Typo.h5">@AppStrings.T("Winner"): @winner.Username</MudText>
+                @if (winner.HasActiveSubscription)
+                {
+                    <PremiumBadge />
+                }
             </MudStack>
 
             <MudStack Spacing="2">
-                @for (var i = 0; i < ordered.Count; i++)
+                @foreach (var item in ordered)
                 {
-                    var player = ordered[i];
+                    var player = item.Player;
+                    var rank = item.Rank;
+
                     <MudPaper Elevation="0" Class="qf-standing-row">
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="flex-wrap gap-2">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
-                                <span class="qf-rank-badge @(i == 0 ? "qf-rank-top" : string.Empty)">#@(i + 1)</span>
+                                <span class="qf-rank-badge @(rank == 1 ? "qf-rank-top" : string.Empty)">#@rank</span>
                                 <MudText Typo="Typo.h6">@player.Username</MudText>
+                                @if (player.HasActiveSubscription)
+                                {
+                                    <PremiumBadge />
+                                }
                             </MudStack>
                             <MudStack AlignItems="AlignItems.End" Spacing="0">
                                 <MudText Typo="Typo.h6" Color="Color.Primary">@player.TotalScore @AppStrings.T("PointsShort")</MudText>

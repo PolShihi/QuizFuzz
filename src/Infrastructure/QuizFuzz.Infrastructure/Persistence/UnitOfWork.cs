@@ -27,6 +27,7 @@ public class UnitOfWork : IUnitOfWork
     private IModerationActionRepository? _moderationActionRepository;
     private IRefreshTokenRepository? _refreshTokenRepository;
     private IEmailVerificationCodeRepository? _emailVerificationCodeRepository;
+    private IUserSubscriptionRepository? _userSubscriptionRepository;
 
     public UnitOfWork(ApplicationDbContext context)
     {
@@ -74,6 +75,9 @@ public class UnitOfWork : IUnitOfWork
 
     public IEmailVerificationCodeRepository EmailVerificationCodes =>
         _emailVerificationCodeRepository ??= new EmailVerificationCodeRepository(_context);
+
+    public IUserSubscriptionRepository UserSubscriptions =>
+        _userSubscriptionRepository ??= new UserSubscriptionRepository(_context);
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

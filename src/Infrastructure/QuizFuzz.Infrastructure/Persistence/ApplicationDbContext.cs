@@ -18,6 +18,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<EmailVerificationCode> EmailVerificationCodes => Set<EmailVerificationCode>();
+    public DbSet<UserSubscription> UserSubscriptions => Set<UserSubscription>();
+    public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
 
     // Questions and Content
     public DbSet<Question> Questions => Set<Question>();

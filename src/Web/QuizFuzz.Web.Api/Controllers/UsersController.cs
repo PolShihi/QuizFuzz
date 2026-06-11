@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using QuizFuzz.Application.Common.Interfaces.Persistence;
 using QuizFuzz.Application.Common.Interfaces.Services;
+using QuizFuzz.Shared.Dtos.Users;
+using QuizFuzz.Web.Api.Services;
 
 namespace QuizFuzz.Web.Api.Controllers;
 
@@ -16,15 +18,18 @@ public class UsersController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILogger<UsersController> _logger;
+    private readonly IUserStatsService _userStatsService;
 
     public UsersController(
         IUnitOfWork unitOfWork,
         ICurrentUserService currentUserService,
-        ILogger<UsersController> logger)
+        ILogger<UsersController> logger,
+        IUserStatsService userStatsService)
     {
         _unitOfWork = unitOfWork;
         _currentUserService = currentUserService;
         _logger = logger;
+        _userStatsService = userStatsService;
     }
 
     /// <summary>
@@ -43,6 +48,8 @@ public class UsersController : ControllerBase
         if (user == null)
             return NotFound("User not found");
 
+        var subscription = await _unitOfWork.UserSubscriptions.GetCurrentActiveByUserIdAsync(user.Id, DateTime.UtcNow);
+
         return Ok(new
         {
             user.Id,
@@ -52,7 +59,9 @@ public class UsersController : ControllerBase
             user.CreatedAt,
             user.LastLoginAt,
             IsBanned = user.IsBanActive(),
-            BannedUntil = user.IsBanActive() ? user.BannedUntil : null
+            BannedUntil = user.IsBanActive() ? user.BannedUntil : null,
+            HasActiveSubscription = subscription != null,
+            SubscriptionExpiresAt = subscription?.ExpiresAt
         });
     }
 
@@ -70,12 +79,16 @@ public class UsersController : ControllerBase
             return NotFound($"User with ID {id} not found");
 
         // Публичная информация (без email)
+        var subscription = await _unitOfWork.UserSubscriptions.GetCurrentActiveByUserIdAsync(user.Id, DateTime.UtcNow);
+
         return Ok(new
         {
             user.Id,
             user.Username,
             user.CreatedAt,
-            IsBanned = user.IsBanActive()
+            IsBanned = user.IsBanActive(),
+            HasActiveSubscription = subscription != null,
+            SubscriptionExpiresAt = subscription?.ExpiresAt
         });
     }
 
@@ -108,56 +121,11 @@ public class UsersController : ControllerBase
 
     private async Task<IActionResult> GetUserStatsInternal(Guid id)
     {
-        var user = await _unitOfWork.Users.GetByIdAsync(id);
-        if (user == null)
+        var stats = await _userStatsService.GetUserStatsAsync(id);
+        if (stats == null)
             return NotFound($"User with ID {id} not found");
 
-        // Получаем статистику из scoreboard
-        var allScoreboards = await _unitOfWork.Scoreboards.GetByUserIdAsync(id);
-        
-        var gamesPlayed = allScoreboards.Count;
-        var totalScore = allScoreboards.Sum(s => s.ScoreTotal);
-        var totalCorrect = allScoreboards.Sum(s => s.CorrectCount);
-        var totalFirstCorrect = allScoreboards.Sum(s => s.UniqueCorrectCount);
-        
-        // Находим выигранные игры (максимальный score в сессии)
-        var gamesWon = 0;
-        var sessionIds = allScoreboards.Select(s => s.SessionId).Distinct();
-        
-        foreach (var sessionId in sessionIds)
-        {
-            var sessionScoreboards = await _unitOfWork.Scoreboards.GetLeaderboardAsync(sessionId, 1);
-            if (sessionScoreboards.Any() && sessionScoreboards.First().UserId == id)
-                gamesWon++;
-        }
-
-        // Получаем все ответы для подсчета среднего времени
-        var allAnswers = await _unitOfWork.PlayerAnswers.GetByUserIdAsync(id);
-        var avgAnswerTimeMs = allAnswers.Any() 
-            ? (int)allAnswers.Average(a => a.AnswerTimeMs)
-            : 0;
-
-        var accuracy = gamesPlayed > 0 && totalCorrect > 0
-            ? Math.Round((double)totalCorrect / allAnswers.Count * 100, 1)
-            : 0.0;
-
-        return Ok(new
-        {
-            userId = id,
-            username = user.Username,
-            email = user.Email.Value,
-            gamesPlayed,
-            gamesWon,
-            winRate = gamesPlayed > 0 
-                ? Math.Round((double)gamesWon / gamesPlayed * 100, 1) 
-                : 0.0,
-            totalScore,
-            totalCorrectAnswers = totalCorrect,
-            totalFirstCorrect,
-            accuracy,
-            avgAnswerTimeMs,
-            questionsAnswered = allAnswers.Count
-        });
+        return Ok(stats);
     }
 
     /// <summary>
@@ -205,36 +173,14 @@ public class UsersController : ControllerBase
     /// </summary>
     [HttpGet("me/history")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetGameHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public async Task<IActionResult> GetGameHistory([FromQuery] int page = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
         var userId = _currentUserService.UserId;
         if (!userId.HasValue)
             return Unauthorized();
 
-        var scoreboards = await _unitOfWork.Scoreboards.GetByUserIdAsync(userId.Value);
-        
-        var history = scoreboards
-            .OrderByDescending(s => s.UpdatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(s => new
-            {
-                sessionId = s.SessionId,
-                roomName = s.Session.Room.Name,
-                scoreTotal = s.ScoreTotal,
-                correctCount = s.CorrectCount,
-                uniqueCorrectCount = s.UniqueCorrectCount,
-                playedAt = s.UpdatedAt,
-                sessionStatus = s.Session.Status.ToString()
-            });
-
-        return Ok(new
-        {
-            page,
-            pageSize,
-            totalCount = scoreboards.Count,
-            items = history
-        });
+        var history = await _userStatsService.GetGameHistoryAsync(userId.Value, page, pageSize, cancellationToken);
+        return Ok(history);
     }
 
     /// <summary>

@@ -305,6 +305,13 @@ public class GameController : ControllerBase
         if (!scoreboards.Any())
             return NotFound("No scoreboard data found for this session");
 
+        var activeSubscriptions = await _unitOfWork.UserSubscriptions.GetActiveByUserIdsAsync(
+            scoreboards.Select(s => s.UserId),
+            DateTime.UtcNow);
+        var activeSubscriptionByUserId = activeSubscriptions
+            .GroupBy(s => s.UserId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.ExpiresAt).First());
+
         var result = new ScoreboardDto
         {
             SessionId = sessionId,
@@ -314,7 +321,11 @@ public class GameController : ControllerBase
                 Username = s.User.Username,
                 TotalScore = s.ScoreTotal,
                 CorrectAnswers = s.CorrectCount,
-                UniqueCorrectAnswers = s.UniqueCorrectCount
+                UniqueCorrectAnswers = s.UniqueCorrectCount,
+                HasActiveSubscription = activeSubscriptionByUserId.ContainsKey(s.UserId),
+                SubscriptionExpiresAt = activeSubscriptionByUserId.TryGetValue(s.UserId, out var playerSubscription)
+                    ? playerSubscription.ExpiresAt
+                    : null
             }).ToList()
         };
 

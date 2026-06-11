@@ -24,6 +24,10 @@
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <span class="qf-rank-badge @(item.index == 0 ? "qf-rank-top" : string.Empty)">#@(item.index + 1)</span>
                             <MudText>@item.player.Username</MudText>
+                            @if (item.player.HasActiveSubscription)
+                            {
+                                <PremiumBadge />
+                            }
                         </MudStack>
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <MudChip T="string" Size="Size.Small" Color="Color.Primary" Class="qf-status-chip">

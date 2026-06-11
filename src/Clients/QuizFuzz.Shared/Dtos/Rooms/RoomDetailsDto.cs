@@ -23,4 +23,6 @@ public class PlayerInRoomDto
     public bool IsOwner { get; set; }
     public bool IsReady { get; set; }
     public DateTime JoinedAt { get; set; }
+    public bool HasActiveSubscription { get; set; }
+    public DateTime? SubscriptionExpiresAt { get; set; }
 }

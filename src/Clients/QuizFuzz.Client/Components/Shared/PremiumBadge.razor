@@ -1,0 +1,14 @@
+@using QuizFuzz.Client.Localization
+
+<MudChip T="string"
+         Size="@BadgeSize"
+         Color="Color.Warning"
+         Variant="Variant.Filled"
+         Icon="@Icons.Material.Filled.WorkspacePremium"
+         Class="qf-status-chip">
+    @AppStrings.T("PremiumBadge")
+</MudChip>
+
+@code {
+    [Parameter] public Size BadgeSize { get; set; } = Size.Small;
+}
