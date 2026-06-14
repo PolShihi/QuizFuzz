@@ -8,6 +8,7 @@ public class RoomDetailsDto
     public Guid OwnerId { get; set; }
     public bool IsPrivate { get; set; }
     public int MaxPlayers { get; set; }
+    public int RoundTimeLimitSec { get; set; }
     public string Status { get; set; } = string.Empty;
     public string VictoryConditionType { get; set; } = string.Empty;
     public int VictoryValue { get; set; }

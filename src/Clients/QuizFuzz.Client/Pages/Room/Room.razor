@@ -127,6 +127,10 @@ else
                                 <MudText>@AppStrings.VictoryCondition(room.VictoryConditionType, room.VictoryValue)</MudText>
                             </MudStack>
                             <MudStack Spacing="1">
+                                <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("RoundTime")</MudText>
+                                <MudText>@room.RoundTimeLimitSec s</MudText>
+                            </MudStack>
+                            <MudStack Spacing="1">
                                 <MudText Typo="Typo.body2" Class="qf-muted">@AppStrings.T("Access")</MudText>
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                     <MudIcon Icon="@(room.IsPrivate ? Icons.Material.Filled.Lock : Icons.Material.Filled.Public)" Size="Size.Small" Color="Color.Secondary" />

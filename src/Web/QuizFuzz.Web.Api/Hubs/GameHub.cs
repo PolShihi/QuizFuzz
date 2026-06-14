@@ -305,7 +305,7 @@ public class GameHub : Hub
                 question.Id, question.Difficulty);
 
             // Создаем раунд
-            var round = session.AddRound(question.Id, 60);
+            var round = session.AddRound(question.Id, roomWithTags.RoundTimeLimitSec);
             session.StartRound(round.Id);
             await _unitOfWork.SaveChangesAsync();
 

@@ -77,6 +77,7 @@ public class RoomsController : ControllerBase
                 OwnerUsername = r.Owner.Username,
                 IsPrivate = r.Visibility == RoomVisibility.Private,
                 MaxPlayers = r.MaxPlayers,
+                RoundTimeLimitSec = r.RoundTimeLimitSec,
                 CurrentPlayers = playerCount, //  Реальное количество!
                 Status = r.Status.ToString(),
                 CreatedAt = r.CreatedAt
@@ -106,6 +107,7 @@ public class RoomsController : ControllerBase
             OwnerUsername = r.Owner.Username,
             IsPrivate = r.Visibility == RoomVisibility.Private,
             MaxPlayers = r.MaxPlayers,
+            RoundTimeLimitSec = r.RoundTimeLimitSec,
             CurrentPlayers = 0, // TODO: подсчитать из активной сессии
             Status = r.Status.ToString(),
             CreatedAt = r.CreatedAt
@@ -195,6 +197,7 @@ public class RoomsController : ControllerBase
             Name = room.Name,
             IsPrivate = room.Visibility == RoomVisibility.Private,
             MaxPlayers = room.MaxPlayers,
+            RoundTimeLimitSec = room.RoundTimeLimitSec,
             Status = room.Status.ToString(),
             VictoryConditionType = room.VictoryConditionType.ToString(),
             VictoryValue = room.VictoryValue,
@@ -275,7 +278,8 @@ public class RoomsController : ControllerBase
                 victoryType,
                 victoryValue,
                 tagMode,
-                difficultyFiltersJson);
+                difficultyFiltersJson,
+                request.RoundTimeLimitSec);
 
             if (accessCodeHash != null)
             {
@@ -325,6 +329,7 @@ public class RoomsController : ControllerBase
                 OwnerUsername = user?.Username ?? "Unknown",
                 IsPrivate = room.Visibility == RoomVisibility.Private,
                 MaxPlayers = room.MaxPlayers,
+                RoundTimeLimitSec = room.RoundTimeLimitSec,
                 CurrentPlayers = 1, // Создатель комнаты
                 Status = room.Status.ToString(),
                 CreatedAt = room.CreatedAt
@@ -608,7 +613,7 @@ public class RoomsController : ControllerBase
                 question.Id, question.Difficulty, question.PromptText);
             
             // Создаем первый раунд
-            var timeLimitSec = 60; // TODO: взять из настроек комнаты
+            var timeLimitSec = room.RoundTimeLimitSec;
             var firstRound = session.AddRound(question.Id, timeLimitSec);
             session.StartRound(firstRound.Id);
             
@@ -755,6 +760,11 @@ public class RoomsController : ControllerBase
                 room.UpdateMaxPlayers(request.MaxPlayers.Value);
             }
 
+            if (request.RoundTimeLimitSec.HasValue)
+            {
+                room.UpdateRoundTimeLimit(request.RoundTimeLimitSec.Value);
+            }
+
             await _unitOfWork.SaveChangesAsync();
 
             _logger.LogDebug("Room {RoomId} updated by user {UserId}", id, userId);
@@ -796,4 +806,4 @@ public class RoomsController : ControllerBase
 }
 
 public record JoinRoomRequest(string? AccessCode);
-public record UpdateRoomRequest(string? Name, int? MaxPlayers);
+public record UpdateRoomRequest(string? Name, int? MaxPlayers, int? RoundTimeLimitSec);

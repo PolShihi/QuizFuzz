@@ -8,6 +8,7 @@ public class RoomListItemDto
     public bool IsPrivate { get; set; }
     public int CurrentPlayers { get; set; }
     public int MaxPlayers { get; set; }
+    public int RoundTimeLimitSec { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }

@@ -40,6 +40,11 @@ public class RoomConfiguration : IEntityTypeConfiguration<Room>
             .HasColumnName("max_players")
             .HasDefaultValue(10);
 
+        builder.Property(r => r.RoundTimeLimitSec)
+            .HasColumnName("round_time_limit_sec")
+            .HasDefaultValue(60)
+            .IsRequired();
+
         builder.Property(r => r.VictoryConditionType)
             .HasColumnName("victory_condition_type")
             .HasConversion<string>()

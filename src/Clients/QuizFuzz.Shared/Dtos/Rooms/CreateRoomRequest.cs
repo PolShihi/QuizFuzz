@@ -17,6 +17,9 @@ public class CreateRoomRequest
     [Range(2, 50, ErrorMessage = "Max players must be between 2 and 50")]
     public int MaxPlayers { get; set; } = 10;
 
+    [Range(10, 300, ErrorMessage = "Round time must be between 10 and 300 seconds")]
+    public int RoundTimeLimitSec { get; set; } = 60;
+
     [Range(3, 20, ErrorMessage = "Number of rounds must be between 3 and 20")]
     public int NumberOfRounds { get; set; } = 10;
 

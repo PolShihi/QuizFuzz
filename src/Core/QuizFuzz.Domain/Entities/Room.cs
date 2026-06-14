@@ -13,6 +13,7 @@ public class Room : BaseEntity, IAggregateRoot
     public RoomVisibility Visibility { get; private set; }
     public string? AccessCodeHash { get; private set; }
     public int MaxPlayers { get; private set; }
+    public int RoundTimeLimitSec { get; private set; }
     public VictoryConditionType VictoryConditionType { get; private set; }
     public int VictoryValue { get; private set; }
     public TagSelectionMode TagSelectionMode { get; private set; }
@@ -47,7 +48,8 @@ public class Room : BaseEntity, IAggregateRoot
         VictoryConditionType victoryConditionType = VictoryConditionType.Points,
         int victoryValue = 1000,
         TagSelectionMode tagSelectionMode = TagSelectionMode.Any,
-        string? difficultyFiltersJson = null)
+        string? difficultyFiltersJson = null,
+        int roundTimeLimitSec = 60)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentException("Room name cannot be empty", nameof(name));
@@ -61,10 +63,13 @@ public class Room : BaseEntity, IAggregateRoot
         if (victoryValue <= 0)
             throw new ArgumentException("Victory value must be positive", nameof(victoryValue));
 
+        ValidateRoundTimeLimit(roundTimeLimitSec);
+
         OwnerUserId = ownerUserId;
         Name = name.Trim();
         Visibility = visibility;
         MaxPlayers = maxPlayers;
+        RoundTimeLimitSec = roundTimeLimitSec;
         VictoryConditionType = victoryConditionType;
         VictoryValue = victoryValue;
         TagSelectionMode = tagSelectionMode;
@@ -135,6 +140,20 @@ public class Room : BaseEntity, IAggregateRoot
 
         MaxPlayers = maxPlayers;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void UpdateRoundTimeLimit(int roundTimeLimitSec)
+    {
+        ValidateRoundTimeLimit(roundTimeLimitSec);
+
+        RoundTimeLimitSec = roundTimeLimitSec;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static void ValidateRoundTimeLimit(int roundTimeLimitSec)
+    {
+        if (roundTimeLimitSec < 10 || roundTimeLimitSec > 300)
+            throw new ArgumentException("Round time limit must be between 10 and 300 seconds", nameof(roundTimeLimitSec));
     }
 
     public void StartGame()

@@ -44,7 +44,7 @@
                                   For="@(() => request.Name)" />
 
                     <MudGrid>
-                        <MudItem xs="12" sm="6">
+                        <MudItem xs="12" sm="4">
                             <MudNumericField @bind-Value="request.MaxPlayers"
                                              Label="@AppStrings.T("MaxPlayers")"
                                              Variant="Variant.Outlined"
@@ -52,7 +52,16 @@
                                              Adornment="Adornment.Start"
                                              AdornmentIcon="@Icons.Material.Filled.People" />
                         </MudItem>
-                        <MudItem xs="12" sm="6">
+                        <MudItem xs="12" sm="4">
+                            <MudNumericField @bind-Value="request.RoundTimeLimitSec"
+                                             Label="@AppStrings.T("RoundTime")"
+                                             Variant="Variant.Outlined"
+                                             Min="10" Max="300"
+                                             Step="5"
+                                             Adornment="Adornment.Start"
+                                             AdornmentIcon="@Icons.Material.Filled.Timer" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
                             <MudSelect @bind-Value="request.Visibility"
                                        Label="@AppStrings.T("Access")"
                                        Variant="Variant.Outlined"
@@ -275,6 +284,9 @@
 
         if (request.MaxPlayers is < 2 or > 50)
             errors.Add(AppStrings.T("MaxPlayersRange"));
+
+        if (request.RoundTimeLimitSec is < 10 or > 300)
+            errors.Add($"{AppStrings.T("RoundTime")} 10-300.");
 
         if (IsPrivateRoom)
         {

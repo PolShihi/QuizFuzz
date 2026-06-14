@@ -26,6 +26,7 @@ public class RoomTests
         room.Name.Should().Be(name);
         room.Visibility.Should().Be(visibility);
         room.MaxPlayers.Should().Be(maxPlayers);
+        room.RoundTimeLimitSec.Should().Be(60);
         room.VictoryConditionType.Should().Be(victoryType);
         room.VictoryValue.Should().Be(victoryValue);
         room.TagSelectionMode.Should().Be(tagMode);
@@ -88,6 +89,48 @@ public class RoomTests
             VictoryConditionType.Points,
             invalidValue,
             TagSelectionMode.Any
+        );
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void Constructor_WithCustomRoundTimeLimit_ShouldCreateRoom()
+    {
+        // Act
+        var room = new Room(
+            Guid.NewGuid(),
+            "Test Room",
+            RoomVisibility.Public,
+            10,
+            VictoryConditionType.Points,
+            100,
+            TagSelectionMode.Any,
+            null,
+            120
+        );
+
+        // Assert
+        room.RoundTimeLimitSec.Should().Be(120);
+    }
+
+    [Theory]
+    [InlineData(9)]
+    [InlineData(301)]
+    public void Constructor_WithInvalidRoundTimeLimit_ShouldThrowArgumentException(int invalidRoundTimeLimit)
+    {
+        // Act
+        Action act = () => new Room(
+            Guid.NewGuid(),
+            "Test Room",
+            RoomVisibility.Public,
+            10,
+            VictoryConditionType.Points,
+            100,
+            TagSelectionMode.Any,
+            null,
+            invalidRoundTimeLimit
         );
 
         // Assert
@@ -233,6 +276,34 @@ public class RoomTests
 
         // Act
         Action act = () => room.UpdateMaxPlayers(invalidMax);
+
+        // Assert
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void UpdateRoundTimeLimit_WithValidNumber_ShouldUpdateRoundTimeLimit()
+    {
+        // Arrange
+        var room = CreateTestRoom();
+
+        // Act
+        room.UpdateRoundTimeLimit(90);
+
+        // Assert
+        room.RoundTimeLimitSec.Should().Be(90);
+    }
+
+    [Theory]
+    [InlineData(9)]
+    [InlineData(301)]
+    public void UpdateRoundTimeLimit_WithInvalidNumber_ShouldThrowArgumentException(int invalidRoundTimeLimit)
+    {
+        // Arrange
+        var room = CreateTestRoom();
+
+        // Act
+        Action act = () => room.UpdateRoundTimeLimit(invalidRoundTimeLimit);
 
         // Assert
         act.Should().Throw<ArgumentException>();
