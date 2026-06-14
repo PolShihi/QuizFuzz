@@ -4,7 +4,6 @@
             <MudNavLink Href="/lobby" Icon="@Icons.Material.Filled.Home" Match="NavLinkMatch.All">@AppStrings.T("Lobby")</MudNavLink>
             <MudNavLink Href="/suggest-question" Icon="@Icons.Material.Filled.Lightbulb">@AppStrings.T("SuggestQuestion")</MudNavLink>
             <MudNavLink Href="/profile" Icon="@Icons.Material.Filled.Person">@AppStrings.T("Profile")</MudNavLink>
-            <MudNavLink Href="/leaderboard" Icon="@Icons.Material.Filled.Leaderboard">@AppStrings.T("Leaderboard")</MudNavLink>
             
             <AuthorizeView Roles="Moderator,Admin" Context="modAdminContext">
                 <MudDivider Class="my-2" />

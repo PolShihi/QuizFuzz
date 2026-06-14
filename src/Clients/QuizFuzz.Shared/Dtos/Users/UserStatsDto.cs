@@ -32,6 +32,7 @@ public class UserStatsDto
     public DateTime? LastPlayedAt { get; set; }
 
     public bool HasActiveSubscription { get; set; }
+    public bool IsDetailedStatsAvailable { get; set; }
     public DateTime? SubscriptionExpiresAt { get; set; }
 
     public List<UserTagStatDto> FavoriteTags { get; set; } = new();

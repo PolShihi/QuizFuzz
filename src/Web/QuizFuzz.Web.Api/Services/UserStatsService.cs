@@ -156,6 +156,13 @@ public class UserStatsService : IUserStatsService
             subscription != null);
 
         var achievements = await SyncAchievementsAsync(userId, snapshot, cancellationToken);
+        var hasPremium = subscription != null;
+        var visibleAchievements = hasPremium
+            ? achievements
+            : achievements
+                .Where(a => a.IsUnlocked)
+                .Take(3)
+                .ToList();
 
         return new UserStatsDto
         {
@@ -181,14 +188,15 @@ public class UserStatsService : IUserStatsService
             CurrentWinStreak = currentWinStreak,
             BestWinStreak = bestWinStreak,
             LastPlayedAt = history.FirstOrDefault()?.PlayedAt,
-            HasActiveSubscription = subscription != null,
+            HasActiveSubscription = hasPremium,
+            IsDetailedStatsAvailable = hasPremium,
             SubscriptionExpiresAt = subscription?.ExpiresAt,
-            FavoriteTags = favoriteTags,
-            StrongTags = strongTags,
-            WeakTags = weakTags,
-            AuthorStats = authorStats,
-            Achievements = achievements,
-            RecentGames = history.Take(5).ToList()
+            FavoriteTags = hasPremium ? favoriteTags : new List<UserTagStatDto>(),
+            StrongTags = hasPremium ? strongTags : new List<UserTagStatDto>(),
+            WeakTags = hasPremium ? weakTags : new List<UserTagStatDto>(),
+            AuthorStats = hasPremium ? authorStats : new AuthorQuestionStatsDto(),
+            Achievements = visibleAchievements,
+            RecentGames = hasPremium ? history.Take(5).ToList() : new List<GameHistoryItemDto>()
         };
     }
 
