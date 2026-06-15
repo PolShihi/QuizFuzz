@@ -226,6 +226,7 @@
                                        MultiSelection="true"
                                        SelectedValues="@selectedTagIds"
                                        SelectedValuesChanged="@OnSelectedTagsChanged"
+                                       ToStringFunc="@GetTagName"
                                        MultiSelectionTextFunc="@GetSelectedTagsText"
                                        Variant="Variant.Outlined">
                                 @foreach (var tag in availableTags)
@@ -352,8 +353,10 @@
             return string.Empty;
         }
 
-        var tag = availableTags.FirstOrDefault(t => t.Id.ToString() == tagId);
-        return tag?.Name ?? tagId;
+        var tag = availableTags.FirstOrDefault(t => string.Equals(t.Id.ToString(), tagId, StringComparison.OrdinalIgnoreCase))
+            ?? question?.Tags.FirstOrDefault(t => string.Equals(t.Id.ToString(), tagId, StringComparison.OrdinalIgnoreCase));
+
+        return string.IsNullOrWhiteSpace(tag?.Name) ? tagId : tag.Name;
     }
 
     private void AddAnswer()

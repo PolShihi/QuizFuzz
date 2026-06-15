@@ -357,6 +357,7 @@
     private async Task LoadTags()
     {
         availableTags = await AdminClient.GetTagsAsync();
+        allTags = availableTags.ToList();
     }
 
     private void OpenCreateDialog()
@@ -488,8 +489,11 @@
             return string.Empty;
         }
 
-        var tag = availableTags.FirstOrDefault(t => t.Id.ToString() == tagId);
-        return tag?.Name ?? tagId;
+        var tag = availableTags.FirstOrDefault(t => string.Equals(t.Id.ToString(), tagId, StringComparison.OrdinalIgnoreCase))
+            ?? allTags.FirstOrDefault(t => string.Equals(t.Id.ToString(), tagId, StringComparison.OrdinalIgnoreCase))
+            ?? currentQuestion?.Tags.FirstOrDefault(t => string.Equals(t.Id.ToString(), tagId, StringComparison.OrdinalIgnoreCase));
+
+        return string.IsNullOrWhiteSpace(tag?.Name) ? tagId : tag.Name;
     }
 
     private static Guid? ParseGuid(string value) => Guid.TryParse(value, out var guid) ? guid : null;
