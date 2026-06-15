@@ -87,6 +87,7 @@
                         <MudSelectItem T="string" Value="@("Text")">@AppStrings.QuestionType("Text")</MudSelectItem>
                         <MudSelectItem T="string" Value="@("Image")">@AppStrings.QuestionType("Image")</MudSelectItem>
                         <MudSelectItem T="string" Value="@("Audio")">@AppStrings.QuestionType("Audio")</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Video")">@AppStrings.QuestionType("Video")</MudSelectItem>
                     </MudSelect>
                 </MudItem>
 
@@ -110,13 +111,17 @@
                             <MudStack Spacing="2">
                                 <MudText Typo="Typo.h6">
                                     <MudIcon Icon="@MediaIcon" Class="mr-2" />
-                                    @(questionType == "Image" ? AppStrings.T("ImageFile") : AppStrings.T("AudioFile"))
+                                    @(questionType switch { "Image" => AppStrings.T("ImageFile"), "Audio" => AppStrings.T("AudioFile"), "Video" => AppStrings.T("VideoFile"), _ => AppStrings.T("MediaUrl") })
                                 </MudText>
 
                                 <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @(questionType == "Image"
-                                        ? AppStrings.T("UploadImageHelp")
-                                        : AppStrings.T("UploadAudioHelp"))
+                                    @(questionType switch
+                                    {
+                                        "Image" => AppStrings.T("UploadImageHelp"),
+                                        "Audio" => AppStrings.T("UploadAudioHelp"),
+                                        "Video" => AppStrings.T("UploadVideoHelp"),
+                                        _ => string.Empty
+                                    })
                                 </MudText>
 
                                 <InputFile OnChange="OnMediaFileSelected" accept="@MediaAccept" />
@@ -153,6 +158,13 @@
                                             <source src="@uploadedMediaUrl" />
                                             @AppStrings.T("AudioElementNotSupported")
                                         </audio>
+                                    }
+                                    else if (questionType == "Video")
+                                    {
+                                        <video controls style="width: 100%; max-height: 320px; border-radius: 12px;">
+                                            <source src="@uploadedMediaUrl" />
+                                            @AppStrings.T("VideoNotSupported")
+                                        </video>
                                     }
                                 }
                             </MudStack>
@@ -410,13 +422,21 @@
     private IEnumerable<string> selectedTagIds = new HashSet<string>();
     private List<QuizFuzz.Shared.Dtos.Questions.TagDto> availableTags = new();
 
-    private bool RequiresMedia => questionType is "Image" or "Audio";
-    private string MediaAccept => questionType == "Image"
-        ? ".jpg,.jpeg,.png,.gif,.webp,image/*"
-        : ".mp3,.wav,.ogg,.m4a,audio/*";
-    private string MediaIcon => questionType == "Image"
-        ? Icons.Material.Filled.Image
-        : Icons.Material.Filled.AudioFile;
+    private bool RequiresMedia => questionType is "Image" or "Audio" or "Video";
+    private string MediaAccept => questionType switch
+    {
+        "Image" => ".jpg,.jpeg,.png,.gif,.webp,image/*",
+        "Audio" => ".mp3,.wav,.ogg,.m4a,audio/*",
+        "Video" => ".mp4,.webm,.ogg,.ogv,.mov,video/*",
+        _ => string.Empty
+    };
+    private string MediaIcon => questionType switch
+    {
+        "Image" => Icons.Material.Filled.Image,
+        "Audio" => Icons.Material.Filled.AudioFile,
+        "Video" => Icons.Material.Filled.Videocam,
+        _ => Icons.Material.Filled.AttachFile
+    };
 
     private class AnswerItem
     {
@@ -474,12 +494,22 @@
         if (selectedMediaFile is null)
             return;
 
-        var maxSize = questionType == "Image" ? 10 * 1024 * 1024L : 20 * 1024 * 1024L;
+        var maxSize = questionType switch
+        {
+            "Image" => 10 * 1024 * 1024L,
+            "Audio" => 20 * 1024 * 1024L,
+            "Video" => 50 * 1024 * 1024L,
+            _ => 20 * 1024 * 1024L
+        };
         if (selectedMediaFile.Size > maxSize)
         {
-            mediaUploadError = questionType == "Image"
-                ? AppStrings.T("ImageFileTooLarge")
-                : AppStrings.T("AudioFileTooLarge");
+            mediaUploadError = questionType switch
+            {
+                "Image" => AppStrings.T("ImageFileTooLarge"),
+                "Audio" => AppStrings.T("AudioFileTooLarge"),
+                "Video" => AppStrings.T("VideoFileTooLarge"),
+                _ => AppStrings.T("MediaUploadFailed")
+            };
             Snackbar.Add(mediaUploadError, Severity.Error);
             return;
         }
@@ -487,9 +517,13 @@
         try
         {
             isUploadingMedia = true;
-            var result = questionType == "Image"
-                ? await MediaClient.UploadImageAsync(selectedMediaFile)
-                : await MediaClient.UploadAudioAsync(selectedMediaFile);
+            var result = questionType switch
+            {
+                "Image" => await MediaClient.UploadImageAsync(selectedMediaFile),
+                "Audio" => await MediaClient.UploadAudioAsync(selectedMediaFile),
+                "Video" => await MediaClient.UploadVideoAsync(selectedMediaFile),
+                _ => null
+            };
 
             if (result is null || string.IsNullOrWhiteSpace(result.Url))
             {
@@ -700,9 +734,13 @@
             if (isUploadingMedia)
                 errors.Add(AppStrings.T("WaitMediaUpload"));
             else if (string.IsNullOrWhiteSpace(uploadedMediaUrl))
-                errors.Add(questionType == "Image"
-                    ? AppStrings.T("UploadImageRequired")
-                    : AppStrings.T("UploadAudioRequired"));
+                errors.Add(questionType switch
+                {
+                    "Image" => AppStrings.T("UploadImageRequired"),
+                    "Audio" => AppStrings.T("UploadAudioRequired"),
+                    "Video" => AppStrings.T("UploadVideoRequired"),
+                    _ => AppStrings.T("MediaUploadFailed")
+                });
         }
 
         var validTagIds = selectedTagIds

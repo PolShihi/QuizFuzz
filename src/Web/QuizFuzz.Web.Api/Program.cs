@@ -204,6 +204,7 @@ var webRootPath = app.Environment.WebRootPath ?? Path.Combine(app.Environment.Co
 var uploadsRootPath = Path.Combine(webRootPath, "uploads");
 Directory.CreateDirectory(Path.Combine(uploadsRootPath, "images"));
 Directory.CreateDirectory(Path.Combine(uploadsRootPath, "audio"));
+Directory.CreateDirectory(Path.Combine(uploadsRootPath, "video"));
 
 app.UseStaticFiles();
 app.UseStaticFiles(new StaticFileOptions

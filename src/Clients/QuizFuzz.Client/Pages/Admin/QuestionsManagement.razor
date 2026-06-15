@@ -189,6 +189,7 @@
                                 <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.QuestionType("Text")</MudSelectItem>
                                 <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.QuestionType("Image")</MudSelectItem>
                                 <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.QuestionType("Audio")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("VIDEO")'>@AppStrings.QuestionType("Video")</MudSelectItem>
                             </MudSelect>
 
                             <MudSelect T="string" Label="@AppStrings.T("FilterDifficulty")" @bind-Value="currentQuestion.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEditMode && !isCreateMode)">

@@ -6,6 +6,7 @@ public interface IMediaApiClient
 {
     Task<MediaUploadResult?> UploadImageAsync(IBrowserFile file);
     Task<MediaUploadResult?> UploadAudioAsync(IBrowserFile file);
+    Task<MediaUploadResult?> UploadVideoAsync(IBrowserFile file);
 }
 
 public class MediaUploadResult

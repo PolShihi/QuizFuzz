@@ -174,6 +174,75 @@ public class MediaController : ControllerBase
         }
     }
 
+
+    /// <summary>
+    /// Загрузка видео для вопроса
+    /// </summary>
+    [HttpPost("upload-video")]
+    [Authorize]
+    public async Task<IActionResult> UploadVideo([FromForm] IFormFile file)
+    {
+        try
+        {
+            _logger.LogDebug(" [UploadVideo] Starting video upload...");
+
+            if (file == null || file.Length == 0)
+            {
+                _logger.LogDebug(" [UploadVideo] File is empty");
+                return BadRequest("File is empty");
+            }
+
+            _logger.LogDebug("   File: {FileName}, Size: {Size} bytes", file.FileName, file.Length);
+
+            var allowedExtensions = new[] { ".mp4", ".webm", ".ogg", ".ogv", ".mov" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (!allowedExtensions.Contains(extension))
+            {
+                _logger.LogDebug(" [UploadVideo] Invalid file type: {Extension}", extension);
+                return BadRequest($"Invalid file type. Allowed: {string.Join(", ", allowedExtensions)}");
+            }
+
+            if (file.Length > 50 * 1024 * 1024)
+            {
+                _logger.LogDebug(" [UploadVideo] File too large: {Size} bytes", file.Length);
+                return BadRequest("File size exceeds 50 MB");
+            }
+
+            var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+            var uploadsPath = Path.Combine(webRootPath, "uploads", "video");
+            if (!Directory.Exists(uploadsPath))
+            {
+                Directory.CreateDirectory(uploadsPath);
+                _logger.LogDebug(" [UploadVideo] Created directory: {Path}", uploadsPath);
+            }
+
+            var fileName = $"{Guid.NewGuid()}{extension}";
+            var filePath = Path.Combine(uploadsPath, fileName);
+
+            _logger.LogDebug(" [UploadVideo] Saving to: {FilePath}", filePath);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var relativeUrl = $"/uploads/video/{fileName}";
+            var url = BuildPublicUrl(relativeUrl);
+
+            _logger.LogDebug(" [UploadVideo] Video uploaded successfully");
+            _logger.LogDebug("   Relative URL: {RelativeUrl}", relativeUrl);
+            _logger.LogDebug("   Public URL: {Url}", url);
+
+            return Ok(new { url, relativeUrl, fileName, size = file.Length });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, " [UploadVideo] Error uploading video");
+            return StatusCode(500, "Error uploading video");
+        }
+    }
+
     /// <summary>
     /// Удаление медиа файла
     /// </summary>
@@ -186,7 +255,13 @@ public class MediaController : ControllerBase
             _logger.LogDebug(" [DeleteMedia] Deleting {Type}: {FileName}", type, fileName);
 
             var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
-            var uploadsPath = Path.Combine(webRootPath, "uploads", type == "audio" ? "audio" : "images");
+            var folder = type.ToLowerInvariant() switch
+            {
+                "audio" => "audio",
+                "video" => "video",
+                _ => "images"
+            };
+            var uploadsPath = Path.Combine(webRootPath, "uploads", folder);
             var filePath = Path.Combine(uploadsPath, fileName);
 
             if (!System.IO.File.Exists(filePath))

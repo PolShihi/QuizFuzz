@@ -212,6 +212,7 @@ public class QuestionsController : ControllerBase
                 {
                     QuestionType.Image => "IMAGE",
                     QuestionType.Audio => "AUDIO",
+                    QuestionType.Video => "VIDEO",
                     _ => "OTHER"
                 };
                 
@@ -334,6 +335,7 @@ public class QuestionsController : ControllerBase
             question.UpdateTitle(request.Title);
             question.UpdatePrompt(request.PromptText);
             question.UpdateDifficulty(parsedDifficulty);
+            SyncQuestionMedia(question, request.MediaUrl);
 
             // Tags: make it match request.TagIds
             var desiredTagIds = new HashSet<Guid>(request.TagIds ?? new List<Guid>());
@@ -478,6 +480,31 @@ public class QuestionsController : ControllerBase
         }
 
         return Ok(MapQuestionToDto(refreshed));
+    }
+
+    private static void SyncQuestionMedia(Question question, string? mediaUrl)
+    {
+        if (string.IsNullOrWhiteSpace(mediaUrl))
+        {
+            return;
+        }
+
+        var mediaType = question.Type switch
+        {
+            QuestionType.Image => "IMAGE",
+            QuestionType.Audio => "AUDIO",
+            QuestionType.Video => "VIDEO",
+            _ => "OTHER"
+        };
+
+        var existingAsset = question.MediaAssets.FirstOrDefault();
+        if (existingAsset != null)
+        {
+            existingAsset.UpdateUrl(mediaUrl.Trim());
+            return;
+        }
+
+        question.AddMediaAsset(mediaType, mediaUrl.Trim(), "FileSystem");
     }
 
     private static decimal? NormalizeConfidence(decimal? value)

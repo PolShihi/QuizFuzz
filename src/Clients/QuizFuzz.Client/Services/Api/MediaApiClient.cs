@@ -7,6 +7,7 @@ public class MediaApiClient : IMediaApiClient
 {
     private const long MaxImageSize = 10 * 1024 * 1024;
     private const long MaxAudioSize = 20 * 1024 * 1024;
+    private const long MaxVideoSize = 50 * 1024 * 1024;
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<MediaApiClient> _logger;
@@ -25,6 +26,11 @@ public class MediaApiClient : IMediaApiClient
     public Task<MediaUploadResult?> UploadAudioAsync(IBrowserFile file)
     {
         return UploadAsync("api/media/upload-audio", file, MaxAudioSize);
+    }
+
+    public Task<MediaUploadResult?> UploadVideoAsync(IBrowserFile file)
+    {
+        return UploadAsync("api/media/upload-video", file, MaxVideoSize);
     }
 
     private async Task<MediaUploadResult?> UploadAsync(string endpoint, IBrowserFile file, long maxAllowedSize)

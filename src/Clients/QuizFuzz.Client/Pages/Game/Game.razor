@@ -69,9 +69,16 @@
                             else if (currentQuestion.QuestionType?.Equals("Audio", StringComparison.OrdinalIgnoreCase) == true)
                             {
                                 <audio controls style="width: 100%;">
-                                    <source src="@currentQuestion.MediaUrl" type="audio/mpeg">
+                                    <source src="@currentQuestion.MediaUrl">
                                     Your browser does not support audio.
                                 </audio>
+                            }
+                            else if (currentQuestion.QuestionType?.Equals("Video", StringComparison.OrdinalIgnoreCase) == true)
+                            {
+                                <video controls style="width: 100%; max-height: 420px; border-radius: 12px;">
+                                    <source src="@currentQuestion.MediaUrl">
+                                    Your browser does not support video.
+                                </video>
                             }
                         </MudPaper>
                     }

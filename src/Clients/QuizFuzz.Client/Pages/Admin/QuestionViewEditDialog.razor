@@ -2,8 +2,11 @@
 @using QuizFuzz.Client.Services.Api
 @using QuizFuzz.Shared.Dtos.Questions
 @using QuizFuzz.Client.Localization
+@using Microsoft.AspNetCore.Components.Forms
 @inject IQuestionsApiClient QuestionsClient
 @inject IAdminApiClient AdminClient
+@inject IMediaApiClient MediaClient
+@inject ISnackbar Snackbar
 
 <MudDialog>
     <TitleContent>
@@ -44,6 +47,7 @@
                                 <MudSelectItem T="string" Value='@("TEXT")'>@AppStrings.QuestionType("Text")</MudSelectItem>
                                 <MudSelectItem T="string" Value='@("IMAGE")'>@AppStrings.QuestionType("Image")</MudSelectItem>
                                 <MudSelectItem T="string" Value='@("AUDIO")'>@AppStrings.QuestionType("Audio")</MudSelectItem>
+                                <MudSelectItem T="string" Value='@("VIDEO")'>@AppStrings.QuestionType("Video")</MudSelectItem>
                             </MudSelect>
 
                             <MudSelect T="string" Label="@AppStrings.T("Difficulty")" @bind-Value="question.Difficulty" Variant="Variant.Outlined" ReadOnly="@(!isEdit)">
@@ -59,6 +63,53 @@
                                           @bind-Value="question.MediaUrl"
                                           Variant="Variant.Outlined"
                                           ReadOnly="@(!isEdit)" />
+
+                            @if (isEdit)
+                            {
+                                <MudPaper Elevation="0" Class="pa-3" Outlined="true">
+                                    <MudStack Spacing="2">
+                                        <MudText Typo="Typo.subtitle2">
+                                            <MudIcon Icon="@MediaIcon" Class="mr-1" />
+                                            @(question.QuestionType?.ToUpperInvariant() switch
+                                            {
+                                                "IMAGE" => AppStrings.T("ImageFile"),
+                                                "AUDIO" => AppStrings.T("AudioFile"),
+                                                "VIDEO" => AppStrings.T("VideoFile"),
+                                                _ => AppStrings.T("MediaUrl")
+                                            })
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @(question.QuestionType?.ToUpperInvariant() switch
+                                            {
+                                                "IMAGE" => AppStrings.T("UploadImageHelp"),
+                                                "AUDIO" => AppStrings.T("UploadAudioHelp"),
+                                                "VIDEO" => AppStrings.T("UploadVideoHelp"),
+                                                _ => string.Empty
+                                            })
+                                        </MudText>
+
+                                        <InputFile OnChange="OnMediaFileSelected" accept="@MediaAccept" />
+
+                                        @if (selectedMediaFile is not null)
+                                        {
+                                            <MudText Typo="Typo.caption">
+                                                @AppStrings.Tf("SelectedFile", selectedMediaFile.Name, FormatFileSize(selectedMediaFile.Size))
+                                            </MudText>
+                                        }
+
+                                        @if (isUploadingMedia)
+                                        {
+                                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                                            <MudText Typo="Typo.caption">@AppStrings.T("UploadingMedia")</MudText>
+                                        }
+
+                                        @if (!string.IsNullOrWhiteSpace(mediaUploadError))
+                                        {
+                                            <MudAlert Severity="Severity.Error" Dense="true">@mediaUploadError</MudAlert>
+                                        }
+                                    </MudStack>
+                                </MudPaper>
+                            }
 
                             <MudPaper Elevation="1" Class="pa-3" Outlined="true">
                                 <MudText Typo="Typo.subtitle2" Class="mb-2">@AppStrings.T("MediaPreview")</MudText>
@@ -87,6 +138,13 @@
                                         <source src="@question.MediaUrl" />
                                         @AppStrings.T("AudioNotSupported")
                                     </audio>
+                                }
+                                else if (IsVideoQuestion(question.QuestionType, question.MediaUrl))
+                                {
+                                    <video controls style="width: 100%; max-height: 360px; border-radius: 8px;">
+                                        <source src="@question.MediaUrl" />
+                                        @AppStrings.T("VideoNotSupported")
+                                    </video>
                                 }
                                 else
                                 {
@@ -288,6 +346,9 @@
     private bool isLoading = true;
     private bool isSaving = false;
     private bool mediaPreviewFailed = false;
+    private bool isUploadingMedia = false;
+    private IBrowserFile? selectedMediaFile;
+    private string? mediaUploadError;
     private string? error;
 
     protected override async Task OnInitializedAsync()
@@ -477,6 +538,12 @@
                 }).ToList()
             };
 
+            if (isUploadingMedia)
+            {
+                error = AppStrings.T("WaitMediaUpload");
+                return;
+            }
+
             var updated = await QuestionsClient.UpdateQuestionAsync(question.Id, request);
             if (updated == null)
             {
@@ -506,6 +573,102 @@
         _ => "Medium"
     };
 
+    private async Task OnMediaFileSelected(InputFileChangeEventArgs e)
+    {
+        if (question == null)
+        {
+            return;
+        }
+
+        selectedMediaFile = e.File;
+        mediaUploadError = null;
+
+        if (selectedMediaFile is null)
+        {
+            return;
+        }
+
+        var maxSize = MaxMediaSize;
+        if (selectedMediaFile.Size > maxSize)
+        {
+            mediaUploadError = question.QuestionType?.ToUpperInvariant() switch
+            {
+                "IMAGE" => AppStrings.T("ImageFileTooLarge"),
+                "AUDIO" => AppStrings.T("AudioFileTooLarge"),
+                "VIDEO" => AppStrings.T("VideoFileTooLarge"),
+                _ => AppStrings.T("MediaUploadFailed")
+            };
+            Snackbar.Add(mediaUploadError, Severity.Error);
+            return;
+        }
+
+        try
+        {
+            isUploadingMedia = true;
+            var result = question.QuestionType?.ToUpperInvariant() switch
+            {
+                "IMAGE" => await MediaClient.UploadImageAsync(selectedMediaFile),
+                "AUDIO" => await MediaClient.UploadAudioAsync(selectedMediaFile),
+                "VIDEO" => await MediaClient.UploadVideoAsync(selectedMediaFile),
+                _ => null
+            };
+
+            if (result is null || string.IsNullOrWhiteSpace(result.Url))
+            {
+                mediaUploadError = AppStrings.T("MediaUploadFailed");
+                Snackbar.Add(mediaUploadError, Severity.Error);
+                return;
+            }
+
+            question.MediaUrl = result.Url;
+            mediaPreviewFailed = false;
+            Snackbar.Add(AppStrings.T("MediaUploaded"), Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            mediaUploadError = AppStrings.Tf("MediaUploadFailedWithError", ex.Message);
+            Snackbar.Add(mediaUploadError, Severity.Error);
+        }
+        finally
+        {
+            isUploadingMedia = false;
+        }
+    }
+
+    private string MediaAccept => question?.QuestionType?.ToUpperInvariant() switch
+    {
+        "IMAGE" => ".jpg,.jpeg,.png,.gif,.webp,image/*",
+        "AUDIO" => ".mp3,.wav,.ogg,.m4a,audio/*",
+        "VIDEO" => ".mp4,.webm,.ogg,.ogv,.mov,video/*",
+        _ => string.Empty
+    };
+
+    private string MediaIcon => question?.QuestionType?.ToUpperInvariant() switch
+    {
+        "IMAGE" => Icons.Material.Filled.Image,
+        "AUDIO" => Icons.Material.Filled.AudioFile,
+        "VIDEO" => Icons.Material.Filled.Videocam,
+        _ => Icons.Material.Filled.AttachFile
+    };
+
+    private long MaxMediaSize => question?.QuestionType?.ToUpperInvariant() switch
+    {
+        "IMAGE" => 10 * 1024 * 1024L,
+        "AUDIO" => 20 * 1024 * 1024L,
+        "VIDEO" => 50 * 1024 * 1024L,
+        _ => 20 * 1024 * 1024L
+    };
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes >= 1024 * 1024)
+        {
+            return $"{bytes / 1024d / 1024d:0.##} MB";
+        }
+
+        return $"{bytes / 1024d:0.##} KB";
+    }
+
     private void OnMediaPreviewError()
     {
         mediaPreviewFailed = true;
@@ -523,7 +686,12 @@
     private static bool IsAudioQuestion(string? questionType, string? mediaUrl) =>
         string.Equals(questionType, "AUDIO", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(questionType, "Audio", StringComparison.OrdinalIgnoreCase) ||
-        HasExtension(mediaUrl, ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm");
+        HasExtension(mediaUrl, ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac");
+
+    private static bool IsVideoQuestion(string? questionType, string? mediaUrl) =>
+        string.Equals(questionType, "VIDEO", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(questionType, "Video", StringComparison.OrdinalIgnoreCase) ||
+        HasExtension(mediaUrl, ".mp4", ".webm", ".ogv", ".mov");
 
     private static bool HasExtension(string? value, params string[] extensions)
     {

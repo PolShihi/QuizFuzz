@@ -195,6 +195,7 @@ public class SubmitQuestionSuggestionCommandHandler : IRequestHandler<SubmitQues
                 {
                     DomainQuestionType.Image => "IMAGE",
                     DomainQuestionType.Audio => "AUDIO",
+                    DomainQuestionType.Video => "VIDEO",
                     _ => "OTHER"
                 };
 
