@@ -174,10 +174,10 @@ public class QuestionsController : ControllerBase
                     null, // languageCode
                     answerDto.AllowFuzzyMatch,
                     answerDto.MaxEditDistance,
-                    answerDto.MinConfidence);
+                    NormalizeConfidence(answerDto.MinConfidence));
                     
                 _logger.LogDebug("Added answer '{Text}' with fuzzy settings: Allow={Allow}, MaxDist={MaxDist}, MinConf={MinConf}",
-                    answerDto.AnswerText, answerDto.AllowFuzzyMatch, answerDto.MaxEditDistance, answerDto.MinConfidence);
+                    answerDto.AnswerText, answerDto.AllowFuzzyMatch, answerDto.MaxEditDistance, NormalizeConfidence(answerDto.MinConfidence));
 
                 // Добавляем алиасы
                 foreach (var aliasDto in answerDto.Aliases)
@@ -328,174 +328,147 @@ public class QuestionsController : ControllerBase
             return BadRequest($"Invalid difficulty: {request.Difficulty}");
         }
 
-        // Basic fields
-        question.UpdateTitle(request.Title);
-        question.UpdatePrompt(request.PromptText);
-        question.UpdateDifficulty(parsedDifficulty);
-
-        // Tags: make it match request.TagIds
-        var desiredTagIds = new HashSet<Guid>(request.TagIds ?? new List<Guid>());
-        var currentTagIds = question.Tags.Select(t => t.TagId).ToList();
-
-        foreach (var tagId in currentTagIds)
+        try
         {
-            if (!desiredTagIds.Contains(tagId))
-            {
-                question.RemoveTag(tagId);
-            }
-        }
+            // Basic fields
+            question.UpdateTitle(request.Title);
+            question.UpdatePrompt(request.PromptText);
+            question.UpdateDifficulty(parsedDifficulty);
 
-        if (desiredTagIds.Count > 0)
-        {
-            var tags = await _unitOfWork.Tags.GetAllAsync(HttpContext.RequestAborted);
-            foreach (var tagId in desiredTagIds)
+            // Tags: make it match request.TagIds
+            var desiredTagIds = new HashSet<Guid>(request.TagIds ?? new List<Guid>());
+            var currentTagIds = question.Tags.Select(t => t.TagId).ToList();
+
+            foreach (var tagId in currentTagIds)
             {
-                var tag = tags.FirstOrDefault(t => t.Id == tagId);
-                if (tag != null)
+                if (!desiredTagIds.Contains(tagId))
                 {
-                    question.AddTag(tag);
+                    question.RemoveTag(tagId);
                 }
             }
-        }
 
-        // Answers: update existing + add new first, then delete removed.
-        var originalExistingAnswerIds = question.Answers.Select(a => a.Id).ToHashSet();
-        var existingAnswersById = question.Answers.ToDictionary(a => a.Id, a => a);
-        var requestedExistingAnswerIds = request.Answers.Where(a => a.Id.HasValue).Select(a => a.Id!.Value).ToHashSet();
-
-        // Update/add answers
-        foreach (var answerReq in request.Answers)
-        {
-            if (answerReq.Id.HasValue && existingAnswersById.TryGetValue(answerReq.Id.Value, out var existing))
+            if (desiredTagIds.Count > 0)
             {
-                existing.UpdateAnswerText(answerReq.AnswerText);
-                if (answerReq.IsPrimary) existing.SetAsPrimary(); else existing.SetAsAlternative();
-                existing.UpdateFuzzyMatchSettings(answerReq.AllowFuzzyMatch, answerReq.MaxEditDistance, answerReq.MinConfidence);
-
-                // Aliases: sync by text (simple approach)
-                var desiredAliases = answerReq.Aliases ?? new List<UpdateAliasRequest>();
-                var desiredNormalized = desiredAliases
-                    .Where(a => !string.IsNullOrWhiteSpace(a.AliasText))
-                    .Select(a => new { Text = a.AliasText.Trim(), Kind = a.Kind })
-                    .ToList();
-
-                var existingAliasIds = existing.Aliases.Select(a => a.Id).ToHashSet();
-
-                // Remove aliases not present by id when provided, else by text match
-                var desiredById = desiredAliases.Where(a => a.Id.HasValue).Select(a => a.Id!.Value).ToHashSet();
-                foreach (var alias in existing.Aliases.ToList())
+                var tags = await _unitOfWork.Tags.GetAllAsync(HttpContext.RequestAborted);
+                foreach (var tagId in desiredTagIds)
                 {
-                    if (desiredById.Count > 0)
+                    var tag = tags.FirstOrDefault(t => t.Id == tagId);
+                    if (tag != null)
                     {
-                        if (!desiredById.Contains(alias.Id))
-                        {
-                            existing.RemoveAlias(alias.Id);
-                        }
+                        question.AddTag(tag);
                     }
                 }
+            }
 
-                // Add missing aliases
-                foreach (var aliasReq in desiredAliases)
+            // Answers: update existing + add new first, then delete removed.
+            var originalExistingAnswerIds = question.Answers.Select(a => a.Id).ToHashSet();
+            var existingAnswersById = question.Answers.ToDictionary(a => a.Id, a => a);
+            var requestedExistingAnswerIds = request.Answers.Where(a => a.Id.HasValue).Select(a => a.Id!.Value).ToHashSet();
+
+            foreach (var answerReq in request.Answers.Where(a => !string.IsNullOrWhiteSpace(a.AnswerText)))
+            {
+                if (answerReq.Id.HasValue && existingAnswersById.TryGetValue(answerReq.Id.Value, out var existing))
                 {
-                    if (string.IsNullOrWhiteSpace(aliasReq.AliasText))
-                        continue;
+                    existing.UpdateAnswerText(answerReq.AnswerText.Trim());
+                    if (answerReq.IsPrimary) existing.SetAsPrimary(); else existing.SetAsAlternative();
+                    existing.UpdateFuzzyMatchSettings(answerReq.AllowFuzzyMatch, answerReq.MaxEditDistance, NormalizeConfidence(answerReq.MinConfidence));
+                    SyncAliases(existing, answerReq.Aliases);
+                }
+                else
+                {
+                    var created = question.AddAnswer(
+                        answerReq.AnswerText.Trim(),
+                        isPrimary: answerReq.IsPrimary,
+                        languageCode: question.LanguageCode,
+                        allowFuzzyMatch: answerReq.AllowFuzzyMatch,
+                        maxEditDistance: answerReq.MaxEditDistance,
+                        minConfidence: NormalizeConfidence(answerReq.MinConfidence));
 
-                    if (aliasReq.Id.HasValue && existingAliasIds.Contains(aliasReq.Id.Value))
-                        continue;
+                    foreach (var aliasReq in answerReq.Aliases ?? new List<UpdateAliasRequest>())
+                    {
+                        if (string.IsNullOrWhiteSpace(aliasReq.AliasText))
+                            continue;
 
-                    if (!Enum.TryParse<AliasKind>(aliasReq.Kind, true, out var aliasKind))
-                        aliasKind = AliasKind.Synonym;
+                        if (!Enum.TryParse<AliasKind>(aliasReq.Kind, true, out var aliasKind))
+                            aliasKind = AliasKind.Synonym;
 
-                    // AddAlias checks duplicates by normalized value
-                    existing.AddAlias(aliasReq.AliasText, aliasKind);
+                        AddAliasIfMissing(created, aliasReq.AliasText, aliasKind);
+                    }
                 }
             }
-            else
-            {
-                var created = question.AddAnswer(
-                    answerReq.AnswerText,
-                    isPrimary: answerReq.IsPrimary,
-                    languageCode: question.LanguageCode,
-                    allowFuzzyMatch: answerReq.AllowFuzzyMatch,
-                    maxEditDistance: answerReq.MaxEditDistance,
-                    minConfidence: answerReq.MinConfidence);
 
-                foreach (var aliasReq in answerReq.Aliases ?? new List<UpdateAliasRequest>())
+            // Hints: update existing + add new first, then delete removed.
+            var requestedHints = (request.Hints ?? new List<UpdateHintRequest>())
+                .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
+                .OrderBy(h => h.RevealTimeSeconds)
+                .ThenBy(h => h.OrderIndex)
+                .Select((h, index) => new
                 {
-                    if (string.IsNullOrWhiteSpace(aliasReq.AliasText))
-                        continue;
+                    Hint = h,
+                    NormalizedOrderIndex = index
+                })
+                .ToList();
 
-                    if (!Enum.TryParse<AliasKind>(aliasReq.Kind, true, out var aliasKind))
-                        aliasKind = AliasKind.Synonym;
+            var existingHintsById = question.Hints.ToDictionary(h => h.Id, h => h);
+            var requestedExistingHintIds = requestedHints
+                .Where(h => h.Hint.Id.HasValue)
+                .Select(h => h.Hint.Id!.Value)
+                .ToHashSet();
 
-                    created.AddAlias(aliasReq.AliasText, aliasKind);
+            foreach (var requestedHint in requestedHints)
+            {
+                var hintReq = requestedHint.Hint;
+                if (hintReq.Id.HasValue && existingHintsById.TryGetValue(hintReq.Id.Value, out var existingHint))
+                {
+                    existingHint.UpdateOrderIndex(requestedHint.NormalizedOrderIndex);
+                    existingHint.UpdateHintText(hintReq.HintText);
+                    existingHint.UpdateRevealTime(hintReq.RevealTimeSeconds);
+                }
+                else
+                {
+                    question.AddHint(
+                        requestedHint.NormalizedOrderIndex,
+                        hintReq.HintText.Trim(),
+                        hintReq.RevealTimeSeconds);
                 }
             }
-        }
 
-        // Hints: update existing + add new first, then delete removed.
-        var requestedHints = (request.Hints ?? new List<UpdateHintRequest>())
-            .Where(h => !string.IsNullOrWhiteSpace(h.HintText))
-            .OrderBy(h => h.RevealTimeSeconds)
-            .ThenBy(h => h.OrderIndex)
-            .Select((h, index) => new
+            foreach (var existingHint in question.Hints.ToList())
             {
-                Hint = h,
-                NormalizedOrderIndex = index
-            })
-            .ToList();
-
-        var existingHintsById = question.Hints.ToDictionary(h => h.Id, h => h);
-        var requestedExistingHintIds = requestedHints
-            .Where(h => h.Hint.Id.HasValue)
-            .Select(h => h.Hint.Id!.Value)
-            .ToHashSet();
-
-        foreach (var requestedHint in requestedHints)
-        {
-            var hintReq = requestedHint.Hint;
-            if (hintReq.Id.HasValue && existingHintsById.TryGetValue(hintReq.Id.Value, out var existingHint))
-            {
-                existingHint.UpdateOrderIndex(requestedHint.NormalizedOrderIndex);
-                existingHint.UpdateHintText(hintReq.HintText);
-                existingHint.UpdateRevealTime(hintReq.RevealTimeSeconds);
+                if (!requestedExistingHintIds.Contains(existingHint.Id) &&
+                    !requestedHints.Any(h => !h.Hint.Id.HasValue &&
+                        string.Equals(h.Hint.HintText.Trim(), existingHint.HintText, StringComparison.OrdinalIgnoreCase) &&
+                        h.Hint.RevealTimeSeconds == existingHint.RevealTimeSec))
+                {
+                    question.RemoveHint(existingHint.Id);
+                }
             }
-            else
+
+            if (!question.Answers.Any(a => a.IsPrimary))
             {
-                question.AddHint(
-                    requestedHint.NormalizedOrderIndex,
-                    hintReq.HintText.Trim(),
-                    hintReq.RevealTimeSeconds);
+                return BadRequest("Invalid update: question must have at least one primary answer");
             }
-        }
 
-        foreach (var existingHint in question.Hints.ToList())
-        {
-            if (!requestedExistingHintIds.Contains(existingHint.Id) &&
-                !requestedHints.Any(h => !h.Hint.Id.HasValue &&
-                    string.Equals(h.Hint.HintText.Trim(), existingHint.HintText, StringComparison.OrdinalIgnoreCase) &&
-                    h.Hint.RevealTimeSeconds == existingHint.RevealTimeSec))
+            foreach (var existingId in originalExistingAnswerIds)
             {
-                question.RemoveHint(existingHint.Id);
+                if (!requestedExistingAnswerIds.Contains(existingId))
+                {
+                    question.RemoveAnswer(existingId);
+                }
             }
-        }
 
-        // Ensure primary exists before deletions
-        if (!question.Answers.Any(a => a.IsPrimary))
+            await _unitOfWork.SaveChangesAsync(HttpContext.RequestAborted);
+        }
+        catch (ArgumentException ex)
         {
-            return BadRequest("Invalid update: question must have at least one primary answer");
+            _logger.LogWarning(ex, "Invalid question update request for {QuestionId}", id);
+            return BadRequest(ex.Message);
         }
-
-        // Delete answers that were present before but removed from request
-        foreach (var existingId in originalExistingAnswerIds)
+        catch (InvalidOperationException ex)
         {
-            if (!requestedExistingAnswerIds.Contains(existingId))
-            {
-                question.RemoveAnswer(existingId);
-            }
+            _logger.LogWarning(ex, "Invalid question update workflow for {QuestionId}", id);
+            return BadRequest(ex.Message);
         }
-
-        await _unitOfWork.SaveChangesAsync(HttpContext.RequestAborted);
 
         // Return refreshed question dto
         var refreshed = await _unitOfWork.Questions.GetWithAllDetailsAsync(id, HttpContext.RequestAborted);
@@ -505,6 +478,95 @@ public class QuestionsController : ControllerBase
         }
 
         return Ok(MapQuestionToDto(refreshed));
+    }
+
+    private static decimal? NormalizeConfidence(decimal? value)
+    {
+        if (!value.HasValue)
+        {
+            return null;
+        }
+
+        // The UI displays confidence as percent. If a browser/component posts 75 instead of 0.75,
+        // keep the request valid by converting percent values back to the domain 0.5..1.0 range.
+        var confidence = value.Value;
+        if (confidence > 1m && confidence <= 100m)
+        {
+            confidence /= 100m;
+        }
+
+        return confidence;
+    }
+
+    private static void SyncAliases(QuestionAnswer answer, List<UpdateAliasRequest>? requestedAliases)
+    {
+        var desiredAliases = (requestedAliases ?? new List<UpdateAliasRequest>())
+            .Where(a => !string.IsNullOrWhiteSpace(a.AliasText))
+            .ToList();
+
+        var requestedIds = desiredAliases
+            .Where(a => a.Id.HasValue)
+            .Select(a => a.Id!.Value)
+            .ToHashSet();
+
+        var requestedNormalizedTexts = desiredAliases
+            .Select(a => NormalizeText(a.AliasText))
+            .Where(a => !string.IsNullOrWhiteSpace(a))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var alias in answer.Aliases.ToList())
+        {
+            if (requestedIds.Contains(alias.Id))
+            {
+                continue;
+            }
+
+            if (requestedIds.Count == 0 && requestedNormalizedTexts.Contains(alias.NormalizedAlias))
+            {
+                continue;
+            }
+
+            answer.RemoveAlias(alias.Id);
+        }
+
+        foreach (var aliasReq in desiredAliases)
+        {
+            if (!Enum.TryParse<AliasKind>(aliasReq.Kind, true, out var aliasKind))
+            {
+                aliasKind = AliasKind.Synonym;
+            }
+
+            if (aliasReq.Id.HasValue)
+            {
+                var existing = answer.Aliases.FirstOrDefault(a => a.Id == aliasReq.Id.Value);
+                if (existing != null)
+                {
+                    existing.UpdateAliasText(aliasReq.AliasText.Trim());
+                    existing.UpdateKind(aliasKind);
+                    continue;
+                }
+            }
+
+            AddAliasIfMissing(answer, aliasReq.AliasText, aliasKind);
+        }
+    }
+
+    private static void AddAliasIfMissing(QuestionAnswer answer, string aliasText, AliasKind aliasKind)
+    {
+        var normalized = NormalizeText(aliasText);
+        if (answer.Aliases.Any(a => string.Equals(a.NormalizedAlias, normalized, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        answer.AddAlias(aliasText.Trim(), aliasKind);
+    }
+
+    private static string NormalizeText(string text)
+    {
+        var result = text.Trim().ToLowerInvariant();
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ");
+        return result;
     }
 
     private QuestionDto MapQuestionToDto(Question question)
@@ -596,10 +658,25 @@ public class QuestionsController : ControllerBase
             return NotFound($"Question with ID {id} not found");
         }
 
+        var isUsedInGameHistory = await _unitOfWork.GameRounds.ExistsAsync(
+            round => round.QuestionId == id,
+            HttpContext.RequestAborted);
+
+        if (isUsedInGameHistory)
+        {
+            // Нельзя физически удалять вопрос, который уже попал в game_rounds:
+            // внешний ключ специально настроен как RESTRICT, чтобы не ломать историю игр.
+            // Для пользовательского workflow такое удаление должно скрывать вопрос из новых игр.
+            question.Archive();
+            await _unitOfWork.SaveChangesAsync(HttpContext.RequestAborted);
+
+            return Ok(new { message = "Question archived because it is used in game history", archived = true });
+        }
+
         _unitOfWork.Questions.Remove(question);
         await _unitOfWork.SaveChangesAsync(HttpContext.RequestAborted);
 
-        return Ok(new { message = "Question deleted successfully" });
+        return Ok(new { message = "Question deleted successfully", archived = false });
     }
 
     /// <summary>
