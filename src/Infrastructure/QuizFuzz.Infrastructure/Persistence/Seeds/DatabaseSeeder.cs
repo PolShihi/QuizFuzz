@@ -522,15 +522,6 @@ public class DatabaseSeeder
             new[] { SeedAnswerSpec.Flexible("Антонио Гауди", aliases: new[] { "Гауди", "Antoni Gaudi", "Антони Гауди" }) },
             Hints((5, "Это испанский архитектор-модернист."), (15, "Он тесно связан с Барселоной."), (25, "Фамилия начинается на «Гау»."))),
         new(
-            "Код на изображении",
-            "Что написано на изображении рядом с логотипом QuizFuzz?",
-            Domain.Enums.QuestionType.Image,
-            Domain.Enums.Difficulty.Easy,
-            new[] { "Технологии", "Игры" },
-            new[] { SeedAnswerSpec.Moderate("SignalR", languageCode: "en", aliases: new[] { "сигналр", "Signal R" }) },
-            Hints((5, "Это технология для real-time обмена."), (15, "Она используется в ASP.NET Core."), (25, "Название начинается на Signal.")),
-            "/uploads/seed/images/signalr-card.svg"),
-        new(
             "Фрагмент классической музыки",
             "Прослушайте аудио. Какой жанр музыки звучит?",
             Domain.Enums.QuestionType.Audio,
@@ -745,7 +736,10 @@ public class DatabaseSeeder
             return;
         }
 
-        if (!existingMedia.Url.Equals(spec.MediaUrl, StringComparison.OrdinalIgnoreCase))
+        // Do not overwrite media selected by an administrator in the edit dialog.
+        // Seed media is only a fallback for initially empty seeded questions; otherwise
+        // every server start would roll a manually uploaded media file back to the seed URL.
+        if (string.IsNullOrWhiteSpace(existingMedia.Url))
         {
             existingMedia.UpdateUrl(spec.MediaUrl);
         }
