@@ -6,6 +6,8 @@ public class ModerationQueueDto
     public Guid QuestionId { get; set; }
     public string QuestionTitle { get; set; } = string.Empty;
     public string QuestionText { get; set; } = string.Empty;
+    public string Difficulty { get; set; } = string.Empty;
+    public List<string> Tags { get; set; } = new();
     public string Status { get; set; } = "PENDING";
     public Guid SubmittedByUserId { get; set; }
     public string SubmittedByUsername { get; set; } = string.Empty;

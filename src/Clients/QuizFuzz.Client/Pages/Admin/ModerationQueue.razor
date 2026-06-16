@@ -85,6 +85,24 @@
                         <MudText Typo="Typo.body2" Color="Color.Secondary">
                             @(context.QuestionText.Length > 100 ? context.QuestionText.Substring(0, 100) + "..." : context.QuestionText)
                         </MudText>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="flex-wrap">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@AppStrings.T("QuestionDifficulty"):</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="@GetDifficultyColor(context.Difficulty)" Variant="Variant.Outlined">
+                                @AppStrings.QuestionDifficulty(context.Difficulty)
+                            </MudChip>
+                            @if (context.Tags?.Any(tag => !string.IsNullOrWhiteSpace(tag)) == true)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="ml-2">@AppStrings.T("Tags"):</MudText>
+                                @foreach (var tag in context.Tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Take(4))
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@tag</MudChip>
+                                }
+                                @if (context.Tags.Count(tag => !string.IsNullOrWhiteSpace(tag)) > 4)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Text">+@(context.Tags.Count(tag => !string.IsNullOrWhiteSpace(tag)) - 4)</MudChip>
+                                }
+                            }
+                        </MudStack>
                     </MudStack>
                 </MudTd>
                 <MudTd DataLabel="@AppStrings.T("SubmittedBy")">
@@ -213,6 +231,19 @@
         {
             await LoadQueue();
         }
+    }
+
+
+    private Color GetDifficultyColor(string? difficulty)
+    {
+        return difficulty?.Trim() switch
+        {
+            "Easy" => Color.Success,
+            "Medium" => Color.Info,
+            "Hard" => Color.Warning,
+            "Expert" => Color.Error,
+            _ => Color.Default
+        };
     }
 
     private Color GetStatusColor(string status)

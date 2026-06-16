@@ -91,6 +91,8 @@ public class ModerationController : ControllerBase
                 QuestionId = question.Id,
                 QuestionTitle = question.Title ?? string.Empty,
                 QuestionText = question.PromptText,
+                Difficulty = question.Difficulty.ToString(),
+                Tags = question.Tags?.Select(qt => qt.Tag.Name).Where(name => !string.IsNullOrWhiteSpace(name)).ToList() ?? new List<string>(),
                 Status = ToClientStatus(question.Status),
                 SubmittedByUserId = question.AuthorUserId ?? Guid.Empty,
                 SubmittedByUsername = question.Author?.Username ?? "Unknown",
@@ -137,6 +139,8 @@ public class ModerationController : ControllerBase
             QuestionId = question.Id,
             QuestionTitle = question.Title ?? string.Empty,
             QuestionText = question.PromptText,
+            Difficulty = question.Difficulty.ToString(),
+            Tags = question.Tags?.Select(qt => qt.Tag.Name).Where(name => !string.IsNullOrWhiteSpace(name)).ToList() ?? new List<string>(),
             Status = ToClientStatus(question.Status),
             SubmittedByUserId = question.AuthorUserId ?? Guid.Empty,
             SubmittedByUsername = question.Author?.Username ?? "Unknown",
@@ -298,6 +302,11 @@ public class ModerationController : ControllerBase
         if (questionWithAliases != null)
         {
             dto.MediaUrl = ToPublicMediaUrl(questionWithAliases.MediaAssets.FirstOrDefault()?.Url);
+            dto.Tags = questionWithAliases.Tags
+                .Select(qt => qt.Tag.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct()
+                .ToList();
 
             dto.Hints = questionWithAliases.Hints
                 .OrderBy(h => h.OrderIndex)

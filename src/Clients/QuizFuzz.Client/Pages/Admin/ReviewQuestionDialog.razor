@@ -30,12 +30,53 @@
                               ReadOnly="true"
                               Variant="Variant.Outlined" />
 
-                <MudStack Row="true" Spacing="2">
-                    <MudChip T="string" Size="Size.Small">@AppStrings.QuestionType(question.Type)</MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Secondary">@AppStrings.QuestionDifficulty(question.Difficulty)</MudChip>
-                    <MudChip T="string" Size="Size.Small" Color="Color.Warning">@AppStrings.QuestionStatus(question.Status)</MudChip>
-                </MudStack>
+                <MudPaper Elevation="0" Outlined="true" Class="pa-3">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="4">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@AppStrings.T("QuestionType")</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Filled">
+                                    @AppStrings.QuestionType(question.Type)
+                                </MudChip>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@AppStrings.T("QuestionDifficulty")</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@GetDifficultyColor(question.Difficulty)" Variant="Variant.Filled">
+                                    @AppStrings.QuestionDifficulty(question.Difficulty)
+                                </MudChip>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@AppStrings.T("Status")</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled">
+                                    @AppStrings.QuestionStatus(question.Status)
+                                </MudChip>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
 
+                <MudPaper Elevation="0" Outlined="true" Class="pa-3">
+                    <MudStack Spacing="2">
+                        <MudText Typo="Typo.subtitle2">@AppStrings.T("Tags")</MudText>
+                        @if (question.Tags?.Any(tag => !string.IsNullOrWhiteSpace(tag)) == true)
+                        {
+                            <MudChipSet T="string">
+                                @foreach (var tag in question.Tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Distinct())
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">@tag</MudChip>
+                                }
+                            </MudChipSet>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@AppStrings.T("NoTags")</MudText>
+                        }
+                    </MudStack>
+                </MudPaper>
 
                 @if (!string.IsNullOrWhiteSpace(question.MediaUrl))
                 {
@@ -140,6 +181,19 @@
     private bool isSubmitting = false;
     private string? error;
     private string comment = string.Empty;
+
+
+    private Color GetDifficultyColor(string? difficulty)
+    {
+        return difficulty?.Trim() switch
+        {
+            "Easy" => Color.Success,
+            "Medium" => Color.Info,
+            "Hard" => Color.Warning,
+            "Expert" => Color.Error,
+            _ => Color.Default
+        };
+    }
 
     protected override async Task OnInitializedAsync()
     {
